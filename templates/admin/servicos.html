@@ -1,0 +1,57 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Serviços - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-tools"></i> Gerenciar Serviços</h1>
+        <p>Adicione, edite ou remova serviços oferecidos</p>
+    </div>
+    <a href="{{ url_for('add_servico_admin') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Serviço
+    </a>
+</div>
+
+{% if servicos %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Descrição</th>
+                <th>Preço</th>
+                <th>Data</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for servico in servicos %}
+            <tr>
+                <td>{{ servico.id }}</td>
+                <td><strong>{{ servico.nome }}</strong></td>
+                <td>{{ servico.descricao }}</td>
+                <td>R$ {{ servico.preco or '0.00' }}</td>
+                <td>{{ servico.data }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('delete_servico', servico_id=servico.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este serviço?');">
+                        <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-tools"></i>
+    <p>Nenhum serviço cadastrado</p>
+    <a href="{{ url_for('add_servico_admin') }}" class="btn btn-primary">Adicionar Primeiro Serviço</a>
+</div>
+{% endif %}
+{% endblock %}
+

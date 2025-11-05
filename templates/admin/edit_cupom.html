@@ -1,0 +1,64 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Cupom - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-edit"></i> Editar Cupom de Desconto</h1>
+    <p>Atualize as informações do cupom</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_cupom', cupom_id=cupom.id) }}" class="admin-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="cliente_id">
+                    <i class="fas fa-user"></i>
+                    Cliente
+                </label>
+                <select id="cliente_id" name="cliente_id" disabled>
+                    <option value="{{ cliente.id }}" selected>{{ cliente.nome }} - {{ cliente.email }}</option>
+                </select>
+                <small class="form-help">O cliente não pode ser alterado</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="desconto_percentual">
+                    <i class="fas fa-percent"></i>
+                    Desconto (%)
+                </label>
+                <input type="number" id="desconto_percentual" name="desconto_percentual" min="1" max="100" step="0.01" required value="{{ cupom.desconto_percentual }}" placeholder="Ex: 10">
+                <small class="form-help">Insira o percentual de desconto (1% a 100%)</small>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <i class="fas fa-info-circle"></i>
+                Informações do Cupom
+            </label>
+            <div class="info-display">
+                <p><strong>ID do Cupom:</strong> #{{ "%04d"|format(cupom.id) }}</p>
+                <p><strong>Data de Emissão:</strong> {{ cupom.data_emissao }}</p>
+                <p><strong>Status:</strong> 
+                    {% if cupom.usado %}
+                    <span class="status-badge status-concluido">Usado</span>
+                    {% else %}
+                    <span class="status-badge status-pendente">Disponível</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_fidelidade') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

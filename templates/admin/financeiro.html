@@ -1,0 +1,199 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Financeiro - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-dollar-sign"></i> Financeiro</h1>
+    <p>Controle financeiro e valores a receber</p>
+</div>
+
+<div class="finance-stats-grid">
+    <div class="finance-stat-card">
+        <div class="stat-icon saldo-icon">
+            <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Saldo</h3>
+            <p class="stat-value">R$ {{ "%.2f"|format(saldo) }}</p>
+            <p class="stat-label">Total recebido (ordens pagas)</p>
+        </div>
+    </div>
+    
+    <div class="finance-stat-card">
+        <div class="stat-icon receber-icon">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+            <h3>A Receber</h3>
+            <p class="stat-value">R$ {{ "%.2f"|format(a_receber) }}</p>
+            <p class="stat-label">Valores pendentes (ordens concluídas)</p>
+        </div>
+    </div>
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-check-circle"></i> Ordens Pagas</h2>
+        <span class="badge">{{ ordens_pagas|length }} ordem(ns)</span>
+    </div>
+    
+    {% if ordens_pagas %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Cliente</th>
+                    <th>Serviço</th>
+                    <th>Valor</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ordem in ordens_pagas %}
+                <tr>
+                    <td><strong>#{{ "%04d"|format(ordem.numero_ordem) }}</strong></td>
+                    <td>{{ ordem.cliente_nome }}</td>
+                    <td>{{ ordem.servico }}</td>
+                    <td><strong>R$ {{ "%.2f"|format(ordem.total) }}</strong></td>
+                    <td>{{ ordem.data }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-money-bill-wave"></i>
+        <p>Nenhuma ordem paga ainda</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-hourglass-half"></i> Ordens Concluídas (A Receber)</h2>
+        <span class="badge">{{ ordens_concluidas|length }} ordem(ns)</span>
+    </div>
+    
+    {% if ordens_concluidas %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Cliente</th>
+                    <th>Serviço</th>
+                    <th>Valor</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ordem in ordens_concluidas %}
+                <tr>
+                    <td><strong>#{{ "%04d"|format(ordem.numero_ordem) }}</strong></td>
+                    <td>{{ ordem.cliente_nome }}</td>
+                    <td>{{ ordem.servico }}</td>
+                    <td><strong>R$ {{ "%.2f"|format(ordem.total) }}</strong></td>
+                    <td>{{ ordem.data }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-clock"></i>
+        <p>Nenhuma ordem concluída aguardando pagamento</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.finance-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.finance-stat-card {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.finance-stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl);
+}
+
+.finance-stat-card .stat-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.finance-stat-card .stat-icon i {
+    font-size: 2.5rem;
+    color: white;
+}
+
+.saldo-icon {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.receber-icon {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.finance-stat-card .stat-content {
+    flex: 1;
+}
+
+.finance-stat-card .stat-content h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.finance-stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.25rem;
+}
+
+.finance-stat-card .stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .finance-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .finance-stat-card {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+</style>
+{% endblock %}
+

@@ -1,0 +1,41 @@
+{
+  "clients": [
+    {
+      "id": 1,
+      "nome": "Raí Silva",
+      "email": "raisilva.smt@gmail.com",
+      "telefone": "86988959957",
+      "cpf": "05951523338",
+      "endereco": "Rua de Teste, 158",
+      "username": "Rs19941421",
+      "password": "Rs19941421",
+      "data_cadastro": "2025-11-04 16:55:47",
+      "ordens": [
+        {
+          "id": 1,
+          "numero_ordem": 1,
+          "servico": "Reparo de Celulares",
+          "tipo_aparelho": "Celular",
+          "marca": "teste",
+          "modelo": "teste",
+          "numero_serie": "11656565651",
+          "defeitos_cliente": "teste",
+          "diagnostico_tecnico": "teste",
+          "pecas": [
+            {
+              "nome": "Tela",
+              "custo": 100.0
+            }
+          ],
+          "custo_pecas": 100.0,
+          "custo_mao_obra": 50.0,
+          "total": 150.0,
+          "status": "pago",
+          "data": "2025-11-04 17:33:18",
+          "pdf_filename": "ordem_1_1_20251104_175314.pdf"
+        }
+      ]
+    }
+  ],
+  "orders": []
+}

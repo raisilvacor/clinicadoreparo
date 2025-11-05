@@ -1,0 +1,260 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Clube Clínica do Reparo - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-gift"></i> Clube Clínica do Reparo</h1>
+    <p>Emita cupons de desconto para seus clientes</p>
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-plus-circle"></i> Emitir Novo Cupom de Desconto</h2>
+    </div>
+    
+    <div class="admin-form-card">
+        <form method="POST" action="{{ url_for('emitir_cupom_desconto') }}" class="admin-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cliente_id">
+                        <i class="fas fa-user"></i>
+                        Cliente *
+                    </label>
+                    <select id="cliente_id" name="cliente_id" required>
+                        <option value="">Selecione um cliente</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}">{{ cliente.nome }} - {{ cliente.email }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="desconto_percentual">
+                        <i class="fas fa-percent"></i>
+                        Desconto (%)
+                    </label>
+                    <input type="number" id="desconto_percentual" name="desconto_percentual" min="1" max="100" step="0.01" required placeholder="Ex: 10">
+                    <small class="form-help">Insira o percentual de desconto (1% a 100%)</small>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-gift"></i> Emitir Cupom
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-ticket-alt"></i> Cupons Emitidos</h2>
+        <span class="badge">{{ cupons|length }} cupom(ns)</span>
+    </div>
+    
+    {% if cupons %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Cliente</th>
+                    <th>Desconto</th>
+                    <th>Status</th>
+                    <th>Ordem</th>
+                    <th>Data Emissão</th>
+                    <th>Data Uso</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cupom in cupons %}
+                <tr>
+                    <td><strong>#{{ "%04d"|format(cupom.id) }}</strong></td>
+                    <td>{{ cupom.cliente_nome }}</td>
+                    <td><strong>{{ "%.2f"|format(cupom.desconto_percentual) }}%</strong></td>
+                    <td>
+                        {% if cupom.usado %}
+                        <span class="status-badge status-concluido">
+                            <i class="fas fa-check-circle"></i> Usado
+                        </span>
+                        {% else %}
+                        <span class="status-badge status-pendente">
+                            <i class="fas fa-clock"></i> Disponível
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cupom.ordem_id %}
+                        <a href="{{ url_for('edit_ordem_servico', cliente_id=cupom.cliente_id, ordem_id=cupom.ordem_id) }}">#{{ "%04d"|format(cupom.ordem_id) }}</a>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ cupom.data_emissao }}</td>
+                    <td>{{ cupom.data_uso if cupom.data_uso else '-' }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-icon" onclick="viewCupom({{ cupom.id }})" title="Ver detalhes">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <a href="{{ url_for('edit_cupom', cupom_id=cupom.id) }}" class="btn-icon" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% if not cupom.usado %}
+                            <form method="POST" action="{{ url_for('delete_cupom', cupom_id=cupom.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este cupom?');">
+                                <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <button class="btn-icon btn-danger" disabled title="Não é possível excluir cupom usado">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-gift"></i>
+        <p>Nenhum cupom emitido ainda</p>
+        <p class="small">Emita cupons de desconto para seus clientes</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para visualizar cupom -->
+<div id="cupomModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-gift"></i> Detalhes do Cupom</h2>
+            <span class="modal-close" onclick="closeCupomModal()">&times;</span>
+        </div>
+        <div class="modal-body" id="cupomModalBody">
+            <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+    </div>
+</div>
+
+<script>
+function viewCupom(cupomId) {
+    fetch(`/admin/fidelidade/${cupomId}`)
+        .then(response => response.json())
+        .then(data => {
+            const modalBody = document.getElementById('cupomModalBody');
+            const statusBadge = data.usado ? 
+                '<span class="status-badge status-concluido"><i class="fas fa-check-circle"></i> Usado</span>' :
+                '<span class="status-badge status-pendente"><i class="fas fa-clock"></i> Disponível</span>';
+            
+            const ordemLink = data.ordem_id ? 
+                `<a href="/admin/clientes/${data.cliente_id}/ordens/${data.ordem_id}/edit">#${String(data.ordem_id).padStart(4, '0')}</a>` :
+                '<span class="text-muted">-</span>';
+            
+            modalBody.innerHTML = `
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong><i class="fas fa-hashtag"></i> ID do Cupom:</strong>
+                        <span>#${String(data.id).padStart(4, '0')}</span>
+                    </div>
+                    <div class="info-item">
+                        <strong><i class="fas fa-user"></i> Cliente:</strong>
+                        <span>${data.cliente_nome || 'N/A'}</span>
+                    </div>
+                    <div class="info-item">
+                        <strong><i class="fas fa-envelope"></i> E-mail:</strong>
+                        <span>${data.cliente_email || 'N/A'}</span>
+                    </div>
+                    <div class="info-item">
+                        <strong><i class="fas fa-percent"></i> Desconto:</strong>
+                        <span>${data.desconto_percentual}%</span>
+                    </div>
+                    <div class="info-item">
+                        <strong><i class="fas fa-info-circle"></i> Status:</strong>
+                        ${statusBadge}
+                    </div>
+                    <div class="info-item">
+                        <strong><i class="fas fa-file-invoice"></i> Ordem:</strong>
+                        ${ordemLink}
+                    </div>
+                    <div class="info-item">
+                        <strong><i class="fas fa-calendar"></i> Data de Emissão:</strong>
+                        <span>${data.data_emissao || 'N/A'}</span>
+                    </div>
+                    <div class="info-item">
+                        <strong><i class="fas fa-calendar-check"></i> Data de Uso:</strong>
+                        <span>${data.data_uso || '-'}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('cupomModal').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Erro ao buscar cupom:', error);
+            alert('Erro ao carregar detalhes do cupom');
+        });
+}
+
+function closeCupomModal() {
+    document.getElementById('cupomModal').style.display = 'none';
+}
+
+// Fechar modal ao clicar fora dele
+window.onclick = function(event) {
+    const modal = document.getElementById('cupomModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+
+<style>
+.info-display {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+.info-display p {
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.info-display p strong {
+    color: var(--text-primary);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.info-item strong {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.info-item span {
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+</style>
+{% endblock %}
+

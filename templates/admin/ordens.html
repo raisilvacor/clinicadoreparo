@@ -1,0 +1,223 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Ordens de Serviço - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-file-alt"></i> Ordens de Serviço</h1>
+        <p>Visualize e gerencie todas as ordens de serviço emitidas</p>
+    </div>
+    <a href="{{ url_for('add_ordem_servico') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Emitir Nova Ordem
+    </a>
+</div>
+
+{% if ordens %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Número</th>
+                <th>Cliente</th>
+                <th>Serviço</th>
+                <th>Aparelho</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Data</th>
+                <th>Ações</th>
+                <th>PDF</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ordem in ordens %}
+            <tr>
+                <td><strong>#{{ "%04d"|format(ordem.numero_ordem if ordem.numero_ordem else ordem.id) }}</strong></td>
+                <td><strong>{{ ordem.cliente_nome }}</strong></td>
+                <td>{{ ordem.servico }}</td>
+                <td>{{ ordem.marca }} {{ ordem.modelo }}</td>
+                <td>
+                    <span class="status-badge status-{{ ordem.status }}">
+                        {% if ordem.status == 'pendente' %}
+                            <i class="fas fa-clock"></i> Pendente
+                        {% elif ordem.status == 'em_andamento' %}
+                            <i class="fas fa-cog"></i> Em Andamento
+                        {% elif ordem.status == 'concluido' %}
+                            <i class="fas fa-check-circle"></i> Concluído
+                        {% elif ordem.status == 'pago' %}
+                            <i class="fas fa-money-bill-wave"></i> Pago
+                        {% elif ordem.status == 'cancelado' %}
+                            <i class="fas fa-times-circle"></i> Cancelado
+                        {% endif %}
+                    </span>
+                </td>
+                <td><strong>R$ {{ "%.2f"|format(ordem.total) }}</strong></td>
+                <td>{{ ordem.data }}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon" onclick="viewOrder({{ ordem.cliente_id }}, {{ ordem.id }})" title="Ver detalhes">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <a href="{{ url_for('edit_ordem_servico', cliente_id=ordem.cliente_id, ordem_id=ordem.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_ordem_servico', cliente_id=ordem.cliente_id, ordem_id=ordem.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta ordem de serviço?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+                <td>
+                    {% if ordem.pdf_filename %}
+                    <a href="{{ url_for('download_pdf', filename=ordem.pdf_filename) }}" class="btn btn-primary btn-small" title="Baixar PDF">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                    {% else %}
+                    <span class="text-muted">N/A</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-file-alt"></i>
+    <p>Nenhuma ordem de serviço emitida</p>
+    <a href="{{ url_for('add_ordem_servico') }}" class="btn btn-primary">Emitir Primeira Ordem</a>
+</div>
+{% endif %}
+
+<!-- Modal para ver detalhes da ordem -->
+<div id="orderModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeOrderModal()">&times;</span>
+        <h2>Detalhes da Ordem de Serviço</h2>
+        <div id="orderDetails"></div>
+    </div>
+</div>
+
+<script>
+function viewOrder(clienteId, ordemId) {
+    // Buscar dados da ordem via AJAX ou usar dados já disponíveis
+    fetch(`/admin/clientes/${clienteId}/ordens/${ordemId}`)
+        .then(response => response.json())
+        .then(data => {
+            const details = `
+                <div class="order-details-view">
+                    <div class="detail-section">
+                        <h3><i class="fas fa-user"></i> Cliente</h3>
+                        <p><strong>Nome:</strong> ${data.cliente_nome}</p>
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-tools"></i> Serviço</h3>
+                        <p><strong>Tipo:</strong> ${data.servico}</p>
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-box"></i> Aparelho</h3>
+                        <p><strong>Tipo:</strong> ${data.tipo_aparelho}</p>
+                        <p><strong>Marca:</strong> ${data.marca}</p>
+                        <p><strong>Modelo:</strong> ${data.modelo}</p>
+                        ${data.numero_serie ? `<p><strong>Nº Série:</strong> ${data.numero_serie}</p>` : ''}
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Defeitos Reportados</h3>
+                        <p>${data.defeitos_cliente}</p>
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-stethoscope"></i> Diagnóstico Técnico</h3>
+                        <p>${data.diagnostico_tecnico}</p>
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-dollar-sign"></i> Custos</h3>
+                        ${data.pecas && data.pecas.length > 0 ? `
+                            <p><strong>Peças:</strong></p>
+                            <ul style="list-style: none; padding: 0; margin: 0.5rem 0;">
+                                ${data.pecas.map(peca => `<li style="padding: 0.5rem; background: rgba(0,0,0,0.05); margin-bottom: 0.25rem; border-radius: 4px;">${peca.nome} - R$ ${peca.custo.toFixed(2)}</li>`).join('')}
+                            </ul>
+                            <p style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; font-weight: 600;"><strong>Subtotal Peças:</strong> R$ ${data.custo_pecas.toFixed(2)}</p>
+                        ` : `<p><strong>Peças:</strong> R$ ${data.custo_pecas ? data.custo_pecas.toFixed(2) : '0.00'}</p>`}
+                        <p><strong>Mão de Obra:</strong> R$ ${data.custo_mao_obra.toFixed(2)}</p>
+                        <p class="total-cost"><strong>Total:</strong> R$ ${data.total.toFixed(2)}</p>
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-info-circle"></i> Status</h3>
+                        <span class="status-badge status-${data.status}">
+                            ${data.status === 'pendente' ? '<i class="fas fa-clock"></i> Pendente' : ''}
+                            ${data.status === 'em_andamento' ? '<i class="fas fa-cog"></i> Em Andamento' : ''}
+                            ${data.status === 'concluido' ? '<i class="fas fa-check-circle"></i> Concluído' : ''}
+                            ${data.status === 'pago' ? '<i class="fas fa-money-bill-wave"></i> Pago' : ''}
+                            ${data.status === 'cancelado' ? '<i class="fas fa-times-circle"></i> Cancelado' : ''}
+                            ${!['pendente', 'em_andamento', 'concluido', 'pago', 'cancelado'].includes(data.status) ? data.status : ''}
+                        </span>
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-calendar"></i> Data</h3>
+                        <p>${data.data}</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('orderDetails').innerHTML = details;
+            document.getElementById('orderModal').style.display = 'block';
+        })
+        .catch(error => {
+            alert('Erro ao carregar detalhes da ordem');
+        });
+}
+
+function closeOrderModal() {
+    document.getElementById('orderModal').style.display = 'none';
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('orderModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+
+<style>
+.order-details-view {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.detail-section {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.detail-section h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.detail-section p {
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.detail-section p strong {
+    color: var(--text-primary);
+}
+
+.total-cost {
+    font-size: 1.2rem;
+    color: var(--primary-color) !important;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 2px solid var(--border-color);
+}
+</style>
+{% endblock %}
+

@@ -1,0 +1,222 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Ordem de Serviço - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-edit"></i> Editar Ordem de Serviço</h1>
+    <p>Atualize os dados da ordem de serviço #{{ "%04d"|format(ordem.numero_ordem if ordem.numero_ordem else ordem.id) }}</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_ordem_servico', cliente_id=cliente.id, ordem_id=ordem.id) }}" class="admin-form">
+        <div class="client-info-box">
+            <h3><i class="fas fa-user"></i> Dados do Cliente</h3>
+            <p><strong>Nome:</strong> {{ cliente.nome }}</p>
+            <p><strong>E-mail:</strong> {{ cliente.email }}</p>
+            <p><strong>Telefone:</strong> {{ cliente.telefone }}</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="servico">
+                <i class="fas fa-tools"></i>
+                Serviço *
+            </label>
+            <select id="servico" name="servico" required>
+                <option value="">Selecione um serviço</option>
+                {% for servico in servicos %}
+                <option value="{{ servico.nome }}" {% if ordem.servico == servico.nome %}selected{% endif %}>{{ servico.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-box"></i> Características do Aparelho</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="tipo_aparelho">
+                    <i class="fas fa-mobile-alt"></i>
+                    Tipo de Aparelho *
+                </label>
+                <select id="tipo_aparelho" name="tipo_aparelho" required>
+                    <option value="">Selecione o tipo</option>
+                    <option value="Celular" {% if ordem.tipo_aparelho == 'Celular' %}selected{% endif %}>Celular</option>
+                    <option value="Notebook" {% if ordem.tipo_aparelho == 'Notebook' %}selected{% endif %}>Notebook</option>
+                    <option value="Computador" {% if ordem.tipo_aparelho == 'Computador' %}selected{% endif %}>Computador</option>
+                    <option value="Geladeira" {% if ordem.tipo_aparelho == 'Geladeira' %}selected{% endif %}>Geladeira</option>
+                    <option value="Máquina de Lavar" {% if ordem.tipo_aparelho == 'Máquina de Lavar' %}selected{% endif %}>Máquina de Lavar</option>
+                    <option value="Micro-ondas" {% if ordem.tipo_aparelho == 'Micro-ondas' %}selected{% endif %}>Micro-ondas</option>
+                    <option value="Fogão" {% if ordem.tipo_aparelho == 'Fogão' %}selected{% endif %}>Fogão</option>
+                    <option value="Ar Condicionado" {% if ordem.tipo_aparelho == 'Ar Condicionado' %}selected{% endif %}>Ar Condicionado</option>
+                    <option value="Outro" {% if ordem.tipo_aparelho == 'Outro' %}selected{% endif %}>Outro</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="marca">
+                    <i class="fas fa-tag"></i>
+                    Marca *
+                </label>
+                <input type="text" id="marca" name="marca" required placeholder="Ex: Samsung, LG, Brastemp" value="{{ ordem.marca or '' }}">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="modelo">
+                    <i class="fas fa-cube"></i>
+                    Modelo *
+                </label>
+                <input type="text" id="modelo" name="modelo" required placeholder="Ex: Galaxy S21, ABC123" value="{{ ordem.modelo or '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="numero_serie">
+                    <i class="fas fa-barcode"></i>
+                    Número de Série
+                </label>
+                <input type="text" id="numero_serie" name="numero_serie" placeholder="Número de série do aparelho" value="{{ ordem.numero_serie or '' }}">
+            </div>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-exclamation-triangle"></i> Defeitos e Diagnóstico</h3>
+        </div>
+        
+        <div class="form-group">
+            <label for="defeitos_cliente">
+                <i class="fas fa-comment-dots"></i>
+                Defeitos Reportados pelo Cliente *
+            </label>
+            <textarea id="defeitos_cliente" name="defeitos_cliente" rows="4" required placeholder="Descreva os defeitos relatados pelo cliente...">{{ ordem.defeitos_cliente or '' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="diagnostico_tecnico">
+                <i class="fas fa-stethoscope"></i>
+                Diagnóstico Técnico *
+            </label>
+            <textarea id="diagnostico_tecnico" name="diagnostico_tecnico" rows="4" required placeholder="Descreva o diagnóstico técnico realizado...">{{ ordem.diagnostico_tecnico or '' }}</textarea>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-dollar-sign"></i> Custos</h3>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <i class="fas fa-cog"></i>
+                Peças a Serem Trocadas
+            </label>
+            <div class="pecas-list" id="pecas-list">
+                {% for i in range(10) %}
+                <div class="peca-item">
+                    <input type="text" name="peca_nome_{{ i }}" class="peca-nome" placeholder="Nome da peça (ex: Tela, Bateria, Conector)" data-index="{{ i }}" value="{% if ordem.pecas and i < ordem.pecas|length %}{{ ordem.pecas[i].nome }}{% endif %}">
+                    <input type="number" name="peca_custo_{{ i }}" class="peca-custo" step="0.01" min="0" value="{% if ordem.pecas and i < ordem.pecas|length %}{{ ordem.pecas[i].custo }}{% else %}0.00{% endif %}" placeholder="0.00" data-index="{{ i }}">
+                    <span class="peca-currency">R$</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="pecas-total">
+                <strong>Total de Peças: <span id="total_pecas">R$ 0.00</span></strong>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="custo_mao_obra">
+                <i class="fas fa-wrench"></i>
+                Custo de Mão de Obra (R$)
+            </label>
+            <input type="number" id="custo_mao_obra" name="custo_mao_obra" step="0.01" min="0" value="{{ ordem.custo_mao_obra or 0.00 }}" placeholder="0.00">
+        </div>
+        
+        <div class="cost-summary">
+            <div class="summary-item">
+                <span>Peças:</span>
+                <span id="display_pecas">R$ 0.00</span>
+            </div>
+            <div class="summary-item">
+                <span>Mão de Obra:</span>
+                <span id="display_mao_obra">R$ 0.00</span>
+            </div>
+            <div class="summary-item total">
+                <span><strong>Total:</strong></span>
+                <span id="display_total"><strong>R$ 0.00</strong></span>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="status">
+                <i class="fas fa-info-circle"></i>
+                Status da Ordem
+            </label>
+            <select id="status" name="status">
+                <option value="pendente" {% if ordem.status == 'pendente' %}selected{% endif %}>Pendente</option>
+                <option value="em_andamento" {% if ordem.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
+                <option value="concluido" {% if ordem.status == 'concluido' %}selected{% endif %}>Concluído</option>
+                <option value="pago" {% if ordem.status == 'pago' %}selected{% endif %}>Pago</option>
+                <option value="cancelado" {% if ordem.status == 'cancelado' %}selected{% endif %}>Cancelado</option>
+            </select>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_ordens') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Calcular total de peças
+function calcularTotalPecas() {
+    const pecasInputs = document.querySelectorAll('.peca-custo');
+    let totalPecas = 0;
+    
+    pecasInputs.forEach(input => {
+        const valor = parseFloat(input.value) || 0;
+        totalPecas += valor;
+    });
+    
+    document.getElementById('total_pecas').textContent = 'R$ ' + totalPecas.toFixed(2);
+    document.getElementById('display_pecas').textContent = 'R$ ' + totalPecas.toFixed(2);
+    
+    calcularTotal();
+}
+
+// Calcular total geral
+function calcularTotal() {
+    const pecasInputs = document.querySelectorAll('.peca-custo');
+    let totalPecas = 0;
+    
+    pecasInputs.forEach(input => {
+        const valor = parseFloat(input.value) || 0;
+        totalPecas += valor;
+    });
+    
+    const custoMaoObra = parseFloat(document.getElementById('custo_mao_obra').value) || 0;
+    const total = totalPecas + custoMaoObra;
+    
+    document.getElementById('display_mao_obra').textContent = 'R$ ' + custoMaoObra.toFixed(2);
+    document.getElementById('display_total').innerHTML = '<strong>R$ ' + total.toFixed(2) + '</strong>';
+}
+
+// Adicionar event listeners para todos os campos de custo de peças
+document.querySelectorAll('.peca-custo').forEach(input => {
+    input.addEventListener('input', calcularTotalPecas);
+});
+
+// Adicionar event listener para mão de obra
+document.getElementById('custo_mao_obra').addEventListener('input', calcularTotal);
+
+// Inicializar valores
+calcularTotalPecas();
+calcularTotal();
+</script>
+{% endblock %}
+

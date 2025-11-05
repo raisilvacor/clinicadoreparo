@@ -1,0 +1,17 @@
+{
+  "comprovantes": [
+    {
+      "id": 1,
+      "cliente_id": 1,
+      "cliente_nome": "Raí Silva",
+      "ordem_id": 1,
+      "numero_ordem": 1,
+      "valor_total": 150.0,
+      "valor_pago": 150.0,
+      "forma_pagamento": "dinheiro",
+      "parcelas": 1,
+      "data": "2025-11-04 18:04:18",
+      "pdf_filename": "comprovante_1_20251104_180418.pdf"
+    }
+  ]
+}

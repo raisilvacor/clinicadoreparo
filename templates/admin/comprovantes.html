@@ -1,0 +1,193 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Comprovantes Emitidos - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-file-invoice"></i> Comprovantes Emitidos</h1>
+    <p>Visualize todos os comprovantes de pagamento emitidos</p>
+</div>
+
+{% if comprovantes %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Número</th>
+                <th>Cliente</th>
+                <th>Ordem</th>
+                <th>Valor Pago</th>
+                <th>Forma de Pagamento</th>
+                <th>Data</th>
+                <th>PDF</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for comprovante in comprovantes %}
+            <tr>
+                <td><strong>#{{ "%04d"|format(comprovante.id) }}</strong></td>
+                <td>{{ comprovante.cliente_nome }}</td>
+                <td>#{{ "%04d"|format(comprovante.numero_ordem) }}</td>
+                <td><strong>R$ {{ "%.2f"|format(comprovante.valor_pago) }}</strong></td>
+                <td>
+                    {% if comprovante.forma_pagamento == 'dinheiro' %}
+                        <span class="badge"><i class="fas fa-money-bill"></i> Dinheiro</span>
+                    {% elif comprovante.forma_pagamento == 'cartao_debito' %}
+                        <span class="badge"><i class="fas fa-credit-card"></i> Cartão de Débito</span>
+                    {% elif comprovante.forma_pagamento == 'cartao_credito' %}
+                        <span class="badge">
+                            <i class="fas fa-credit-card"></i> Cartão de Crédito
+                            {% if comprovante.parcelas > 1 %}
+                            ({{ comprovante.parcelas }}x)
+                            {% endif %}
+                        </span>
+                    {% elif comprovante.forma_pagamento == 'pix' %}
+                        <span class="badge"><i class="fas fa-qrcode"></i> PIX</span>
+                    {% else %}
+                        {{ comprovante.forma_pagamento }}
+                    {% endif %}
+                </td>
+                <td>{{ comprovante.data }}</td>
+                <td>
+                    {% if comprovante.pdf_filename %}
+                    <a href="{{ url_for('download_comprovante_pdf', filename=comprovante.pdf_filename) }}" class="btn btn-primary btn-small" title="Baixar PDF">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                    {% else %}
+                    <span class="text-muted">N/A</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon" onclick="viewComprovante({{ comprovante.id }})" title="Ver detalhes">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <a href="{{ url_for('edit_comprovante', comprovante_id=comprovante.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_comprovante', comprovante_id=comprovante.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este comprovante?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-file-invoice"></i>
+    <p>Nenhum comprovante emitido ainda</p>
+    <a href="{{ url_for('emitir_comprovante') }}" class="btn btn-primary">Emitir Primeiro Comprovante</a>
+</div>
+{% endif %}
+
+<!-- Modal para ver detalhes do comprovante -->
+<div id="comprovanteModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeComprovanteModal()">&times;</span>
+        <h2>Detalhes do Comprovante</h2>
+        <div id="comprovanteDetails"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function viewComprovante(comprovanteId) {
+    fetch(`/admin/comprovantes/${comprovanteId}`)
+        .then(response => response.json())
+        .then(data => {
+            const formas = {
+                'dinheiro': 'Dinheiro',
+                'cartao_debito': 'Cartão de Débito',
+                'cartao_credito': 'Cartão de Crédito',
+                'pix': 'PIX'
+            };
+            
+            let formaText = formas[data.forma_pagamento] || data.forma_pagamento;
+            if (data.forma_pagamento === 'cartao_credito' && data.parcelas > 1) {
+                formaText += ` (${data.parcelas}x)`;
+            }
+            
+            const details = `
+                <div class="comprovante-details-view">
+                    <div class="detail-section">
+                        <h3><i class="fas fa-info-circle"></i> Informações do Comprovante</h3>
+                        <p><strong>Número:</strong> #${String(data.id).padStart(4, '0')}</p>
+                        <p><strong>Data:</strong> ${data.data}</p>
+                        <p><strong>Número da Ordem:</strong> #${String(data.numero_ordem).padStart(4, '0')}</p>
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-user"></i> Cliente</h3>
+                        <p><strong>Nome:</strong> ${data.cliente_nome}</p>
+                    </div>
+                    <div class="detail-section">
+                        <h3><i class="fas fa-dollar-sign"></i> Pagamento</h3>
+                        <p><strong>Valor Total da Ordem:</strong> R$ ${data.valor_total.toFixed(2).replace('.', ',')}</p>
+                        <p><strong>Valor Pago:</strong> R$ ${data.valor_pago.toFixed(2).replace('.', ',')}</p>
+                        <p><strong>Forma de Pagamento:</strong> ${formaText}</p>
+                        ${data.forma_pagamento === 'cartao_credito' && data.parcelas > 1 ? 
+                            `<p><strong>Valor por Parcela:</strong> R$ ${(data.valor_pago / data.parcelas).toFixed(2).replace('.', ',')}</p>` : ''}
+                    </div>
+                </div>
+            `;
+            document.getElementById('comprovanteDetails').innerHTML = details;
+            document.getElementById('comprovanteModal').style.display = 'block';
+        })
+        .catch(error => {
+            alert('Erro ao carregar detalhes do comprovante');
+            console.error(error);
+        });
+}
+
+function closeComprovanteModal() {
+    document.getElementById('comprovanteModal').style.display = 'none';
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('comprovanteModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+
+<style>
+.comprovante-details-view {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.detail-section {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.detail-section h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.detail-section p {
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.detail-section p strong {
+    color: var(--text-primary);
+}
+</style>
+{% endblock %}
+

@@ -1,0 +1,317 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Emitir Ordem de Serviço - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-file-invoice"></i> Emitir Ordem de Serviço</h1>
+    <p>Preencha todos os dados da ordem de serviço</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('add_ordem_servico') }}" class="admin-form">
+        <div class="form-group">
+            <label for="cliente_id">
+                <i class="fas fa-user"></i>
+                Cliente *
+            </label>
+            <select id="cliente_id" name="cliente_id" required>
+                <option value="">Selecione um cliente</option>
+                {% for cliente in clientes %}
+                <option value="{{ cliente.id }}">{{ cliente.nome }} - {{ cliente.email }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="servico">
+                <i class="fas fa-tools"></i>
+                Tipo de Serviço *
+            </label>
+            <select id="servico" name="servico" required>
+                <option value="">Selecione um serviço</option>
+                {% for servico in servicos %}
+                <option value="{{ servico.nome }}">{{ servico.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-box"></i> Características do Aparelho</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="tipo_aparelho">
+                    <i class="fas fa-mobile-alt"></i>
+                    Tipo de Aparelho *
+                </label>
+                <select id="tipo_aparelho" name="tipo_aparelho" required>
+                    <option value="">Selecione o tipo</option>
+                    <option value="Celular">Celular</option>
+                    <option value="Notebook">Notebook</option>
+                    <option value="Computador">Computador</option>
+                    <option value="Geladeira">Geladeira</option>
+                    <option value="Máquina de Lavar">Máquina de Lavar</option>
+                    <option value="Micro-ondas">Micro-ondas</option>
+                    <option value="Fogão">Fogão</option>
+                    <option value="Ar Condicionado">Ar Condicionado</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="marca">
+                    <i class="fas fa-tag"></i>
+                    Marca *
+                </label>
+                <input type="text" id="marca" name="marca" required placeholder="Ex: Samsung, LG, Brastemp">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="modelo">
+                    <i class="fas fa-cube"></i>
+                    Modelo *
+                </label>
+                <input type="text" id="modelo" name="modelo" required placeholder="Ex: Galaxy S21, ABC123">
+            </div>
+            
+            <div class="form-group">
+                <label for="numero_serie">
+                    <i class="fas fa-barcode"></i>
+                    Número de Série
+                </label>
+                <input type="text" id="numero_serie" name="numero_serie" placeholder="Número de série do aparelho">
+            </div>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-exclamation-triangle"></i> Defeitos e Diagnóstico</h3>
+        </div>
+        
+        <div class="form-group">
+            <label for="defeitos_cliente">
+                <i class="fas fa-comment-dots"></i>
+                Defeitos Reportados pelo Cliente *
+            </label>
+            <textarea id="defeitos_cliente" name="defeitos_cliente" rows="4" required placeholder="Descreva os defeitos relatados pelo cliente..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="diagnostico_tecnico">
+                <i class="fas fa-stethoscope"></i>
+                Diagnóstico Técnico *
+            </label>
+            <textarea id="diagnostico_tecnico" name="diagnostico_tecnico" rows="4" required placeholder="Descreva o diagnóstico técnico realizado..."></textarea>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-dollar-sign"></i> Custos</h3>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <i class="fas fa-cog"></i>
+                Peças a Serem Trocadas
+            </label>
+            <div class="pecas-list" id="pecas-list">
+                {% for i in range(10) %}
+                <div class="peca-item">
+                    <input type="text" name="peca_nome_{{ i }}" class="peca-nome" placeholder="Nome da peça (ex: Tela, Bateria, Conector)" data-index="{{ i }}">
+                    <input type="number" name="peca_custo_{{ i }}" class="peca-custo" step="0.01" min="0" value="0.00" placeholder="0.00" data-index="{{ i }}">
+                    <span class="peca-currency">R$</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="pecas-total">
+                <strong>Total de Peças: <span id="total_pecas">R$ 0.00</span></strong>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="custo_mao_obra">
+                <i class="fas fa-wrench"></i>
+                Custo de Mão de Obra (R$)
+            </label>
+            <input type="number" id="custo_mao_obra" name="custo_mao_obra" step="0.01" min="0" value="0.00" placeholder="0.00">
+        </div>
+        
+        <div class="cost-summary">
+            <div class="summary-item">
+                <span>Peças:</span>
+                <span id="display_pecas">R$ 0.00</span>
+            </div>
+            <div class="summary-item">
+                <span>Mão de Obra:</span>
+                <span id="display_mao_obra">R$ 0.00</span>
+            </div>
+            <div class="summary-item total">
+                <span><strong>Total:</strong></span>
+                <span id="display_total"><strong>R$ 0.00</strong></span>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="cupom_id">
+                <i class="fas fa-gift"></i>
+                Cupom de Desconto (Clube Clínica do Reparo)
+            </label>
+            <select id="cupom_id" name="cupom_id">
+                <option value="">Nenhum cupom</option>
+            </select>
+            <small class="form-help">Selecione um cliente primeiro para ver cupons disponíveis</small>
+        </div>
+        
+        <div class="form-group" id="desconto_info" style="display: none;">
+            <label>
+                <i class="fas fa-percent"></i>
+                Desconto Aplicado
+            </label>
+            <div class="desconto-display">
+                <p><strong>Desconto:</strong> <span id="desconto_percent">0%</span></p>
+                <p><strong>Valor do Desconto:</strong> <span id="valor_desconto">R$ 0.00</span></p>
+                <p><strong>Subtotal:</strong> <span id="subtotal_display">R$ 0.00</span></p>
+                <p class="total-final"><strong>Total com Desconto:</strong> <span id="total_com_desconto">R$ 0.00</span></p>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="status">
+                <i class="fas fa-info-circle"></i>
+                Status da Ordem
+            </label>
+            <select id="status" name="status">
+                <option value="pendente">Pendente</option>
+                <option value="em_andamento">Em Andamento</option>
+                <option value="concluido">Concluído</option>
+                <option value="pago">Pago</option>
+                <option value="cancelado">Cancelado</option>
+            </select>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_ordens') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Emitir Ordem de Serviço
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Calcular total de peças
+function calcularTotalPecas() {
+    const pecasInputs = document.querySelectorAll('.peca-custo');
+    let totalPecas = 0;
+    
+    pecasInputs.forEach(input => {
+        const valor = parseFloat(input.value) || 0;
+        totalPecas += valor;
+    });
+    
+    document.getElementById('total_pecas').textContent = 'R$ ' + totalPecas.toFixed(2);
+    document.getElementById('display_pecas').textContent = 'R$ ' + totalPecas.toFixed(2);
+    
+    calcularTotal();
+}
+
+// Calcular total geral
+function calcularTotal() {
+    const pecasInputs = document.querySelectorAll('.peca-custo');
+    let totalPecas = 0;
+    
+    pecasInputs.forEach(input => {
+        const valor = parseFloat(input.value) || 0;
+        totalPecas += valor;
+    });
+    
+    const custoMaoObra = parseFloat(document.getElementById('custo_mao_obra').value) || 0;
+    const subtotal = totalPecas + custoMaoObra;
+    
+    // Aplicar desconto se houver cupom selecionado
+    const cupomSelect = document.getElementById('cupom_id');
+    const cupomSelecionado = cupomSelect.options[cupomSelect.selectedIndex];
+    let total = subtotal;
+    let descontoPercent = 0;
+    let valorDesconto = 0;
+    
+    if (cupomSelecionado && cupomSelecionado.value && cupomSelecionado.dataset.desconto) {
+        descontoPercent = parseFloat(cupomSelecionado.dataset.desconto);
+        valorDesconto = subtotal * (descontoPercent / 100);
+        total = subtotal - valorDesconto;
+        
+        // Mostrar informações de desconto
+        document.getElementById('desconto_info').style.display = 'block';
+        document.getElementById('desconto_percent').textContent = descontoPercent.toFixed(2) + '%';
+        document.getElementById('valor_desconto').textContent = 'R$ ' + valorDesconto.toFixed(2);
+        document.getElementById('subtotal_display').textContent = 'R$ ' + subtotal.toFixed(2);
+        document.getElementById('total_com_desconto').textContent = 'R$ ' + total.toFixed(2);
+    } else {
+        document.getElementById('desconto_info').style.display = 'none';
+    }
+    
+    document.getElementById('display_mao_obra').textContent = 'R$ ' + custoMaoObra.toFixed(2);
+    document.getElementById('display_total').innerHTML = '<strong>R$ ' + total.toFixed(2) + '</strong>';
+}
+
+// Carregar cupons quando cliente é selecionado
+document.getElementById('cliente_id').addEventListener('change', function() {
+    const clienteId = this.value;
+    const cupomSelect = document.getElementById('cupom_id');
+    const descontoInfo = document.getElementById('desconto_info');
+    
+    if (!clienteId) {
+        cupomSelect.innerHTML = '<option value="">Nenhum cupom</option>';
+        cupomSelect.disabled = true;
+        descontoInfo.style.display = 'none';
+        calcularTotal();
+        return;
+    }
+    
+    // Buscar cupons do cliente
+    fetch(`/admin/fidelidade/${clienteId}/cupons`)
+        .then(response => response.json())
+        .then(data => {
+            cupomSelect.innerHTML = '<option value="">Nenhum cupom</option>';
+            
+            if (data.cupons && data.cupons.length > 0) {
+                data.cupons.forEach(cupom => {
+                    const option = document.createElement('option');
+                    option.value = cupom.id;
+                    option.textContent = `${cupom.desconto_percentual}% de desconto`;
+                    option.dataset.desconto = cupom.desconto_percentual;
+                    cupomSelect.appendChild(option);
+                });
+                cupomSelect.disabled = false;
+            } else {
+                cupomSelect.innerHTML = '<option value="">Nenhum cupom disponível</option>';
+                cupomSelect.disabled = true;
+            }
+            calcularTotal();
+        })
+        .catch(error => {
+            console.error('Erro ao buscar cupons:', error);
+            cupomSelect.innerHTML = '<option value="">Erro ao carregar cupons</option>';
+        });
+});
+
+// Recalcular quando cupom é selecionado
+document.getElementById('cupom_id').addEventListener('change', calcularTotal);
+
+// Adicionar event listeners para todos os campos de custo de peças
+document.querySelectorAll('.peca-custo').forEach(input => {
+    input.addEventListener('input', calcularTotalPecas);
+});
+
+// Adicionar event listener para mão de obra
+document.getElementById('custo_mao_obra').addEventListener('input', calcularTotal);
+
+// Inicializar valores
+calcularTotalPecas();
+calcularTotal();
+</script>
+{% endblock %}

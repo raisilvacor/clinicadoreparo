@@ -1,0 +1,88 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Adicionar Cliente - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-user-plus"></i> Adicionar Novo Cliente</h1>
+    <p>Preencha os dados do cliente</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('add_cliente_admin') }}" class="admin-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="nome">
+                    <i class="fas fa-user"></i>
+                    Nome Completo *
+                </label>
+                <input type="text" id="nome" name="nome" required placeholder="Nome completo do cliente">
+            </div>
+            
+            <div class="form-group">
+                <label for="cpf">
+                    <i class="fas fa-id-card"></i>
+                    CPF
+                </label>
+                <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="email">
+                    <i class="fas fa-envelope"></i>
+                    E-mail *
+                </label>
+                <input type="email" id="email" name="email" required placeholder="cliente@email.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="telefone">
+                    <i class="fas fa-phone"></i>
+                    Telefone *
+                </label>
+                <input type="tel" id="telefone" name="telefone" required placeholder="(00) 00000-0000">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="endereco">
+                <i class="fas fa-map-marker-alt"></i>
+                Endereço
+            </label>
+            <input type="text" id="endereco" name="endereco" placeholder="Rua, número, bairro, cidade">
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user-circle"></i>
+                    Nome de Usuário *
+                </label>
+                <input type="text" id="username" name="username" required placeholder="nome_usuario">
+                <small>Este será o usuário para login do cliente</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-lock"></i>
+                    Senha *
+                </label>
+                <input type="password" id="password" name="password" required placeholder="Senha do cliente">
+                <small>Forneça esta senha ao cliente</small>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_clientes') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Cliente
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

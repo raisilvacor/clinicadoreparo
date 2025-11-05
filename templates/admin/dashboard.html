@@ -1,0 +1,159 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Dashboard - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+    <p>Bem-vindo ao painel administrativo</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-envelope"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ stats.total_contatos }}</h3>
+            <p>Total de Contatos</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-tools"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ stats.total_servicos }}</h3>
+            <p>Serviços Cadastrados</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ stats.contatos_recentes|length }}</h3>
+            <p>Contatos Recentes</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Ativo</h3>
+            <p>Sistema Funcionando</p>
+        </div>
+    </div>
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-envelope"></i> Contatos Recentes</h2>
+        <a href="{{ url_for('admin_contatos') }}" class="btn btn-secondary">
+            Ver Todos
+        </a>
+    </div>
+    
+    {% if stats.contatos_recentes %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Telefone</th>
+                    <th>Serviço</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contato in stats.contatos_recentes %}
+                <tr>
+                    <td>{{ contato.nome }}</td>
+                    <td>{{ contato.email }}</td>
+                    <td>{{ contato.telefone }}</td>
+                    <td>{{ contato.servico }}</td>
+                    <td>{{ contato.data }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-inbox"></i>
+        <p>Nenhum contato ainda</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-bolt"></i> Ações Rápidas</h2>
+    </div>
+    <div class="quick-actions">
+        <a href="{{ url_for('admin_contatos') }}" class="action-card">
+            <i class="fas fa-envelope"></i>
+            <h3>Gerenciar Contatos</h3>
+            <p>Visualizar e gerenciar mensagens recebidas</p>
+        </a>
+        <a href="{{ url_for('admin_servicos') }}" class="action-card">
+            <i class="fas fa-tools"></i>
+            <h3>Gerenciar Serviços</h3>
+            <p>Adicionar, editar ou remover serviços</p>
+        </a>
+        <a href="{{ url_for('add_servico_admin') }}" class="action-card">
+            <i class="fas fa-plus-circle"></i>
+            <h3>Adicionar Serviço</h3>
+            <p>Cadastrar um novo serviço</p>
+        </a>
+        <a href="{{ url_for('admin_clientes') }}" class="action-card">
+            <i class="fas fa-users"></i>
+            <h3>Gerenciar Clientes</h3>
+            <p>Cadastrar e gerenciar clientes</p>
+        </a>
+        <a href="{{ url_for('add_ordem_servico') }}" class="action-card">
+            <i class="fas fa-file-invoice"></i>
+            <h3>Emitir Ordem de Serviço</h3>
+            <p>Registrar nova ordem de serviço</p>
+        </a>
+        <a href="{{ url_for('admin_ordens') }}" class="action-card">
+            <i class="fas fa-list"></i>
+            <h3>Ver Ordens de Serviço</h3>
+            <p>Visualizar todas as ordens emitidas</p>
+        </a>
+        <a href="{{ url_for('admin_financeiro') }}" class="action-card">
+            <i class="fas fa-dollar-sign"></i>
+            <h3>Financeiro</h3>
+            <p>Saldo e valores a receber</p>
+        </a>
+        <a href="{{ url_for('emitir_comprovante') }}" class="action-card">
+            <i class="fas fa-receipt"></i>
+            <h3>Emitir Comprovante</h3>
+            <p>Gerar comprovante de pagamento</p>
+        </a>
+        <a href="{{ url_for('admin_comprovantes') }}" class="action-card">
+            <i class="fas fa-file-invoice"></i>
+            <h3>Comprovantes Emitidos</h3>
+            <p>Visualizar comprovantes</p>
+        </a>
+        <a href="{{ url_for('admin_fidelidade') }}" class="action-card">
+            <i class="fas fa-gift"></i>
+            <h3>Clube Clínica do Reparo</h3>
+            <p>Emitir cupons de desconto</p>
+        </a>
+        <a href="{{ url_for('admin_whatsapp_bot') }}" class="action-card">
+            <i class="fab fa-whatsapp"></i>
+            <h3>Robô WhatsApp</h3>
+            <p>Configurar VirTEc - Técnico Virtual</p>
+        </a>
+        <a href="{{ url_for('index') }}" class="action-card" target="_blank">
+            <i class="fas fa-external-link-alt"></i>
+            <h3>Ver Site</h3>
+            <p>Abrir o site em nova aba</p>
+        </a>
+    </div>
+</div>
+{% endblock %}
+

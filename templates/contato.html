@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Contato - Clínica do Reparo{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>Entre em Contato</h1>
+        <p>Estamos prontos para ajudar você</p>
+    </div>
+</section>
+
+<section class="contact-section">
+    <div class="container">
+        <div class="contact-wrapper">
+            <div class="contact-info">
+                <h2>Fale Conosco</h2>
+                <p>Preencha o formulário ao lado ou entre em contato através dos canais abaixo:</p>
+                
+                <div class="contact-methods">
+                    <div class="contact-method">
+                        <div class="method-icon">
+                            <i class="fas fa-phone"></i>
+                        </div>
+                        <div>
+                            <h4>Telefone</h4>
+                            <p>(11) 99999-9999</p>
+                            <p>(11) 3333-3333</p>
+                        </div>
+                    </div>
+                    <div class="contact-method">
+                        <div class="method-icon">
+                            <i class="fab fa-whatsapp"></i>
+                        </div>
+                        <div>
+                            <h4>WhatsApp</h4>
+                            <p>(11) 99999-9999</p>
+                            <a href="#" class="btn btn-small">Falar no WhatsApp</a>
+                        </div>
+                    </div>
+                    <div class="contact-method">
+                        <div class="method-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div>
+                            <h4>E-mail</h4>
+                            <p>contato@techassist.com.br</p>
+                            <p>suporte@techassist.com.br</p>
+                        </div>
+                    </div>
+                    <div class="contact-method">
+                        <div class="method-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div>
+                            <h4>Endereço</h4>
+                            <p>Rua Exemplo, 123</p>
+                            <p>São Paulo, SP - 01234-567</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact-hours">
+                    <h3><i class="fas fa-clock"></i> Horário de Atendimento</h3>
+                    <ul>
+                        <li>Segunda a Sexta: 8h às 18h</li>
+                        <li>Sábado: 8h às 13h</li>
+                        <li>Domingo: Fechado</li>
+                    </ul>
+                </div>
+
+                <div class="whatsapp-contact-button">
+                    <a href="https://wa.me/5586988959957" target="_blank" class="btn btn-primary btn-large btn-block">
+                        <i class="fab fa-whatsapp"></i>
+                        Falar no WhatsApp
+                    </a>
+                </div>
+            </div>
+
+            <div class="contact-form-wrapper">
+                <form class="contact-form" method="POST" action="{{ url_for('contato') }}">
+                    <div class="form-group">
+                        <label for="nome">
+                            <i class="fas fa-user"></i>
+                            Nome Completo
+                        </label>
+                        <input type="text" id="nome" name="nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">
+                            <i class="fas fa-envelope"></i>
+                            E-mail
+                        </label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telefone">
+                            <i class="fas fa-phone"></i>
+                            Telefone
+                        </label>
+                        <input type="tel" id="telefone" name="telefone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="servico">
+                            <i class="fas fa-tools"></i>
+                            Tipo de Serviço
+                        </label>
+                        <select id="servico" name="servico" required>
+                            <option value="">Selecione um serviço</option>
+                            <option value="celular">Reparo de Celular</option>
+                            <option value="geladeira">Geladeira/Freezer</option>
+                            <option value="lavadora">Máquina de Lavar</option>
+                            <option value="microondas">Micro-ondas</option>
+                            <option value="fogao">Fogão/Cooktop</option>
+                            <option value="ar-condicionado">Ar Condicionado</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mensagem">
+                            <i class="fas fa-comment"></i>
+                            Mensagem
+                        </label>
+                        <textarea id="mensagem" name="mensagem" rows="5" required placeholder="Descreva o problema ou sua necessidade..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-large btn-block">
+                        <i class="fas fa-paper-plane"></i>
+                        Enviar Mensagem
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+

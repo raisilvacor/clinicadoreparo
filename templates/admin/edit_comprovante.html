@@ -1,0 +1,144 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Comprovante - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-edit"></i> Editar Comprovante</h1>
+    <p>Edite as informações do comprovante de pagamento</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_comprovante', comprovante_id=comprovante.id) }}" class="admin-form">
+        <div class="form-group">
+            <label>
+                <i class="fas fa-user"></i>
+                Cliente
+            </label>
+            <input type="text" value="{{ cliente.nome if cliente else 'N/A' }}" disabled>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <i class="fas fa-file-invoice"></i>
+                Ordem de Serviço
+            </label>
+            <input type="text" value="#{{ "%04d"|format(comprovante.numero_ordem) }}" disabled>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <i class="fas fa-dollar-sign"></i>
+                Valor Total da Ordem
+            </label>
+            <input type="text" value="R$ {{ "%.2f"|format(comprovante.valor_total) }}" disabled>
+        </div>
+        
+        <div class="form-group">
+            <label for="valor_pago">
+                <i class="fas fa-money-bill-wave"></i>
+                Valor a Ser Pago (R$) *
+            </label>
+            <input type="number" id="valor_pago" name="valor_pago" step="0.01" min="0" value="{{ comprovante.valor_pago }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <i class="fas fa-credit-card"></i>
+                Forma de Pagamento *
+            </label>
+            <div class="payment-options">
+                <label class="radio-option">
+                    <input type="radio" name="forma_pagamento" value="dinheiro" {% if comprovante.forma_pagamento == 'dinheiro' %}checked{% endif %} required>
+                    <span><i class="fas fa-money-bill"></i> Dinheiro</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="forma_pagamento" value="cartao_debito" {% if comprovante.forma_pagamento == 'cartao_debito' %}checked{% endif %} required>
+                    <span><i class="fas fa-credit-card"></i> Cartão de Débito</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="forma_pagamento" value="cartao_credito" {% if comprovante.forma_pagamento == 'cartao_credito' %}checked{% endif %} required>
+                    <span><i class="fas fa-credit-card"></i> Cartão de Crédito</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="forma_pagamento" value="pix" {% if comprovante.forma_pagamento == 'pix' %}checked{% endif %} required>
+                    <span><i class="fas fa-qrcode"></i> PIX</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-group" id="parcelas_group" style="display: {% if comprovante.forma_pagamento == 'cartao_credito' %}block{% else %}none{% endif %};">
+            <label for="parcelas">
+                <i class="fas fa-calendar-alt"></i>
+                Número de Parcelas
+            </label>
+            <select id="parcelas" name="parcelas">
+                {% for i in range(1, 13) %}
+                <option value="{{ i }}" {% if comprovante.parcelas == i %}selected{% endif %}>{{ i }}x</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_comprovantes') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Mostrar/ocultar campo de parcelas
+document.querySelectorAll('input[name="forma_pagamento"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const parcelasGroup = document.getElementById('parcelas_group');
+        if (this.value === 'cartao_credito') {
+            parcelasGroup.style.display = 'block';
+        } else {
+            parcelasGroup.style.display = 'none';
+        }
+    });
+});
+</script>
+
+<style>
+.payment-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.radio-option:hover {
+    border-color: var(--primary-color);
+    background: var(--bg-secondary);
+}
+
+.radio-option input[type="radio"] {
+    margin-right: 0.5rem;
+}
+
+.radio-option span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+</style>
+{% endblock %}
+

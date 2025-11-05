@@ -1,0 +1,220 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Emitir Comprovante - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-receipt"></i> Emitir Comprovante de Pagamento</h1>
+    <p>Gere um comprovante de pagamento para uma ordem de serviço</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('emitir_comprovante') }}" class="admin-form" id="comprovanteForm">
+        <div class="form-group">
+            <label for="cliente_id">
+                <i class="fas fa-user"></i>
+                Cliente *
+            </label>
+            <select id="cliente_id" name="cliente_id" required>
+                <option value="">Selecione um cliente</option>
+                {% for cliente in clientes %}
+                <option value="{{ cliente.id }}">{{ cliente.nome }} - {{ cliente.email }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="ordem_id">
+                <i class="fas fa-file-invoice"></i>
+                Ordem de Serviço *
+            </label>
+            <select id="ordem_id" name="ordem_id" required disabled>
+                <option value="">Selecione primeiro um cliente</option>
+            </select>
+        </div>
+        
+        <div class="form-group" id="total_ordem_group" style="display: none;">
+            <label>
+                <i class="fas fa-dollar-sign"></i>
+                Total da Ordem
+            </label>
+            <div class="total-display">
+                <strong id="total_ordem_display">R$ 0.00</strong>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="valor_pago">
+                <i class="fas fa-money-bill-wave"></i>
+                Valor a Ser Pago (R$) *
+            </label>
+            <input type="number" id="valor_pago" name="valor_pago" step="0.01" min="0" required placeholder="0.00">
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <i class="fas fa-credit-card"></i>
+                Forma de Pagamento *
+            </label>
+            <div class="payment-options">
+                <label class="radio-option">
+                    <input type="radio" name="forma_pagamento" value="dinheiro" required>
+                    <span><i class="fas fa-money-bill"></i> Dinheiro</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="forma_pagamento" value="cartao_debito" required>
+                    <span><i class="fas fa-credit-card"></i> Cartão de Débito</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="forma_pagamento" value="cartao_credito" required>
+                    <span><i class="fas fa-credit-card"></i> Cartão de Crédito</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="forma_pagamento" value="pix" required>
+                    <span><i class="fas fa-qrcode"></i> PIX</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-group" id="parcelas_group" style="display: none;">
+            <label for="parcelas">
+                <i class="fas fa-calendar-alt"></i>
+                Número de Parcelas
+            </label>
+            <select id="parcelas" name="parcelas">
+                {% for i in range(1, 13) %}
+                <option value="{{ i }}">{{ i }}x</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_comprovantes') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-file-pdf"></i> Emitir Comprovante
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('cliente_id').addEventListener('change', function() {
+    const clienteId = this.value;
+    const ordemSelect = document.getElementById('ordem_id');
+    const totalGroup = document.getElementById('total_ordem_group');
+    
+    if (!clienteId) {
+        ordemSelect.innerHTML = '<option value="">Selecione primeiro um cliente</option>';
+        ordemSelect.disabled = true;
+        totalGroup.style.display = 'none';
+        return;
+    }
+    
+    // Buscar ordens do cliente
+    fetch(`/admin/comprovantes/${clienteId}/ordens`)
+        .then(response => response.json())
+        .then(data => {
+            ordemSelect.innerHTML = '<option value="">Selecione uma ordem de serviço</option>';
+            
+            if (data.ordens && data.ordens.length > 0) {
+                data.ordens.forEach(ordem => {
+                    const option = document.createElement('option');
+                    option.value = ordem.id;
+                    option.textContent = `#${String(ordem.numero_ordem).padStart(4, '0')} - ${ordem.servico} - R$ ${ordem.total.toFixed(2)}`;
+                    option.dataset.total = ordem.total;
+                    ordemSelect.appendChild(option);
+                });
+                ordemSelect.disabled = false;
+            } else {
+                ordemSelect.innerHTML = '<option value="">Nenhuma ordem encontrada</option>';
+                ordemSelect.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar ordens:', error);
+            ordemSelect.innerHTML = '<option value="">Erro ao carregar ordens</option>';
+        });
+});
+
+document.getElementById('ordem_id').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const totalGroup = document.getElementById('total_ordem_group');
+    const totalDisplay = document.getElementById('total_ordem_display');
+    
+    if (selectedOption && selectedOption.dataset.total) {
+        const total = parseFloat(selectedOption.dataset.total);
+        totalDisplay.textContent = `R$ ${total.toFixed(2)}`;
+        totalGroup.style.display = 'block';
+        
+        // Preencher valor pago com o total
+        document.getElementById('valor_pago').value = total.toFixed(2);
+    } else {
+        totalGroup.style.display = 'none';
+    }
+});
+
+// Mostrar/ocultar campo de parcelas
+document.querySelectorAll('input[name="forma_pagamento"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const parcelasGroup = document.getElementById('parcelas_group');
+        if (this.value === 'cartao_credito') {
+            parcelasGroup.style.display = 'block';
+        } else {
+            parcelasGroup.style.display = 'none';
+        }
+    });
+});
+</script>
+
+<style>
+.payment-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.radio-option:hover {
+    border-color: var(--primary-color);
+    background: var(--bg-secondary);
+}
+
+.radio-option input[type="radio"] {
+    margin-right: 0.5rem;
+}
+
+.radio-option span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+
+.total-display {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.total-display strong {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+</style>
+{% endblock %}
+

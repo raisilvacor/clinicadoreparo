@@ -1,0 +1,572 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}Dashboard - Área do Cliente{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-user-circle"></i> Bem-vindo, {{ cliente.nome }}!</h1>
+    <p>Gerencie suas informações e acompanhe seus serviços</p>
+</div>
+
+<div class="client-info-section">
+    <div class="section-header">
+        <h2><i class="fas fa-id-card"></i> Meus Dados Pessoais</h2>
+    </div>
+    
+    <div class="client-info-grid">
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="info-content">
+                <h3>Nome Completo</h3>
+                <p>{{ cliente.nome }}</p>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-envelope"></i>
+            </div>
+            <div class="info-content">
+                <h3>E-mail</h3>
+                <p>{{ cliente.email }}</p>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-phone"></i>
+            </div>
+            <div class="info-content">
+                <h3>Telefone</h3>
+                <p>{{ cliente.telefone }}</p>
+            </div>
+        </div>
+        
+        {% if cliente.cpf %}
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-id-card"></i>
+            </div>
+            <div class="info-content">
+                <h3>CPF</h3>
+                <p>{{ cliente.cpf }}</p>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if cliente.endereco %}
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <div class="info-content">
+                <h3>Endereço</h3>
+                <p>{{ cliente.endereco }}</p>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-calendar"></i>
+            </div>
+            <div class="info-content">
+                <h3>Data de Cadastro</h3>
+                <p>{{ cliente.data_cadastro }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-tools"></i> Minhas Ordens de Serviço</h2>
+        <span class="badge">{{ ordens|length }} ordem(ns)</span>
+    </div>
+    
+    {% if ordens %}
+    <div class="orders-grid">
+        {% for ordem in ordens %}
+        <div class="order-card">
+            <div class="order-header">
+                <h3>{{ ordem.servico }}</h3>
+                <span class="status-badge status-{{ ordem.status }}">
+                    {% if ordem.status == 'pendente' %}
+                        <i class="fas fa-clock"></i> Pendente
+                    {% elif ordem.status == 'em_andamento' %}
+                        <i class="fas fa-cog"></i> Em Andamento
+                    {% elif ordem.status == 'concluido' %}
+                        <i class="fas fa-check-circle"></i> Concluído
+                    {% elif ordem.status == 'pago' %}
+                        <i class="fas fa-money-bill-wave"></i> Pago
+                    {% elif ordem.status == 'cancelado' %}
+                        <i class="fas fa-times-circle"></i> Cancelado
+                    {% endif %}
+                </span>
+            </div>
+            
+            <div class="order-body">
+                <div class="order-info-section">
+                    <h4><i class="fas fa-box"></i> Aparelho</h4>
+                    <p><strong>Tipo:</strong> {{ ordem.tipo_aparelho }}</p>
+                    <p><strong>Marca:</strong> {{ ordem.marca }}</p>
+                    <p><strong>Modelo:</strong> {{ ordem.modelo }}</p>
+                    {% if ordem.numero_serie %}
+                    <p><strong>Nº Série:</strong> {{ ordem.numero_serie }}</p>
+                    {% endif %}
+                </div>
+                
+                {% if ordem.defeitos_cliente %}
+                <div class="order-info-section">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Defeitos Reportados</h4>
+                    <p>{{ ordem.defeitos_cliente }}</p>
+                </div>
+                {% endif %}
+                
+                {% if ordem.diagnostico_tecnico %}
+                <div class="order-info-section">
+                    <h4><i class="fas fa-stethoscope"></i> Diagnóstico Técnico</h4>
+                    <p>{{ ordem.diagnostico_tecnico }}</p>
+                </div>
+                {% endif %}
+                
+                {% if ordem.pecas or ordem.custo_pecas or ordem.custo_mao_obra %}
+                <div class="order-info-section cost-section">
+                    <h4><i class="fas fa-dollar-sign"></i> Custos</h4>
+                    {% if ordem.pecas %}
+                    <div class="pecas-detalhadas">
+                        <p><strong>Peças:</strong></p>
+                        <ul class="pecas-list-detail">
+                            {% for peca in ordem.pecas %}
+                            <li>{{ peca.nome }} - R$ {{ "%.2f"|format(peca.custo) }}</li>
+                            {% endfor %}
+                        </ul>
+                        <p class="subtotal"><strong>Subtotal Peças:</strong> R$ {{ "%.2f"|format(ordem.custo_pecas) if ordem.custo_pecas else "0.00" }}</p>
+                    </div>
+                    {% elif ordem.custo_pecas %}
+                    <p><strong>Peças:</strong> R$ {{ "%.2f"|format(ordem.custo_pecas) }}</p>
+                    {% endif %}
+                    <p><strong>Mão de Obra:</strong> R$ {{ "%.2f"|format(ordem.custo_mao_obra) if ordem.custo_mao_obra else "0.00" }}</p>
+                    {% if ordem.desconto_percentual and ordem.desconto_percentual > 0 %}
+                    <p><strong>Subtotal:</strong> R$ {{ "%.2f"|format((ordem.custo_pecas or 0) + (ordem.custo_mao_obra or 0)) }}</p>
+                    <p class="desconto-applied"><strong>Desconto ({{ "%.2f"|format(ordem.desconto_percentual) }}%):</strong> -R$ {{ "%.2f"|format(ordem.valor_desconto or 0) }}</p>
+                    {% endif %}
+                    <p class="total-cost"><strong>Total:</strong> R$ {{ "%.2f"|format(ordem.total) if ordem.total else "0.00" }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="order-info-section">
+                    <p><strong>Data:</strong> {{ ordem.data }}</p>
+                    <p><strong>Número da Ordem:</strong> #{{ "%04d"|format(ordem.numero_ordem if ordem.numero_ordem else ordem.id) }}</p>
+                </div>
+                
+                {% if ordem.pdf_filename %}
+                <div class="order-actions">
+                    <a href="{{ url_for('client_download_pdf', filename=ordem.pdf_filename) }}" class="btn btn-primary btn-small" title="Baixar PDF da Ordem">
+                        <i class="fas fa-file-pdf"></i> Baixar PDF
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-tools"></i>
+        <p>Você ainda não possui ordens de serviço registradas</p>
+        <p class="small">Entre em contato conosco para registrar uma ordem de serviço</p>
+        <a href="{{ url_for('contato') }}" class="btn btn-primary" target="_blank">
+            <i class="fas fa-envelope"></i> Entrar em Contato
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-receipt"></i> Meus Comprovantes de Pagamento</h2>
+        <span class="badge">{{ comprovantes|length }} comprovante(s)</span>
+    </div>
+    
+    {% if comprovantes %}
+    <div class="orders-grid">
+        {% for comprovante in comprovantes %}
+        <div class="order-card">
+            <div class="order-header">
+                <h3>Comprovante #{{ "%04d"|format(comprovante.id) }}</h3>
+                <span class="status-badge status-pago">
+                    <i class="fas fa-money-bill-wave"></i> Pago
+                </span>
+            </div>
+            
+            <div class="order-body">
+                <div class="order-info-section">
+                    <h4><i class="fas fa-file-invoice"></i> Informações</h4>
+                    <p><strong>Número da Ordem:</strong> #{{ "%04d"|format(comprovante.numero_ordem) }}</p>
+                    <p><strong>Valor Total da Ordem:</strong> R$ {{ "%.2f"|format(comprovante.valor_total) }}</p>
+                    <p><strong>Valor Pago:</strong> R$ {{ "%.2f"|format(comprovante.valor_pago) }}</p>
+                </div>
+                
+                <div class="order-info-section">
+                    <h4><i class="fas fa-credit-card"></i> Forma de Pagamento</h4>
+                    <p>
+                        {% if comprovante.forma_pagamento == 'dinheiro' %}
+                            <i class="fas fa-money-bill"></i> Dinheiro
+                        {% elif comprovante.forma_pagamento == 'cartao_debito' %}
+                            <i class="fas fa-credit-card"></i> Cartão de Débito
+                        {% elif comprovante.forma_pagamento == 'cartao_credito' %}
+                            <i class="fas fa-credit-card"></i> Cartão de Crédito
+                            {% if comprovante.parcelas > 1 %}
+                            ({{ comprovante.parcelas }}x de R$ {{ "%.2f"|format(comprovante.valor_pago / comprovante.parcelas) }})
+                            {% endif %}
+                        {% elif comprovante.forma_pagamento == 'pix' %}
+                            <i class="fas fa-qrcode"></i> PIX
+                        {% else %}
+                            {{ comprovante.forma_pagamento }}
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="order-info-section">
+                    <p><strong>Data:</strong> {{ comprovante.data }}</p>
+                </div>
+                
+                {% if comprovante.pdf_filename %}
+                <div class="order-actions">
+                    <a href="{{ url_for('client_download_comprovante_pdf', filename=comprovante.pdf_filename) }}" class="btn btn-primary btn-small" title="Baixar PDF do Comprovante">
+                        <i class="fas fa-file-pdf"></i> Baixar PDF
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-receipt"></i>
+        <p>Você ainda não possui comprovantes de pagamento</p>
+        <p class="small">Os comprovantes serão exibidos aqui após o pagamento das ordens de serviço</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-gift"></i> Clube Clínica do Reparo</h2>
+        <span class="badge">{{ cupons|length }} cupom(ns)</span>
+    </div>
+    
+    {% if cupons %}
+    <div class="orders-grid">
+        {% for cupom in cupons %}
+        <div class="order-card">
+            <div class="order-header">
+                <h3>Cupom #{{ "%04d"|format(cupom.id) }}</h3>
+                {% if cupom.usado %}
+                <span class="status-badge status-concluido">
+                    <i class="fas fa-check-circle"></i> Usado
+                </span>
+                {% else %}
+                <span class="status-badge status-pendente">
+                    <i class="fas fa-gift"></i> Disponível
+                </span>
+                {% endif %}
+            </div>
+            
+            <div class="order-body">
+                <div class="order-info-section">
+                    <h4><i class="fas fa-percent"></i> Desconto</h4>
+                    <p><strong>Desconto:</strong> {{ "%.2f"|format(cupom.desconto_percentual) }}%</p>
+                    <p><strong>Status:</strong> 
+                        {% if cupom.usado %}
+                            Usado na Ordem #{{ "%04d"|format(cupom.ordem_id) }}
+                        {% else %}
+                            Disponível para próxima ordem
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="order-info-section">
+                    <p><strong>Data de Emissão:</strong> {{ cupom.data_emissao }}</p>
+                    {% if cupom.data_uso %}
+                    <p><strong>Data de Uso:</strong> {{ cupom.data_uso }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-gift"></i>
+        <p>Você ainda não possui cupons de desconto</p>
+        <p class="small">Os cupons serão exibidos aqui quando forem emitidos pelo administrador</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.client-info-section {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 2rem;
+}
+
+.client-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.info-card {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+}
+
+.info-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+}
+
+.info-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.info-icon i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.info-content h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.3rem;
+}
+
+.info-content p {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.orders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.order-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 2px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.order-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.order-header h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.status-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.status-pendente {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-em_andamento {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.status-concluido {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-pago {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-cancelado {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.order-body p {
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.desconto-applied {
+    color: #059669;
+    font-weight: 600;
+}
+
+.order-body strong {
+    color: var(--text-primary);
+}
+
+.order-info-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.order-info-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.order-info-section h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cost-section {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.total-cost {
+    font-size: 1.1rem;
+    color: var(--primary-color) !important;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 2px solid var(--border-color);
+}
+
+.pecas-detalhadas {
+    margin-bottom: 1rem;
+}
+
+.pecas-list-detail {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+}
+
+.pecas-list-detail li {
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.5);
+    margin-bottom: 0.25rem;
+    border-radius: 4px;
+    color: var(--text-secondary);
+}
+
+.subtotal {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.small {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.order-actions {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-small {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.btn-small:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.login-footer {
+    margin-top: 2rem;
+    text-align: center;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.login-footer p {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+    .client-info-grid,
+    .orders-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+

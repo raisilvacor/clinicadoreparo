@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+
+{% block title %}Clínica do Reparo - Assistência Técnica Profissional{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-background">
+        <div class="circuit-loader">
+            <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="chipGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#2d2d2d" />
+                        <stop offset="100%" stop-color="#0f0f0f" />
+                    </linearGradient>
+                    <linearGradient id="textGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#eeeeee" />
+                        <stop offset="100%" stop-color="#888888" />
+                    </linearGradient>
+                    <linearGradient id="pinGradient" x1="1" y1="0" x2="0" y2="0">
+                        <stop offset="0%" stop-color="#bbbbbb" />
+                        <stop offset="50%" stop-color="#888888" />
+                        <stop offset="100%" stop-color="#555555" />
+                    </linearGradient>
+                </defs>
+                <g id="traces">
+                    <path d="M100 100 H200 V210 H326" class="trace-bg" />
+                    <path d="M100 100 H200 V210 H326" class="trace-flow purple" />
+                    <path d="M80 180 H180 V230 H326" class="trace-bg" />
+                    <path d="M80 180 H180 V230 H326" class="trace-flow blue" />
+                    <path d="M60 260 H150 V250 H326" class="trace-bg" />
+                    <path d="M60 260 H150 V250 H326" class="trace-flow yellow" />
+                    <path d="M100 350 H200 V270 H326" class="trace-bg" />
+                    <path d="M100 350 H200 V270 H326" class="trace-flow green" />
+                    <path d="M700 90 H560 V210 H474" class="trace-bg" />
+                    <path d="M700 90 H560 V210 H474" class="trace-flow blue" />
+                    <path d="M740 160 H580 V230 H474" class="trace-bg" />
+                    <path d="M740 160 H580 V230 H474" class="trace-flow green" />
+                    <path d="M720 250 H590 V250 H474" class="trace-bg" />
+                    <path d="M720 250 H590 V250 H474" class="trace-flow red" />
+                    <path d="M680 340 H570 V270 H474" class="trace-bg" />
+                    <path d="M680 340 H570 V270 H474" class="trace-flow yellow" />
+                </g>
+                <rect x="330" y="190" width="140" height="100" rx="20" ry="20" fill="url(#chipGradient)" stroke="#222" stroke-width="3" filter="drop-shadow(0 0 6px rgba(0,0,0,0.8))" />
+                <g>
+                    <rect x="322" y="205" width="8" height="10" fill="url(#pinGradient)" rx="2" />
+                    <rect x="322" y="225" width="8" height="10" fill="url(#pinGradient)" rx="2" />
+                    <rect x="322" y="245" width="8" height="10" fill="url(#pinGradient)" rx="2" />
+                    <rect x="322" y="265" width="8" height="10" fill="url(#pinGradient)" rx="2" />
+                </g>
+                <g>
+                    <rect x="470" y="205" width="8" height="10" fill="url(#pinGradient)" rx="2" />
+                    <rect x="470" y="225" width="8" height="10" fill="url(#pinGradient)" rx="2" />
+                    <rect x="470" y="245" width="8" height="10" fill="url(#pinGradient)" rx="2" />
+                    <rect x="470" y="265" width="8" height="10" fill="url(#pinGradient)" rx="2" />
+                </g>
+                <circle cx="100" cy="100" r="5" fill="black" />
+                <circle cx="80" cy="180" r="5" fill="black" />
+                <circle cx="60" cy="260" r="5" fill="black" />
+                <circle cx="100" cy="350" r="5" fill="black" />
+                <circle cx="700" cy="90" r="5" fill="black" />
+                <circle cx="740" cy="160" r="5" fill="black" />
+                <circle cx="720" cy="250" r="5" fill="black" />
+                <circle cx="680" cy="340" r="5" fill="black" />
+            </svg>
+        </div>
+    </div>
+    <div class="container">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <i class="fas fa-star"></i>
+                <span>Especialistas em Tecnologia</span>
+            </div>
+            <h1 class="hero-title">
+                <span class="gradient-text">Assistência Técnica</span><br>
+                de Eletrodomésticos, Celulares, Computadores e Notebooks
+            </h1>
+            <p class="hero-description">
+                Soluções rápidas, profissionais e com garantia. 
+                Seu dispositivo em boas mãos!
+            </p>
+            <div class="hero-buttons">
+                <a href="{{ url_for('contato') }}" class="btn btn-primary btn-large">
+                    <i class="fas fa-calendar-check"></i>
+                    Agendar Serviço
+                </a>
+                <a href="{{ url_for('servicos') }}" class="btn btn-secondary btn-large">
+                    <i class="fas fa-info-circle"></i>
+                    Nossos Serviços
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="scroll-indicator">
+        <i class="fas fa-chevron-down"></i>
+    </div>
+</section>
+
+<section class="milestones-section">
+    <div class="container">
+        <div class="milestones-grid">
+            <div class="milestone-image">
+                <img src="{{ url_for('static', filename='img/milestone1.png') }}" alt="Diagnóstico Preciso">
+            </div>
+            <div class="milestone-image">
+                <img src="{{ url_for('static', filename='img/milestone2.png') }}" alt="Reparo Especializado">
+            </div>
+            <div class="milestone-image">
+                <img src="{{ url_for('static', filename='img/milestone3.png') }}" alt="Atendimento Rápido">
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="services-preview">
+    <div class="container">
+        <div class="section-header">
+            <span class="section-badge">Nossos Serviços</span>
+            <h2 class="section-title">Soluções Completas para Seus Dispositivos</h2>
+            <p class="section-description">Oferecemos assistência técnica especializada para todos os seus aparelhos</p>
+        </div>
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-mobile-alt"></i>
+                </div>
+                <h3>Reparo de Celulares</h3>
+                <p>Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.</p>
+                <ul class="service-features">
+                    <li><i class="fas fa-check"></i> Troca de tela</li>
+                    <li><i class="fas fa-check"></i> Troca de bateria</li>
+                    <li><i class="fas fa-check"></i> Reparo de hardware</li>
+                    <li><i class="fas fa-check"></i> Desbloqueio</li>
+                </ul>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-blender"></i>
+                </div>
+                <h3>Eletrodomésticos</h3>
+                <p>Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.</p>
+                <ul class="service-features">
+                    <li><i class="fas fa-check"></i> Refrigeração</li>
+                    <li><i class="fas fa-check"></i> Lavagem</li>
+                    <li><i class="fas fa-check"></i> Cozinha</li>
+                    <li><i class="fas fa-check"></i> Manutenção geral</li>
+                </ul>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-laptop"></i>
+                </div>
+                <h3>Computadores e Notebook</h3>
+                <p>Reparo e manutenção de computadores, notebooks e componentes.</p>
+                <ul class="service-features">
+                    <li><i class="fas fa-check"></i> Reparo de hardware</li>
+                    <li><i class="fas fa-check"></i> Formatação e instalação</li>
+                    <li><i class="fas fa-check"></i> Troca de componentes</li>
+                    <li><i class="fas fa-check"></i> Limpeza e manutenção</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="features">
+    <div class="container">
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <h3>Atendimento Rápido</h3>
+                <p>Resposta imediata e agendamento flexível para sua conveniência.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-tools"></i>
+                </div>
+                <h3>Profissionais Certificados</h3>
+                <p>Equipe especializada e certificada para garantir qualidade.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <h3>Preços Justos</h3>
+                <p>Orçamento transparente e sem surpresas no final.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-home"></i>
+                </div>
+                <h3>Atendimento Domiciliar</h3>
+                <p>Vamos até você quando necessário para maior comodidade.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-gift"></i>
+                </div>
+                <h3>Clube Clínica do Reparo</h3>
+                <p>Programa de fidelidade com cupons de desconto exclusivos para clientes cadastrados.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <h3>Emitimos Ordem de Serviço</h3>
+                <p>Documentação completa e profissional de todos os serviços realizados.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <h3>Emitimos Nota Fiscal de Serviço</h3>
+                <p>Nota fiscal emitida para todos os serviços prestados.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-credit-card"></i>
+                </div>
+                <h3>Aceitamos Cartões</h3>
+                <p>Aceitamos cartões de débito e crédito para sua comodidade.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cta-section">
+    <div class="container">
+        <div class="cta-content">
+            <h2>Pronto para Resolver Seu Problema?</h2>
+            <p>Entre em contato conosco agora e agende seu atendimento</p>
+            <a href="{{ url_for('contato') }}" class="btn btn-primary btn-large animated-button">
+                <span class="btn-content">
+                    <i class="fas fa-phone"></i>
+                    <span>Fale Conosco</span>
+                </span>
+                <span class="btn-shimmer"></span>
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="brands-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Principais Marcas</h2>
+            <p class="section-description">Trabalhamos com as principais marcas do mercado</p>
+        </div>
+        <div class="brands-carousel-wrapper">
+            <div class="brands-carousel">
+                <div class="brands-track">
+                    {% for i in range(1, 24) %}
+                    <div class="brand-item">
+                        <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}">
+                    </div>
+                    {% endfor %}
+                    <!-- Duplicar para loop infinito -->
+                    {% for i in range(1, 24) %}
+                    <div class="brand-item">
+                        <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}">
+                    </div>
+                    {% endfor %}
+                    <!-- Terceira cópia para loop infinito mais suave -->
+                    {% for i in range(1, 24) %}
+                    <div class="brand-item">
+                        <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.animated-button {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.animated-button .btn-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.animated-button .btn-shimmer {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    transition: left 0.5s ease;
+    z-index: 1;
+}
+
+.animated-button:hover .btn-shimmer {
+    left: 100%;
+}
+
+.animated-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s ease, height 0.6s ease;
+}
+
+.animated-button:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.animated-button {
+    animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+    0% {
+        box-shadow: 0 0 0 0 rgba(33, 95, 151, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(33, 95, 151, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(33, 95, 151, 0);
+    }
+}
+
+.animated-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(33, 95, 151, 0.4);
+}
+
+/* Milestones Section */
+.milestones-section {
+    padding: 4rem 0;
+    background: var(--bg-primary);
+}
+
+.milestones-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.milestone-image {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.milestone-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Responsive Milestones */
+@media (max-width: 968px) {
+    .milestones-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .milestones-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .milestone-image img {
+        height: 250px;
+    }
+}
+
+/* Brands Carousel */
+.brands-section {
+    padding: 4rem 0;
+    background: var(--bg-secondary);
+}
+
+.brands-section .section-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.brands-section .section-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.brands-section .section-description {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+}
+
+.brands-carousel-wrapper {
+    overflow: hidden;
+    position: relative;
+    margin-top: 2rem;
+    width: 100%;
+}
+
+.brands-carousel {
+    width: 100%;
+    overflow: visible;
+}
+
+.brands-track {
+    display: flex;
+    animation: slide-right-to-left 25s linear infinite;
+    gap: 3rem;
+    will-change: transform;
+    width: max-content;
+    min-width: calc(23 * 150px + 22 * 3rem);
+}
+
+.brand-item {
+    flex-shrink: 0;
+    width: 150px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.3s ease;
+}
+
+.brand-item:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-md);
+}
+
+.brand-item img {
+    max-width: 100%;
+    max-height: 80px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    filter: grayscale(100%);
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+
+.brand-item:hover img {
+    filter: grayscale(0%);
+    opacity: 1;
+}
+
+@keyframes slide-right-to-left {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-33.333%);
+    }
+}
+
+/* Pausar animação no hover */
+.brands-carousel-wrapper:hover .brands-track {
+    animation-play-state: paused;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .brands-section {
+        padding: 3rem 0;
+    }
+    
+    .brands-section .section-title {
+        font-size: 2rem;
+    }
+    
+    .brand-item {
+        width: 120px;
+        height: 80px;
+        padding: 0.75rem;
+    }
+    
+    .brand-item img {
+        max-height: 60px;
+    }
+    
+    .brands-track {
+        gap: 2rem;
+        animation: slide-right-to-left 20s linear infinite;
+    }
+}
+</style>
+{% endblock %}
+
