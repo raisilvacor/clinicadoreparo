@@ -14,8 +14,8 @@ app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui_altere_em_producao'
 
 # Credenciais de admin (em produção, use hash e variáveis de ambiente)
-ADMIN_USERNAME = 'admin'
-ADMIN_PASSWORD = 'admin123'  # Altere em produção!
+ADMIN_USERNAME = 'raisilva'
+ADMIN_PASSWORD = 'Rs2025'  # Altere em produção!
 
 # Caminhos para os arquivos de dados
 DATA_FILE = 'data/services.json'
