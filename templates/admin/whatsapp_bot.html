@@ -34,11 +34,15 @@
 
         <div id="evolution_config" class="integration-config">
             <div class="info-box" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 1.5rem;">
+                <div style="background: #fff3cd; border-left: 4px solid #ff9800; padding: 1rem; margin-bottom: 1rem; border-radius: 5px;">
+                    <p style="margin: 0; color: #856404;"><strong>⚠️ ATENÇÃO:</strong> Se seu site está hospedado no Render, Railway, Heroku ou outro servidor, você <strong>DEVE</strong> usar uma Evolution API online (Opção 1). <strong>NÃO</strong> use localhost ou Docker local, pois o servidor não consegue acessar seu computador!</p>
+                </div>
+                
                 <p><strong>⚠️ Importante:</strong> Antes de configurar, você precisa ter a Evolution API rodando!</p>
                 
-                <p style="margin-top: 1rem;"><strong>🌐 Opção 1: Usar Evolution API Online (MAIS FÁCIL - Recomendado)</strong></p>
+                <p style="margin-top: 1rem;"><strong>🌐 Opção 1: Usar Evolution API Online (MAIS FÁCIL - Recomendado para Sites Hospedados)</strong></p>
                 <div style="margin-left: 1.5rem; margin-top: 0.5rem; background: #e8f5e9; padding: 1rem; border-radius: 5px;">
-                    <p><strong>✅ Vantagens:</strong> Não precisa instalar nada, funciona imediatamente!</p>
+                    <p><strong>✅ Vantagens:</strong> Não precisa instalar nada, funciona imediatamente, e funciona perfeitamente com sites hospedados!</p>
                     <p style="margin-top: 0.5rem;"><strong>Como usar:</strong></p>
                     <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
                         <li>Acesse um serviço de Evolution API online (gratuito ou pago)</li>
@@ -97,11 +101,12 @@
                 </label>
                 <input type="text" id="evolution_api_url" name="evolution_api_url" 
                        value="{{ config.get('evolution_api_url', '') }}" 
-                       placeholder="Ex: http://localhost:8080 ou https://sua-api.com" required>
+                       placeholder="Ex: https://sua-api.com" required>
                 <small class="form-help">
                     URL base da sua Evolution API.<br>
-                    <strong>Local:</strong> http://localhost:8080 (se usar Docker local)<br>
-                    <strong>Online:</strong> https://sua-api.com (se usar serviço online)
+                    <strong style="color: #d32f2f;">⚠️ IMPORTANTE:</strong> Se seu site está hospedado no Render ou outro servidor, você <strong>DEVE</strong> usar uma URL online (ex: https://sua-api.com), <strong>NÃO</strong> use localhost!<br>
+                    <strong>Online:</strong> https://sua-api.com (recomendado para sites hospedados)<br>
+                    <strong>Local:</strong> http://localhost:8080 (apenas para desenvolvimento local)
                 </small>
                 <button type="button" onclick="testarConexaoAPI()" class="btn btn-secondary" style="margin-top: 0.5rem; width: 100%;">
                     <i class="fas fa-network-wired"></i> Testar Conexão com a API
@@ -156,13 +161,30 @@
         </div>
 
         <div id="twilio_config" class="integration-config" style="display: none;">
+            <div class="info-box" style="background: #e3f2fd; border-left: 4px solid #2196f3; margin-bottom: 1.5rem;">
+                <p><strong>📋 Como configurar o Twilio:</strong></p>
+                <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <li>Preencha os campos abaixo com suas credenciais do Twilio</li>
+                    <li>No console do Twilio (<a href="https://console.twilio.com" target="_blank">console.twilio.com</a>), configure o webhook:</li>
+                    <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <li>Vá em <strong>Messaging > Settings > WhatsApp Sandbox</strong> (ou WhatsApp Senders)</li>
+                        <li>Configure a URL do webhook: <code id="twilio-webhook-url">https://seu-dominio.com/api/whatsapp/webhook</code></li>
+                        <button type="button" onclick="copyTwilioWebhookUrl()" class="btn btn-secondary" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; font-size: 0.85em;">
+                            <i class="fas fa-copy"></i> Copiar URL do Webhook
+                        </button>
+                        <li>Salve as configurações</li>
+                    </ul>
+                    <li>Salve as configurações abaixo</li>
+                </ol>
+            </div>
+            
             <div class="form-group">
                 <label for="twilio_account_sid">
                     <i class="fas fa-id-card"></i>
                     Account SID
                 </label>
                 <input type="text" id="twilio_account_sid" name="twilio_account_sid" 
-                       value="{{ config.get('twilio_account_sid', '') }}" 
+                       value="{{ config.get('twilio_account_sid', 'AC15407b6862491174e0d41408bfbf0fd1') }}" 
                        placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
             </div>
             <div class="form-group">
@@ -171,7 +193,7 @@
                     Auth Token
                 </label>
                 <input type="password" id="twilio_auth_token" name="twilio_auth_token" 
-                       value="{{ config.get('twilio_auth_token', '') }}" 
+                       value="{{ config.get('twilio_auth_token', '47ed26bdd93e6ba3c1df87b4288fabcb') }}" 
                        placeholder="Seu token de autenticação">
             </div>
             <div class="form-group">
@@ -180,8 +202,9 @@
                     Número Twilio (WhatsApp)
                 </label>
                 <input type="text" id="twilio_from_number" name="twilio_from_number" 
-                       value="{{ config.get('twilio_from_number', '') }}" 
-                       placeholder="whatsapp:+14155238886">
+                       value="{{ config.get('twilio_from_number', 'whatsapp:+5493513583340') }}" 
+                       placeholder="whatsapp:+5493513583340">
+                <small class="form-help">Formato: whatsapp:+[código do país][número] (ex: whatsapp:+5493513583340)</small>
             </div>
         </div>
 
@@ -323,6 +346,13 @@ function toggleIntegrationType() {
     document.getElementById(tipo + '_config').style.display = 'block';
 }
 
+function copyTwilioWebhookUrl() {
+    const webhookUrl = window.location.origin + '/api/whatsapp/webhook';
+    navigator.clipboard.writeText(webhookUrl).then(function() {
+        alert('URL do webhook copiada para a área de transferência!');
+    });
+}
+
 function copyWebhookUrl() {
     const url = window.location.origin + '/api/whatsapp/webhook';
     navigator.clipboard.writeText(url).then(() => {
@@ -343,7 +373,12 @@ fetch('/api/whatsapp/webhook', { method: 'GET' })
     });
 
 // Atualizar URL do webhook
-document.getElementById('webhook-url').textContent = window.location.origin + '/api/whatsapp/webhook';
+if (document.getElementById('webhook-url')) {
+    document.getElementById('webhook-url').textContent = window.location.origin + '/api/whatsapp/webhook';
+}
+if (document.getElementById('twilio-webhook-url')) {
+    document.getElementById('twilio-webhook-url').textContent = window.location.origin + '/api/whatsapp/webhook';
+}
 
 // Inicializar tipo de integração
 document.addEventListener('DOMContentLoaded', function() {
