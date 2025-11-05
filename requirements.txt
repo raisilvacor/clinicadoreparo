@@ -1,14 +1,5 @@
-<<<<<<< HEAD
 Flask==3.0.0
 Werkzeug==3.0.1
 reportlab==4.0.7
 requests==2.31.0
 twilio==9.0.0
-
-=======
-Flask==3.0.0
-Werkzeug==3.0.1
-reportlab==4.0.7
-requests==2.31.0
-
->>>>>>> 87f51aaa29f91cf7c8d81ac1cc0bac4975e76f3f
