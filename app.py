@@ -2234,13 +2234,14 @@ def whatsapp_webhook():
             return jsonify({'status': 'bot_inactive'}), 200
         
         # Extrair dados da mensagem (formato pode variar conforme a API)
-        data = request.get_json() or {}
+        # Twilio pode enviar como form-data ou JSON
+        data = request.get_json() or request.form.to_dict() or {}
         
         # Tentar diferentes formatos de API
         from_number = None
         message_body = None
         
-        # Formato Twilio
+        # Formato Twilio (form-data ou JSON)
         if 'From' in data and 'Body' in data:
             from_number = data['From'].replace('whatsapp:', '').replace('+', '')
             message_body = data['Body'].strip()
