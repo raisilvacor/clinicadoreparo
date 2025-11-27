@@ -1,0 +1,21 @@
+========================================
+COMANDOS PARA DEPLOY MANUAL
+========================================
+
+Execute estes comandos no PowerShell ou CMD:
+
+1. git add -A
+2. git commit -m "Deploy automatico"
+3. git push origin main
+
+OU execute diretamente:
+git add -A && git commit -m "Deploy automatico" && git push origin main
+
+========================================
+Se der erro, verifique:
+- git status (para ver se há alterações)
+- git remote -v (para ver o repositório)
+- git log --oneline -5 (para ver últimos commits)
+
+========================================
+

@@ -119,11 +119,15 @@ class Cupom(db.Model):
 class Slide(db.Model):
     __tablename__ = 'slides'
     id = db.Column(db.Integer, primary_key=True)
-    imagem = db.Column(db.String(500), nullable=False)
+    imagem = db.Column(db.String(500))  # Caminho ou ID da imagem (fallback)
+    imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
     link = db.Column(db.String(500))
     link_target = db.Column(db.String(20), default='_self')
     ordem = db.Column(db.Integer, default=1)
     ativo = db.Column(db.Boolean, default=True)
+    
+    # Relacionamento
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
 
 # ==================== FOOTER ====================
 class Footer(db.Model):

@@ -33,7 +33,11 @@
                 <td>{{ slide.id }}</td>
                 <td>
                     <div class="slide-preview">
+                        {% if slide.imagem and slide.imagem.startswith('/admin/slides/imagem/') %}
+                        <img src="{{ slide.imagem }}" alt="Slide {{ slide.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% else %}
                         <img src="{{ url_for('static', filename=slide.imagem) }}" alt="Slide {{ slide.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% endif %}
                     </div>
                 </td>
                 <td><code>{{ slide.imagem }}</code></td>

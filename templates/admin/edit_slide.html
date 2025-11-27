@@ -30,7 +30,15 @@
                 Preview da Imagem
             </label>
             <div id="image-preview" style="width: 100%; max-width: 600px; height: 300px; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8f9fa; margin-top: 0.5rem;">
-                <img src="{{ url_for('static', filename=slide.imagem) }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.parentElement.innerHTML='<p style=\'color: #dc3545;\'>Imagem não encontrada</p>'">
+                {% if slide.imagem %}
+                    {% if slide.imagem.startswith('/admin/slides/imagem/') %}
+                    <img id="preview_img" src="{{ slide.imagem }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.parentElement.innerHTML='<p style=\'color: #dc3545;\'>Imagem não encontrada</p>'">
+                    {% else %}
+                    <img id="preview_img" src="{{ url_for('static', filename=slide.imagem) }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.parentElement.innerHTML='<p style=\'color: #dc3545;\'>Imagem não encontrada</p>'">
+                    {% endif %}
+                {% else %}
+                    <p id="no_image_text" style="color: #6c757d;">Nenhuma imagem selecionada</p>
+                {% endif %}
             </div>
         </div>
         

@@ -543,8 +543,25 @@ init_slides_file()
 def index():
     # Carregar slides
     if use_database():
-        slides = Slide.query.filter_by(ativo=True).order_by(Slide.ordem).all()
-        slides = [{'id': s.id, 'imagem': s.imagem, 'link': s.link, 'link_target': s.link_target or '_self', 'ordem': s.ordem, 'ativo': s.ativo} for s in slides]
+        slides_db = Slide.query.filter_by(ativo=True).order_by(Slide.ordem).all()
+        slides = []
+        for s in slides_db:
+            # Se tem imagem_id, usar rota do banco, senão usar caminho estático
+            if s.imagem_id:
+                imagem_url = f'/admin/slides/imagem/{s.imagem_id}'
+            elif s.imagem:
+                imagem_url = s.imagem
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            slides.append({
+                'id': s.id,
+                'imagem': imagem_url,
+                'link': s.link,
+                'link_target': s.link_target or '_self',
+                'ordem': s.ordem,
+                'ativo': s.ativo
+            })
     else:
         init_slides_file()
         with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
@@ -2859,48 +2876,103 @@ def delete_tecnico(tecnico_id):
 @login_required
 def admin_slides():
     """Lista todos os slides cadastrados"""
-    init_slides_file()
+    if use_database():
+        try:
+            with app.app_context():
+                slides_db = Slide.query.order_by(Slide.ordem).all()
+                slides = []
+                for s in slides_db:
+                    # Se tem imagem_id, usar rota do banco, senão usar caminho estático
+                    if s.imagem_id:
+                        imagem_url = f'/admin/slides/imagem/{s.imagem_id}'
+                    elif s.imagem:
+                        imagem_url = s.imagem
+                    else:
+                        imagem_url = 'img/placeholder.png'
+                    
+                    slides.append({
+                        'id': s.id,
+                        'imagem': imagem_url,
+                        'link': s.link,
+                        'link_target': s.link_target or '_self',
+                        'ordem': s.ordem,
+                        'ativo': s.ativo
+                    })
+        except Exception as e:
+            print(f"Erro ao buscar slides do banco: {e}")
+            slides = []
+    else:
+        init_slides_file()
+        with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        slides = sorted(data.get('slides', []), key=lambda x: x.get('ordem', 999))
     
-    with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    slides = sorted(data.get('slides', []), key=lambda x: x.get('ordem', 999))
     return render_template('admin/slides.html', slides=slides)
 
 @app.route('/admin/slides/add', methods=['GET', 'POST'])
 @login_required
 def add_slide():
     """Adiciona um novo slide"""
-    init_slides_file()
-    
     if request.method == 'POST':
-        with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        imagem_path_or_id = request.form.get('imagem', '').strip()
+        link = request.form.get('link', '').strip()
+        link_target = request.form.get('link_target', '_self').strip()
+        ordem = request.form.get('ordem', '1')
+        ativo = request.form.get('ativo') == 'on'
         
-        # Obter próximo ID
-        slides = data.get('slides', [])
-        novo_id = max([s.get('id', 0) for s in slides], default=0) + 1
-        
-        # Obter próxima ordem
-        proxima_ordem = max([s.get('ordem', 0) for s in slides], default=0) + 1
-        
-        novo_slide = {
-            'id': novo_id,
-            'imagem': request.form.get('imagem', '').strip(),
-            'link': request.form.get('link', '').strip(),
-            'link_target': request.form.get('link_target', '_self').strip(),
-            'ordem': proxima_ordem,
-            'ativo': request.form.get('ativo') == 'on'
-        }
-        
-        slides.append(novo_slide)
-        data['slides'] = slides
-        
-        with open(SLIDES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Slide cadastrado com sucesso!', 'success')
-        return redirect(url_for('admin_slides'))
+        if use_database():
+            try:
+                with app.app_context():
+                    slide = Slide(
+                        link=link if link else None,
+                        link_target=link_target,
+                        ordem=int(ordem) if ordem.isdigit() else 1,
+                        ativo=ativo
+                    )
+                    
+                    if imagem_path_or_id.startswith('/admin/slides/imagem/'):
+                        try:
+                            slide.imagem_id = int(imagem_path_or_id.split('/')[-1])
+                        except ValueError:
+                            slide.imagem = imagem_path_or_id  # Fallback se ID inválido
+                    else:
+                        slide.imagem = imagem_path_or_id
+                    
+                    db.session.add(slide)
+                    db.session.commit()
+                    flash('Slide cadastrado com sucesso!', 'success')
+                    return redirect(url_for('admin_slides'))
+            except Exception as e:
+                print(f"Erro ao adicionar slide no banco: {e}")
+                flash('Erro ao adicionar slide. Tente novamente.', 'error')
+                return redirect(url_for('add_slide'))
+        else:
+            # Fallback para JSON
+            init_slides_file()
+            with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            slides = data.get('slides', [])
+            novo_id = max([s.get('id', 0) for s in slides], default=0) + 1
+            proxima_ordem = max([s.get('ordem', 0) for s in slides], default=0) + 1
+            
+            novo_slide = {
+                'id': novo_id,
+                'imagem': imagem_path_or_id,
+                'link': link,
+                'link_target': link_target,
+                'ordem': proxima_ordem,
+                'ativo': ativo
+            }
+            
+            slides.append(novo_slide)
+            data['slides'] = slides
+            
+            with open(SLIDES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Slide cadastrado com sucesso!', 'success')
+            return redirect(url_for('admin_slides'))
     
     return render_template('admin/add_slide.html')
 
@@ -2908,8 +2980,60 @@ def add_slide():
 @login_required
 def edit_slide(slide_id):
     """Edita um slide existente"""
-    init_slides_file()
+    if use_database():
+        try:
+            with app.app_context():
+                slide = Slide.query.get(slide_id)
+                if not slide:
+                    flash('Slide não encontrado!', 'error')
+                    return redirect(url_for('admin_slides'))
+                
+                if request.method == 'POST':
+                    slide.link = request.form.get('link', '').strip() or None
+                    slide.link_target = request.form.get('link_target', '_self').strip()
+                    slide.ordem = int(request.form.get('ordem', '1')) if request.form.get('ordem', '1').isdigit() else 1
+                    slide.ativo = request.form.get('ativo') == 'on'
+                    
+                    imagem_nova = request.form.get('imagem', '').strip()
+                    if imagem_nova:
+                        if imagem_nova.startswith('/admin/slides/imagem/'):
+                            try:
+                                slide.imagem_id = int(imagem_nova.split('/')[-1])
+                                slide.imagem = None  # Limpar caminho se usar ID
+                            except ValueError:
+                                slide.imagem_id = None
+                                slide.imagem = imagem_nova
+                        else:
+                            slide.imagem_id = None  # Reset se não for imagem do banco
+                            slide.imagem = imagem_nova
+                    
+                    db.session.commit()
+                    flash('Slide atualizado com sucesso!', 'success')
+                    return redirect(url_for('admin_slides'))
+                
+                # Converter para formato compatível com template
+                if slide.imagem_id:
+                    imagem_url = f'/admin/slides/imagem/{slide.imagem_id}'
+                elif slide.imagem:
+                    imagem_url = slide.imagem
+                else:
+                    imagem_url = ''
+                
+                slide_dict = {
+                    'id': slide.id,
+                    'imagem': imagem_url,
+                    'link': slide.link or '',
+                    'link_target': slide.link_target or '_self',
+                    'ordem': slide.ordem,
+                    'ativo': slide.ativo
+                }
+                return render_template('admin/edit_slide.html', slide=slide_dict)
+        except Exception as e:
+            print(f"Erro ao editar slide no banco: {e}")
+            flash('Erro ao editar slide. Usando arquivos JSON.', 'warning')
     
+    # Fallback para JSON
+    init_slides_file()
     with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -2939,18 +3063,32 @@ def edit_slide(slide_id):
 @login_required
 def delete_slide(slide_id):
     """Exclui um slide"""
-    init_slides_file()
+    if use_database():
+        try:
+            with app.app_context():
+                slide = Slide.query.get(slide_id)
+                if slide:
+                    db.session.delete(slide)
+                    db.session.commit()
+                    flash('Slide excluído com sucesso!', 'success')
+                else:
+                    flash('Slide não encontrado!', 'error')
+        except Exception as e:
+            print(f"Erro ao excluir slide do banco: {e}")
+            flash('Erro ao excluir slide. Tente novamente.', 'error')
+    else:
+        init_slides_file()
+        with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        slides = data.get('slides', [])
+        data['slides'] = [s for s in slides if s.get('id') != slide_id]
+        
+        with open(SLIDES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Slide excluído com sucesso!', 'success')
     
-    with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    slides = data.get('slides', [])
-    data['slides'] = [s for s in slides if s.get('id') != slide_id]
-    
-    with open(SLIDES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    flash('Slide excluído com sucesso!', 'success')
     return redirect(url_for('admin_slides'))
 
 # ==================== FOOTER MANAGEMENT ====================
@@ -3863,7 +4001,7 @@ def upload_imagem_blog():
 @app.route('/admin/slides/upload-imagem', methods=['POST'])
 @login_required
 def upload_imagem_slide():
-    """Upload de imagem para slides"""
+    """Upload de imagem para slides - salva no banco de dados ou sistema de arquivos"""
     if 'imagem' not in request.files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
     
@@ -3881,16 +4019,66 @@ def upload_imagem_slide():
     if file_size > MAX_FILE_SIZE:
         return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
     
+    file_data = file.read()
+    imagem_tipo = file.mimetype
+    
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem(
+                    nome=secure_filename(file.filename),
+                    dados=file_data,
+                    tipo_mime=imagem_tipo,
+                    tamanho=file_size,
+                    referencia=f'slide_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+                )
+                db.session.add(imagem)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True, 
+                    'path': f'/admin/slides/imagem/{imagem.id}',
+                    'image_id': imagem.id
+                })
+        except Exception as e:
+            print(f"Erro ao salvar imagem de slide no banco: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback: salvar no sistema de arquivos (para desenvolvimento local)
     filename = secure_filename(file.filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     name, ext = os.path.splitext(filename)
     filename = f"slide_{timestamp}{ext}"
     
-    filepath = os.path.join(SLIDES_IMG_DIR, filename)
-    file.save(filepath)
+    if os.path.exists(SLIDES_IMG_DIR):
+        filepath = os.path.join(SLIDES_IMG_DIR, filename)
+        file.seek(0)
+        file.save(filepath)
+        relative_path = f'img/slides/{filename}'
+    else:
+        relative_path = f'img/placeholder.png'
     
-    relative_path = f'img/slides/{filename}'
     return jsonify({'success': True, 'path': relative_path})
+
+@app.route('/admin/slides/imagem/<int:image_id>')
+def servir_imagem_slide(image_id):
+    """Rota para servir imagens de slides do banco de dados"""
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem.query.get(image_id)
+                if imagem and imagem.dados:
+                    return Response(
+                        imagem.dados,
+                        mimetype=imagem.tipo_mime,
+                        headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar imagem de slide: {e}")
+    
+    # Fallback: retornar placeholder
+    return redirect(url_for('static', filename='img/placeholder.png'))
 
 @app.route('/admin/marcas/upload-imagem', methods=['POST'])
 @login_required

@@ -12,10 +12,18 @@
             <div class="slide {% if loop.first %}active{% endif %}">
                 {% if slide.link %}
                 <a href="{{ slide.link }}" target="{{ slide.link_target or '_self' }}" class="slide-link">
+                    {% if slide.imagem and slide.imagem.startswith('/admin/slides/imagem/') %}
+                    <div class="slide-image" data-bg-image="{{ slide.imagem }}"></div>
+                    {% else %}
                     <div class="slide-image" data-bg-image="{{ url_for('static', filename=slide.imagem) }}"></div>
+                    {% endif %}
                 </a>
                 {% else %}
-                <div class="slide-image" data-bg-image="{{ url_for('static', filename=slide.imagem) }}"></div>
+                    {% if slide.imagem and slide.imagem.startswith('/admin/slides/imagem/') %}
+                    <div class="slide-image" data-bg-image="{{ slide.imagem }}"></div>
+                    {% else %}
+                    <div class="slide-image" data-bg-image="{{ url_for('static', filename=slide.imagem) }}"></div>
+                    {% endif %}
                 {% endif %}
             </div>
             {% endfor %}

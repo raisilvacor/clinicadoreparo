@@ -7,6 +7,14 @@
       "ativo": true,
       "link": "",
       "link_target": "_self"
+    },
+    {
+      "id": 2,
+      "imagem": "img/slides/slide_20251127_151543.jpg",
+      "link": "",
+      "link_target": "_self",
+      "ordem": 2,
+      "ativo": true
     }
   ]
 }

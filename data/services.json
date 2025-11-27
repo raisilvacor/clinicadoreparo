@@ -5,7 +5,7 @@
       "nome": "Reparo de Celulares",
       "descricao": "Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.",
       "data": "2024-01-01 00:00:00",
-      "imagem": "",
+      "imagem": "img/servicos/servico_20251127_151602.png",
       "ordem": 1,
       "ativo": true
     },
@@ -14,7 +14,7 @@
       "nome": "Eletrodomésticos",
       "descricao": "Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.",
       "data": "2024-01-01 00:00:00",
-      "imagem": "",
+      "imagem": "img/servicos/servico_20251127_151611.png",
       "ordem": 2,
       "ativo": true
     },
@@ -23,7 +23,7 @@
       "nome": "Computadores e Notebook",
       "descricao": "Reparo e manutenção de computadores, notebooks e componentes.",
       "data": "2024-01-01 00:00:00",
-      "imagem": "",
+      "imagem": "img/servicos/servico_20251127_151622.png",
       "ordem": 3,
       "ativo": true
     }
