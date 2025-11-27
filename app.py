@@ -23,12 +23,29 @@ if database_url:
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         
+        # Corrigir URL do Render se necessário (adicionar porta padrão se faltar)
+        if 'postgresql://' in database_url and '@' in database_url:
+            # Verificar se tem porta
+            parts = database_url.split('@')
+            if len(parts) == 2:
+                host_part = parts[1]
+                # Se não tem porta e não tem / após o host, adicionar porta padrão
+                if ':' not in host_part.split('/')[0] and not host_part.startswith('localhost'):
+                    # Render usa porta 5432 por padrão
+                    host_with_port = host_part.split('/')[0] + ':5432'
+                    if '/' in host_part:
+                        database_url = parts[0] + '@' + host_with_port + '/' + '/'.join(host_part.split('/')[1:])
+                    else:
+                        database_url = parts[0] + '@' + host_with_port
+        
         # Adicionar parâmetros SSL se necessário (para Render)
-        if 'render.com' in database_url and '?sslmode=' not in database_url:
+        if ('render.com' in database_url or 'dpg-' in database_url) and '?sslmode=' not in database_url:
             if '?' in database_url:
                 database_url += '&sslmode=require'
             else:
                 database_url += '?sslmode=require'
+        
+        print(f"DEBUG: URL do banco configurada: {database_url[:50]}...")
         
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -109,31 +126,35 @@ def use_database():
         print("DEBUG: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
     
-    print(f"DEBUG: DATABASE_URL encontrado: {database_url[:30]}...")  # Mostra apenas início por segurança
+    print(f"DEBUG: DATABASE_URL encontrado: {database_url[:50]}...")  # Mostra início para debug
     
     try:
         # Testar se consegue conectar
         with app.app_context():
             result = db.session.execute(db.text('SELECT 1'))
             result.fetchone()  # Forçar execução da query
-        print("DEBUG: Conexão com banco de dados bem-sucedida")
+        print("DEBUG: ✅ Conexão com banco de dados bem-sucedida!")
         return True
     except Exception as e:
         error_type = type(e).__name__
         error_msg = str(e)
-        print(f"DEBUG: Erro ao conectar ao banco de dados:")
+        print(f"DEBUG: ❌ Erro ao conectar ao banco de dados:")
         print(f"DEBUG:   Tipo: {error_type}")
-        print(f"DEBUG:   Mensagem: {error_msg}")
+        print(f"DEBUG:   Mensagem completa: {error_msg}")
         
         # Log mais detalhado para erros comuns
         if 'psycopg2' in error_type or 'psycopg' in error_msg.lower():
-            print("DEBUG:   Problema com driver psycopg2")
-        elif 'connection' in error_msg.lower() or 'connect' in error_msg.lower():
-            print("DEBUG:   Problema de conexão de rede")
+            print("DEBUG:   ⚠️ Problema com driver psycopg2")
+        elif 'connection' in error_msg.lower() or 'connect' in error_msg.lower() or 'timeout' in error_msg.lower():
+            print("DEBUG:   ⚠️ Problema de conexão de rede (verifique se o banco está ativo)")
         elif 'authentication' in error_msg.lower() or 'password' in error_msg.lower():
-            print("DEBUG:   Problema de autenticação")
-        elif 'database' in error_msg.lower() and 'does not exist' in error_msg.lower():
-            print("DEBUG:   Banco de dados não existe")
+            print("DEBUG:   ⚠️ Problema de autenticação (verifique usuário/senha)")
+        elif 'database' in error_msg.lower() and ('does not exist' in error_msg.lower() or 'não existe' in error_msg.lower()):
+            print("DEBUG:   ⚠️ Banco de dados não existe")
+        elif 'could not translate host name' in error_msg.lower() or 'name resolution' in error_msg.lower():
+            print("DEBUG:   ⚠️ Problema de resolução de host (verifique a URL)")
+        elif 'ssl' in error_msg.lower():
+            print("DEBUG:   ⚠️ Problema com SSL (tentando forçar SSL)")
         
         return False
 
@@ -835,7 +856,18 @@ def admin_migrar_dados():
         if not database_url:
             error_msg += ' (DATABASE_URL não encontrado nas variáveis de ambiente)'
         else:
-            error_msg += ' (DATABASE_URL encontrado, mas conexão falhou. Verifique os logs do Render.)'
+            # Tentar obter o erro específico
+            try:
+                with app.app_context():
+                    db.session.execute(db.text('SELECT 1'))
+            except Exception as e:
+                error_detail = str(e)
+                # Limitar tamanho da mensagem
+                if len(error_detail) > 150:
+                    error_detail = error_detail[:150] + '...'
+                error_msg += f' (Erro: {error_detail})'
+            else:
+                error_msg += ' (DATABASE_URL encontrado, mas conexão falhou. Verifique os logs do Render.)'
         flash(error_msg, 'error')
         return redirect(url_for('admin_migrar_dados'))
     
