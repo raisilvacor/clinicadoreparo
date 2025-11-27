@@ -67,13 +67,18 @@ if database_url:
             with app.app_context():
                 # Forçar criação do engine
                 db.create_all()
-                # Testar conexão
-                with db.engine.connect() as conn:
-                    conn.execute(db.text('SELECT 1'))
-                print("DEBUG: ✅ Banco de dados configurado e conectado com sucesso!")
+                # Testar conexão (mas não falhar se der erro temporário)
+                try:
+                    with db.engine.connect() as conn:
+                        conn.execute(db.text('SELECT 1'))
+                    print("DEBUG: ✅ Banco de dados configurado e conectado com sucesso!")
+                except Exception as conn_error:
+                    print(f"DEBUG: ⚠️ Aviso ao testar conexão: {type(conn_error).__name__}: {str(conn_error)}")
+                    print("DEBUG: O banco está configurado, mas a conexão pode estar temporariamente indisponível.")
+                    print("DEBUG: O sistema tentará usar o banco quando necessário.")
         except Exception as e:
-            print(f"DEBUG: ⚠️ Erro ao conectar ao banco de dados: {type(e).__name__}: {str(e)}")
-            print("O sistema continuará funcionando com arquivos JSON.")
+            print(f"DEBUG: ⚠️ Erro ao inicializar banco de dados: {type(e).__name__}: {str(e)}")
+            print("DEBUG: O sistema tentará usar o banco quando necessário.")
     except Exception as e:
         print(f"DEBUG: Erro ao configurar banco de dados: {type(e).__name__}: {str(e)}")
         print("O sistema continuará funcionando com arquivos JSON.")
@@ -120,35 +125,33 @@ def use_database():
         print("DEBUG use_database: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
     
-    # Verificar se o banco foi configurado
-    if not app.config.get('SQLALCHEMY_DATABASE_URI'):
-        print("DEBUG use_database: SQLALCHEMY_DATABASE_URI não configurado no app")
-        return False
+    # Se DATABASE_URL existe, assumir que o banco está configurado
+    # Não fazer verificação de conexão toda vez (pode ser lento e falhar temporariamente)
+    if app.config.get('SQLALCHEMY_DATABASE_URI'):
+        # Verificar se db foi inicializado
+        try:
+            with app.app_context():
+                # Se o engine não existe, tentar criar
+                if not hasattr(db, 'engine') or db.engine is None:
+                    try:
+                        # Forçar criação do engine
+                        db.get_engine()
+                    except Exception as e:
+                        print(f"DEBUG use_database: Erro ao criar engine: {e}")
+                        # Mesmo assim, retornar True se DATABASE_URL existe
+                        # O erro pode ser temporário
+                        return True
+            return True
+        except Exception as e:
+            print(f"DEBUG use_database: Erro ao verificar engine: {e}")
+            # Se DATABASE_URL existe, assumir que está configurado
+            # Mesmo que a verificação falhe, pode ser um problema temporário
+            return True
     
-    # Verificar se o engine está disponível
-    try:
-        with app.app_context():
-            # Garantir que db está inicializado
-            if not hasattr(db, 'engine') or db.engine is None:
-                print("DEBUG use_database: Engine não está disponível, tentando inicializar...")
-                # Tentar forçar inicialização
-                try:
-                    db.engine = db.get_engine()
-                except:
-                    print("DEBUG use_database: Erro ao inicializar engine")
-                    return False
-            
-            # Testar conexão rapidamente
-            with db.engine.connect() as conn:
-                result = conn.execute(db.text('SELECT 1'))
-                result.fetchone()
-        print("DEBUG use_database: ✅ Conexão com banco de dados OK")
-        return True
-    except Exception as e:
-        print(f"DEBUG use_database: ❌ Erro ao conectar: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
+    # Se chegou aqui, DATABASE_URL existe mas não foi configurado no app
+    # Isso não deveria acontecer, mas retornar False para segurança
+    print("DEBUG use_database: DATABASE_URL existe mas não foi configurado no app")
+    return False
 
 def get_proximo_numero_ordem():
     """Gera um número aleatório de 6 dígitos sem ser sequencial"""
