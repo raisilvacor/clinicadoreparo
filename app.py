@@ -475,44 +475,67 @@ init_slides_file()
 
 @app.route('/')
 def index():
-    init_slides_file()
-    
-    with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
-        slides_data = json.load(f)
-    
-    # Filtrar apenas slides ativos e ordenar por ordem
-    slides = [s for s in slides_data.get('slides', []) if s.get('ativo', True)]
-    slides = sorted(slides, key=lambda x: x.get('ordem', 999))
+    # Carregar slides
+    if use_database():
+        slides = Slide.query.filter_by(ativo=True).order_by(Slide.ordem).all()
+        slides = [{'id': s.id, 'imagem': s.imagem, 'link': s.link, 'link_target': s.link_target or '_self', 'ordem': s.ordem, 'ativo': s.ativo} for s in slides]
+    else:
+        init_slides_file()
+        with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+            slides_data = json.load(f)
+        slides = [s for s in slides_data.get('slides', []) if s.get('ativo', True)]
+        slides = sorted(slides, key=lambda x: x.get('ordem', 999))
     
     # Carregar dados do rodapé
-    init_footer_file()
-    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-        footer_data = json.load(f)
+    if use_database():
+        footer_obj = Footer.query.first()
+        if footer_obj:
+            footer_data = {
+                'descricao': footer_obj.descricao,
+                'redes_sociais': footer_obj.redes_sociais or {},
+                'contato': footer_obj.contato or {},
+                'copyright': footer_obj.copyright,
+                'whatsapp_float': footer_obj.whatsapp_float
+            }
+        else:
+            footer_data = None
+    else:
+        init_footer_file()
+        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+            footer_data = json.load(f)
     
     # Carregar marcas
-    init_marcas_file()
-    with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
-        marcas_data = json.load(f)
-    
-    # Filtrar apenas marcas ativas e ordenar por ordem
-    marcas = [m for m in marcas_data.get('marcas', []) if m.get('ativo', True)]
-    marcas = sorted(marcas, key=lambda x: x.get('ordem', 999))
+    if use_database():
+        marcas = Marca.query.filter_by(ativo=True).order_by(Marca.ordem).all()
+        marcas = [{'id': m.id, 'nome': m.nome, 'imagem': m.imagem, 'ordem': m.ordem, 'ativo': m.ativo} for m in marcas]
+    else:
+        init_marcas_file()
+        with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+            marcas_data = json.load(f)
+        marcas = [m for m in marcas_data.get('marcas', []) if m.get('ativo', True)]
+        marcas = sorted(marcas, key=lambda x: x.get('ordem', 999))
     
     # Carregar milestones
-    init_milestones_file()
-    with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
-        milestones_data = json.load(f)
-    
-    # Filtrar apenas milestones ativos e ordenar por ordem
-    milestones = [m for m in milestones_data.get('milestones', []) if m.get('ativo', True)]
-    milestones = sorted(milestones, key=lambda x: x.get('ordem', 999))
+    if use_database():
+        milestones = Milestone.query.filter_by(ativo=True).order_by(Milestone.ordem).all()
+        milestones = [{'id': m.id, 'titulo': m.titulo, 'imagem': m.imagem, 'ordem': m.ordem, 'ativo': m.ativo} for m in milestones]
+    else:
+        init_milestones_file()
+        with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+            milestones_data = json.load(f)
+        milestones = [m for m in milestones_data.get('milestones', []) if m.get('ativo', True)]
+        milestones = sorted(milestones, key=lambda x: x.get('ordem', 999))
     
     # Carregar serviços
-    init_data_file()
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        services_data = json.load(f)
-    servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
-    servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
+    if use_database():
+        servicos = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
+        servicos = [{'id': s.id, 'nome': s.nome, 'descricao': s.descricao, 'imagem': s.imagem, 'ordem': s.ordem, 'ativo': s.ativo} for s in servicos]
+    else:
+        init_data_file()
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            services_data = json.load(f)
+        servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
+        servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
     
     return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos)
 
