@@ -125,33 +125,37 @@ def use_database():
         print("DEBUG use_database: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
     
-    # Se DATABASE_URL existe, assumir que o banco está configurado
-    # Não fazer verificação de conexão toda vez (pode ser lento e falhar temporariamente)
-    if app.config.get('SQLALCHEMY_DATABASE_URI'):
-        # Verificar se db foi inicializado
-        try:
-            with app.app_context():
-                # Se o engine não existe, tentar criar
-                if not hasattr(db, 'engine') or db.engine is None:
-                    try:
-                        # Forçar criação do engine
-                        db.get_engine()
-                    except Exception as e:
-                        print(f"DEBUG use_database: Erro ao criar engine: {e}")
-                        # Mesmo assim, retornar True se DATABASE_URL existe
-                        # O erro pode ser temporário
-                        return True
-            return True
-        except Exception as e:
-            print(f"DEBUG use_database: Erro ao verificar engine: {e}")
-            # Se DATABASE_URL existe, assumir que está configurado
-            # Mesmo que a verificação falhe, pode ser um problema temporário
-            return True
+    # Verificar se o banco foi configurado no app
+    if not app.config.get('SQLALCHEMY_DATABASE_URI'):
+        print("DEBUG use_database: SQLALCHEMY_DATABASE_URI não configurado no app")
+        return False
     
-    # Se chegou aqui, DATABASE_URL existe mas não foi configurado no app
-    # Isso não deveria acontecer, mas retornar False para segurança
-    print("DEBUG use_database: DATABASE_URL existe mas não foi configurado no app")
-    return False
+    # Verificar se db foi inicializado e o engine está disponível
+    try:
+        with app.app_context():
+            # Se o engine não existe, tentar criar explicitamente
+            if not hasattr(db, 'engine') or db.engine is None:
+                try:
+                    # Forçar criação do engine e atribuir explicitamente
+                    db.engine = db.get_engine()
+                    if db.engine is None:
+                        print("DEBUG use_database: Engine não pôde ser criado")
+                        return False
+                except Exception as e:
+                    print(f"DEBUG use_database: Erro ao criar engine: {type(e).__name__}: {str(e)}")
+                    return False
+            
+            # Verificar se o engine está realmente funcional com um teste simples
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(db.text('SELECT 1'))
+                return True
+            except Exception as e:
+                print(f"DEBUG use_database: Erro ao testar conexão: {type(e).__name__}: {str(e)}")
+                return False
+    except Exception as e:
+        print(f"DEBUG use_database: Erro ao verificar engine: {type(e).__name__}: {str(e)}")
+        return False
 
 def get_proximo_numero_ordem():
     """Gera um número aleatório de 6 dígitos sem ser sequencial"""
@@ -1001,29 +1005,30 @@ def upload_servico_imagem():
     # Se usar banco de dados, salvar no banco
     if use_database():
         try:
-            with app.app_context():
-                # Criar registro de imagem no banco
-                imagem = Imagem(
-                    nome=file.filename,
-                    dados=file_data,
-                    tipo_mime=imagem_tipo,
-                    tamanho=file_size,
-                    referencia=f'servico_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-                )
-                db.session.add(imagem)
-                db.session.commit()
-                
-                # Retornar ID da imagem para usar no serviço
-                return jsonify({
-                    'success': True, 
-                    'path': f'/admin/servicos/imagem/{imagem.id}',
-                    'image_id': imagem.id
-                })
+            # Não usar app.app_context() aqui - já estamos em uma rota Flask
+            # Criar registro de imagem no banco
+            imagem = Imagem(
+                nome=secure_filename(file.filename),
+                dados=file_data,
+                tipo_mime=imagem_tipo,
+                tamanho=file_size,
+                referencia=f'servico_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            )
+            db.session.add(imagem)
+            db.session.commit()
+            
+            # Retornar ID da imagem para usar no serviço
+            return jsonify({
+                'success': True, 
+                'path': f'/admin/servicos/imagem/{imagem.id}',
+                'image_id': imagem.id
+            })
         except Exception as e:
             print(f"Erro ao salvar imagem no banco: {e}")
             import traceback
             traceback.print_exc()
-            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
     
     # Se chegou aqui, o banco não está disponível
     # Em produção (Render), isso NÃO deve acontecer - retornar erro
@@ -1034,17 +1039,17 @@ def servir_imagem_servico(image_id):
     """Rota para servir imagens do banco de dados"""
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem.query.get(image_id)
-                if imagem and imagem.dados:
-                    return Response(
-                        imagem.dados,
-                        mimetype=imagem.tipo_mime or 'image/jpeg',
-                        headers={
-                            'Content-Disposition': f'inline; filename={imagem.nome or "imagem.jpg"}',
-                            'Cache-Control': 'public, max-age=31536000'  # Cache por 1 ano
-                        }
-                    )
+            # Não usar app.app_context() aqui - já estamos em uma rota Flask
+            imagem = Imagem.query.get(image_id)
+            if imagem and imagem.dados:
+                return Response(
+                    imagem.dados,
+                    mimetype=imagem.tipo_mime or 'image/jpeg',
+                    headers={
+                        'Content-Disposition': f'inline; filename={imagem.nome or "imagem.jpg"}',
+                        'Cache-Control': 'public, max-age=31536000'  # Cache por 1 ano
+                    }
+                )
         except Exception as e:
             print(f"Erro ao buscar imagem: {e}")
             import traceback
@@ -4132,28 +4137,29 @@ def upload_imagem_blog():
     
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem(
-                    nome=secure_filename(file.filename),
-                    dados=file_data,
-                    tipo_mime=imagem_tipo,
-                    tamanho=file_size,
-                    referencia=f'blog_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-                )
-                db.session.add(imagem)
-                db.session.commit()
-                
-                return jsonify({
-                    'success': True, 
-                    'path': f'/admin/blog/imagem/{imagem.id}',
-                    'url': f'/admin/blog/imagem/{imagem.id}',
-                    'image_id': imagem.id
-                })
+            # Não usar app.app_context() - já estamos em uma rota Flask
+            imagem = Imagem(
+                nome=secure_filename(file.filename),
+                dados=file_data,
+                tipo_mime=imagem_tipo,
+                tamanho=file_size,
+                referencia=f'blog_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            )
+            db.session.add(imagem)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'path': f'/admin/blog/imagem/{imagem.id}',
+                'url': f'/admin/blog/imagem/{imagem.id}',
+                'image_id': imagem.id
+            })
         except Exception as e:
             print(f"Erro ao salvar imagem de blog no banco: {e}")
             import traceback
             traceback.print_exc()
-            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
     
     # Se chegou aqui, o banco não está disponível
     return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
@@ -4163,14 +4169,14 @@ def servir_imagem_blog(image_id):
     """Rota para servir imagens de blog do banco de dados"""
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem.query.get(image_id)
-                if imagem and imagem.dados:
-                    return Response(
-                        imagem.dados,
-                        mimetype=imagem.tipo_mime,
-                        headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
-                    )
+            # Não usar app.app_context() - já estamos em uma rota Flask
+            imagem = Imagem.query.get(image_id)
+            if imagem and imagem.dados:
+                return Response(
+                    imagem.dados,
+                    mimetype=imagem.tipo_mime,
+                    headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                )
         except Exception as e:
             print(f"Erro ao buscar imagem de blog: {e}")
     
@@ -4202,27 +4208,28 @@ def upload_imagem_slide():
     
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem(
-                    nome=secure_filename(file.filename),
-                    dados=file_data,
-                    tipo_mime=imagem_tipo,
-                    tamanho=file_size,
-                    referencia=f'slide_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-                )
-                db.session.add(imagem)
-                db.session.commit()
-                
-                return jsonify({
-                    'success': True, 
-                    'path': f'/admin/slides/imagem/{imagem.id}',
-                    'image_id': imagem.id
-                })
+            # Não usar app.app_context() - já estamos em uma rota Flask
+            imagem = Imagem(
+                nome=secure_filename(file.filename),
+                dados=file_data,
+                tipo_mime=imagem_tipo,
+                tamanho=file_size,
+                referencia=f'slide_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            )
+            db.session.add(imagem)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'path': f'/admin/slides/imagem/{imagem.id}',
+                'image_id': imagem.id
+            })
         except Exception as e:
             print(f"Erro ao salvar imagem de slide no banco: {e}")
             import traceback
             traceback.print_exc()
-            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
     
     # Se chegou aqui, o banco não está disponível
     return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
@@ -4232,14 +4239,14 @@ def servir_imagem_slide(image_id):
     """Rota para servir imagens de slides do banco de dados"""
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem.query.get(image_id)
-                if imagem and imagem.dados:
-                    return Response(
-                        imagem.dados,
-                        mimetype=imagem.tipo_mime,
-                        headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
-                    )
+            # Não usar app.app_context() - já estamos em uma rota Flask
+            imagem = Imagem.query.get(image_id)
+            if imagem and imagem.dados:
+                return Response(
+                    imagem.dados,
+                    mimetype=imagem.tipo_mime,
+                    headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                )
         except Exception as e:
             print(f"Erro ao buscar imagem de slide: {e}")
     
@@ -4271,27 +4278,28 @@ def upload_imagem_marca():
     
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem(
-                    nome=secure_filename(file.filename),
-                    dados=file_data,
-                    tipo_mime=imagem_tipo,
-                    tamanho=file_size,
-                    referencia=f'marca_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-                )
-                db.session.add(imagem)
-                db.session.commit()
-                
-                return jsonify({
-                    'success': True, 
-                    'path': f'/admin/marcas/imagem/{imagem.id}',
-                    'image_id': imagem.id
-                })
+            # Não usar app.app_context() - já estamos em uma rota Flask
+            imagem = Imagem(
+                nome=secure_filename(file.filename),
+                dados=file_data,
+                tipo_mime=imagem_tipo,
+                tamanho=file_size,
+                referencia=f'marca_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            )
+            db.session.add(imagem)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'path': f'/admin/marcas/imagem/{imagem.id}',
+                'image_id': imagem.id
+            })
         except Exception as e:
             print(f"Erro ao salvar imagem de marca no banco: {e}")
             import traceback
             traceback.print_exc()
-            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
     
     # Se chegou aqui, o banco não está disponível
     return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
@@ -4301,14 +4309,14 @@ def servir_imagem_marca(image_id):
     """Rota para servir imagens de marcas do banco de dados"""
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem.query.get(image_id)
-                if imagem and imagem.dados:
-                    return Response(
-                        imagem.dados,
-                        mimetype=imagem.tipo_mime,
-                        headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
-                    )
+            # Não usar app.app_context() - já estamos em uma rota Flask
+            imagem = Imagem.query.get(image_id)
+            if imagem and imagem.dados:
+                return Response(
+                    imagem.dados,
+                    mimetype=imagem.tipo_mime,
+                    headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                )
         except Exception as e:
             print(f"Erro ao buscar imagem de marca: {e}")
     
@@ -4339,27 +4347,28 @@ def upload_imagem_milestone():
     
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem(
-                    nome=secure_filename(file.filename),
-                    dados=file_data,
-                    tipo_mime=imagem_tipo,
-                    tamanho=file_size,
-                    referencia=f'milestone_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-                )
-                db.session.add(imagem)
-                db.session.commit()
-                
-                return jsonify({
-                    'success': True, 
-                    'path': f'/admin/milestones/imagem/{imagem.id}',
-                    'image_id': imagem.id
-                })
+            # Não usar app.app_context() - já estamos em uma rota Flask
+            imagem = Imagem(
+                nome=secure_filename(file.filename),
+                dados=file_data,
+                tipo_mime=imagem_tipo,
+                tamanho=file_size,
+                referencia=f'milestone_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            )
+            db.session.add(imagem)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'path': f'/admin/milestones/imagem/{imagem.id}',
+                'image_id': imagem.id
+            })
         except Exception as e:
             print(f"Erro ao salvar imagem de milestone no banco: {e}")
             import traceback
             traceback.print_exc()
-            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
     
     # Se chegou aqui, o banco não está disponível
     return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
@@ -4369,14 +4378,14 @@ def servir_imagem_milestone(image_id):
     """Rota para servir imagens de milestones do banco de dados"""
     if use_database():
         try:
-            with app.app_context():
-                imagem = Imagem.query.get(image_id)
-                if imagem and imagem.dados:
-                    return Response(
-                        imagem.dados,
-                        mimetype=imagem.tipo_mime,
-                        headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
-                    )
+            # Não usar app.app_context() - já estamos em uma rota Flask
+            imagem = Imagem.query.get(image_id)
+            if imagem and imagem.dados:
+                return Response(
+                    imagem.dados,
+                    mimetype=imagem.tipo_mime,
+                    headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                )
         except Exception as e:
             print(f"Erro ao buscar imagem de milestone: {e}")
     
