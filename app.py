@@ -47,6 +47,7 @@ if database_url:
         
         print(f"DEBUG: URL do banco configurada: {database_url[:50]}...")
         
+        # IMPORTANTE: Configurar SQLALCHEMY_DATABASE_URI ANTES de db.init_app()
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         # Configurar SSL para conexões externas (Render)
@@ -60,18 +61,34 @@ if database_url:
         }
         
         # Inicializar o banco de dados
+        # IMPORTANTE: db.init_app() deve ser chamado DEPOIS de configurar SQLALCHEMY_DATABASE_URI
         db.init_app(app)
+        
+        # Garantir que o db está vinculado ao app
+        # Isso força a criação do engine
+        with app.app_context():
+            try:
+                # Forçar criação do engine
+                _ = db.get_engine()
+                print("DEBUG: Engine criado com sucesso")
+            except Exception as e:
+                print(f"DEBUG: Aviso ao criar engine: {e}")
         
         # Criar tabelas se não existirem (apenas se conseguir conectar)
         try:
             with app.app_context():
-                # Forçar criação do engine
+                # Forçar criação do engine e tabelas
                 db.create_all()
                 # Testar conexão (mas não falhar se der erro temporário)
                 try:
-                    with db.engine.connect() as conn:
-                        conn.execute(db.text('SELECT 1'))
-                    print("DEBUG: ✅ Banco de dados configurado e conectado com sucesso!")
+                    # Garantir que o engine está criado
+                    engine = db.get_engine()
+                    if engine:
+                        with engine.connect() as conn:
+                            conn.execute(db.text('SELECT 1'))
+                        print("DEBUG: ✅ Banco de dados configurado e conectado com sucesso!")
+                    else:
+                        print("DEBUG: ⚠️ Engine não pôde ser criado")
                 except Exception as conn_error:
                     print(f"DEBUG: ⚠️ Aviso ao testar conexão: {type(conn_error).__name__}: {str(conn_error)}")
                     print("DEBUG: O banco está configurado, mas a conexão pode estar temporariamente indisponível.")
@@ -982,7 +999,7 @@ def upload_servico_imagem():
     # Se usar banco de dados, salvar no banco
     if use_database():
         try:
-            # Não usar app.app_context() aqui - já estamos em uma rota Flask
+            # Em rotas Flask, já estamos em um contexto de aplicação
             # Criar registro de imagem no banco
             imagem = Imagem(
                 nome=secure_filename(file.filename),
@@ -991,6 +1008,7 @@ def upload_servico_imagem():
                 tamanho=file_size,
                 referencia=f'servico_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
             )
+            # Usar db.session diretamente - Flask-SQLAlchemy gerencia o contexto
             db.session.add(imagem)
             db.session.commit()
             
@@ -1004,8 +1022,18 @@ def upload_servico_imagem():
             print(f"Erro ao salvar imagem no banco: {e}")
             import traceback
             traceback.print_exc()
-            db.session.rollback()
-            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
+            try:
+                db.session.rollback()
+            except:
+                pass
+            # Retornar erro mais detalhado para debug
+            error_msg = str(e)
+            if 'Bind key' in error_msg:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Erro de configuração do banco. Verifique se DATABASE_URL está configurado corretamente no Render.'
+                }), 500
+            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {error_msg}'}), 500
     
     # Se chegou aqui, o banco não está disponível
     # Em produção (Render), isso NÃO deve acontecer - retornar erro
@@ -1055,21 +1083,28 @@ def add_servico_admin():
         
         if use_database():
             try:
-                with app.app_context():
-                    servico = Servico(
-                        nome=nome,
-                        descricao=descricao,
-                        imagem=imagem,
-                        imagem_id=imagem_id,
-                        ordem=int(ordem) if ordem.isdigit() else 999,
-                        ativo=ativo,
-                        data=datetime.now()
-                    )
-                    db.session.add(servico)
-                    db.session.commit()
-                    flash('Serviço adicionado com sucesso!', 'success')
-                    return redirect(url_for('admin_servicos'))
+                # Em rotas Flask, já estamos em um contexto de aplicação
+                servico = Servico(
+                    nome=nome,
+                    descricao=descricao,
+                    imagem=imagem,
+                    imagem_id=imagem_id,
+                    ordem=int(ordem) if ordem.isdigit() else 999,
+                    ativo=ativo,
+                    data=datetime.now()
+                )
+                db.session.add(servico)
+                db.session.commit()
+                flash('Serviço adicionado com sucesso!', 'success')
+                return redirect(url_for('admin_servicos'))
             except Exception as e:
+                print(f"Erro ao adicionar serviço no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                try:
+                    db.session.rollback()
+                except:
+                    pass
                 flash(f'Erro ao adicionar serviço: {str(e)}', 'error')
                 return redirect(url_for('add_servico_admin'))
         else:

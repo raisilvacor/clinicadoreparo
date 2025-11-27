@@ -1,0 +1,20 @@
+========================================
+COMANDOS DE DEPLOY (SEMPRE DISPONÍVEIS)
+========================================
+
+COMANDO ÚNICO (copie e cole):
+git add -A && git commit -m "Deploy automatico" && git push origin main
+
+OU PASSO A PASSO:
+git add -A
+git commit -m "Deploy automatico"
+git push origin main
+
+OU USE O SCRIPT:
+.\deploy.bat
+
+========================================
+O ASSISTENTE EXECUTARÁ O DEPLOY AUTOMATICAMENTE
+APÓS CADA ALTERAÇÃO SIGNIFICATIVA
+========================================
+
