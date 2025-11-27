@@ -2,9 +2,11 @@
   "slides": [
     {
       "id": 1,
-      "imagem": "img/milestone1.png",
+      "imagem": "img/slides/slide_20251127_122526.jpg",
       "ordem": 1,
-      "ativo": true
+      "ativo": true,
+      "link": "",
+      "link_target": "_self"
     },
     {
       "id": 2,
