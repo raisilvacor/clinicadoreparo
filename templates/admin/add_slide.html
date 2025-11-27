@@ -112,7 +112,12 @@ inputFile.addEventListener('change', function(e) {
             
             // Atualizar preview
             const img = document.createElement('img');
-            img.src = '/static/' + data.path;
+            // Usar o path diretamente se começar com /, senão adicionar /static/
+            if (data.path.startsWith('/')) {
+                img.src = data.path;
+            } else {
+                img.src = '/static/' + data.path;
+            }
             img.style.maxWidth = '100%';
             img.style.maxHeight = '100%';
             img.style.objectFit = 'contain';
@@ -132,7 +137,12 @@ inputImagem.addEventListener('input', function(e) {
     const caminho = e.target.value.trim();
     if (caminho) {
         const img = document.createElement('img');
-        img.src = '/static/' + caminho;
+        // Usar o path diretamente se começar com /, senão adicionar /static/
+        if (caminho.startsWith('/')) {
+            img.src = caminho;
+        } else {
+            img.src = '/static/' + caminho;
+        }
         img.style.maxWidth = '100%';
         img.style.maxHeight = '100%';
         img.style.objectFit = 'contain';

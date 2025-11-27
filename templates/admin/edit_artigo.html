@@ -350,7 +350,14 @@ inputFileDestaque.addEventListener('change', function(e) {
             
             // Atualizar preview
             const img = document.getElementById('preview_img_destaque');
-            img.src = data.url || '/static/' + data.path;
+            // Usar o path diretamente se começar com /, senão adicionar /static/
+            if (data.path && data.path.startsWith('/')) {
+                img.src = data.path;
+            } else if (data.url) {
+                img.src = data.url;
+            } else {
+                img.src = '/static/' + (data.path || '');
+            }
             previewDestaque.style.display = 'block';
         } else {
             uploadStatusDestaque.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> ' + (data.error || 'Erro ao enviar imagem') + '</span>';

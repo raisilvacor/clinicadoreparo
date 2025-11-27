@@ -130,7 +130,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 inputImagem.value = data.path;
                 uploadStatus.innerHTML = '<span style="color: green;"><i class="fas fa-check-circle"></i> Imagem enviada com sucesso!</span>';
-                previewImg.src = '/static/' + data.path;
+                // Usar o path diretamente se começar com /, senão adicionar /static/
+                if (data.path.startsWith('/')) {
+                    previewImg.src = data.path;
+                } else {
+                    previewImg.src = '/static/' + data.path;
+                }
                 previewImg.style.display = 'block';
             } else {
                 uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> ' + (data.error || 'Erro ao enviar imagem') + '</span>';
@@ -144,7 +149,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Preview quando digitar caminho manualmente
     inputImagem.addEventListener('change', function() {
         if (this.value) {
-            previewImg.src = '/static/' + this.value;
+            // Usar o path diretamente se começar com /, senão adicionar /static/
+            if (this.value.startsWith('/')) {
+                previewImg.src = this.value;
+            } else {
+                previewImg.src = '/static/' + this.value;
+            }
             previewImg.style.display = 'block';
         } else {
             previewImg.style.display = 'none';
