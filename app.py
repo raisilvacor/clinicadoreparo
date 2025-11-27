@@ -1596,11 +1596,33 @@ def add_ordem_servico():
         # Salvar no banco de dados se disponível
         if use_database():
             try:
-                # Verificar se cliente existe
+                # Verificar se cliente existe no banco
                 cliente_db = Cliente.query.get(cliente_id)
+                
+                # Se não encontrou no banco, tentar buscar no JSON e criar no banco
                 if not cliente_db:
-                    flash('Cliente não encontrado!', 'error')
-                    return redirect(url_for('add_ordem_servico'))
+                    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+                        data_json = json.load(f)
+                    
+                    cliente_json = next((c for c in data_json['clients'] if c.get('id') == cliente_id), None)
+                    if cliente_json:
+                        # Criar cliente no banco a partir do JSON
+                        cliente_db = Cliente(
+                            id=cliente_json['id'],
+                            nome=cliente_json.get('nome', ''),
+                            email=cliente_json.get('email', ''),
+                            telefone=cliente_json.get('telefone', ''),
+                            cpf=cliente_json.get('cpf', ''),
+                            endereco=cliente_json.get('endereco', ''),
+                            username=cliente_json.get('username', ''),
+                            password=cliente_json.get('password', ''),
+                            data_cadastro=datetime.strptime(cliente_json.get('data_cadastro', datetime.now().strftime('%Y-%m-%d %H:%M:%S')), '%Y-%m-%d %H:%M:%S') if cliente_json.get('data_cadastro') else datetime.now()
+                        )
+                        db.session.add(cliente_db)
+                        db.session.commit()
+                    else:
+                        flash('Cliente não encontrado!', 'error')
+                        return redirect(url_for('add_ordem_servico'))
                 
                 # Criar ordem no banco
                 nova_ordem_db = OrdemServico(
