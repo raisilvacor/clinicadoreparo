@@ -1553,14 +1553,6 @@ def add_ordem_servico():
                 except:
                     pass
         
-        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
-        if not cliente:
-            flash('Cliente não encontrado!', 'error')
-            return redirect(url_for('add_ordem_servico'))
-        
         # Calcular total
         try:
             custo_mao_obra_valor = float(custo_mao_obra) if custo_mao_obra else 0.00
@@ -1576,29 +1568,156 @@ def add_ordem_servico():
         
         if cupom_id and cupom_id != '':
             cupom_id = int(cupom_id)
-            # Buscar cupom
-            with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
-                fidelidade_data = json.load(f)
-            
-            cupom = next((c for c in fidelidade_data['cupons'] if c.get('id') == cupom_id and c.get('cliente_id') == cliente_id and not c.get('usado', False)), None)
-            if cupom:
-                desconto_percentual = cupom['desconto_percentual']
-                valor_desconto = subtotal * (desconto_percentual / 100)
-                cupom_usado = cupom
-                # Obter o ID da ordem que será criada (antes de adicionar à lista)
-                nova_ordem_id = len(cliente.get('ordens', [])) + 1
-                cupom['usado'] = True
-                cupom['ordem_id'] = nova_ordem_id
-                cupom['data_uso'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if use_database():
+                try:
+                    cupom = Cupom.query.filter_by(id=cupom_id, cliente_id=cliente_id, usado=False).first()
+                    if cupom:
+                        desconto_percentual = float(cupom.desconto_percentual)
+                        valor_desconto = subtotal * (desconto_percentual / 100)
+                        cupom_usado = cupom
+                except Exception as e:
+                    print(f"Erro ao buscar cupom no banco: {e}")
+            else:
+                # Fallback para JSON
+                with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+                    fidelidade_data = json.load(f)
                 
-                # Salvar atualização do cupom
-                with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
-                    json.dump(fidelidade_data, f, ensure_ascii=False, indent=2)
+                cupom = next((c for c in fidelidade_data['cupons'] if c.get('id') == cupom_id and c.get('cliente_id') == cliente_id and not c.get('usado', False)), None)
+                if cupom:
+                    desconto_percentual = cupom['desconto_percentual']
+                    valor_desconto = subtotal * (desconto_percentual / 100)
+                    cupom_usado = cupom
         
         total = subtotal - valor_desconto
         
         # Gerar número único da ordem
         numero_ordem = get_proximo_numero_ordem()
+        
+        # Salvar no banco de dados se disponível
+        if use_database():
+            try:
+                # Verificar se cliente existe
+                cliente_db = Cliente.query.get(cliente_id)
+                if not cliente_db:
+                    flash('Cliente não encontrado!', 'error')
+                    return redirect(url_for('add_ordem_servico'))
+                
+                # Criar ordem no banco
+                nova_ordem_db = OrdemServico(
+                    numero_ordem=str(numero_ordem),
+                    cliente_id=cliente_id,
+                    tecnico_id=int(tecnico_id) if tecnico_id and tecnico_id != '' else None,
+                    servico=servico,
+                    tipo_aparelho=tipo_aparelho,
+                    marca=marca,
+                    modelo=modelo,
+                    numero_serie=numero_serie,
+                    defeitos_cliente=defeitos_cliente,
+                    diagnostico_tecnico=diagnostico_tecnico,
+                    pecas=pecas,
+                    custo_pecas=total_pecas,
+                    custo_mao_obra=float(custo_mao_obra) if custo_mao_obra else 0.00,
+                    subtotal=subtotal,
+                    desconto_percentual=desconto_percentual,
+                    valor_desconto=valor_desconto,
+                    cupom_id=cupom_id if cupom_usado else None,
+                    total=total,
+                    status=status,
+                    prazo_estimado=prazo_estimado if prazo_estimado else None,
+                    data=datetime.now()
+                )
+                db.session.add(nova_ordem_db)
+                db.session.commit()
+                
+                # Atualizar cupom se usado
+                if cupom_usado and use_database():
+                    try:
+                        cupom_db = Cupom.query.get(cupom_id)
+                        if cupom_db:
+                            cupom_db.usado = True
+                            cupom_db.ordem_id = nova_ordem_db.id
+                            cupom_db.data_uso = datetime.now()
+                            db.session.commit()
+                    except Exception as e:
+                        print(f"Erro ao atualizar cupom: {e}")
+                        db.session.rollback()
+                
+                # Gerar PDF da ordem
+                cliente_dict = {
+                    'id': cliente_db.id,
+                    'nome': cliente_db.nome,
+                    'email': cliente_db.email,
+                    'telefone': cliente_db.telefone,
+                    'cpf': cliente_db.cpf,
+                    'endereco': cliente_db.endereco
+                }
+                ordem_dict = {
+                    'id': nova_ordem_db.id,
+                    'numero_ordem': nova_ordem_db.numero_ordem,
+                    'servico': nova_ordem_db.servico,
+                    'marca': nova_ordem_db.marca,
+                    'modelo': nova_ordem_db.modelo,
+                    'numero_serie': nova_ordem_db.numero_serie,
+                    'defeitos_cliente': nova_ordem_db.defeitos_cliente,
+                    'diagnostico_tecnico': nova_ordem_db.diagnostico_tecnico,
+                    'pecas': nova_ordem_db.pecas or [],
+                    'custo_pecas': float(nova_ordem_db.custo_pecas) if nova_ordem_db.custo_pecas else 0.00,
+                    'custo_mao_obra': float(nova_ordem_db.custo_mao_obra) if nova_ordem_db.custo_mao_obra else 0.00,
+                    'subtotal': float(nova_ordem_db.subtotal) if nova_ordem_db.subtotal else 0.00,
+                    'desconto_percentual': float(nova_ordem_db.desconto_percentual) if nova_ordem_db.desconto_percentual else 0.00,
+                    'valor_desconto': float(nova_ordem_db.valor_desconto) if nova_ordem_db.valor_desconto else 0.00,
+                    'total': float(nova_ordem_db.total) if nova_ordem_db.total else 0.00,
+                    'status': nova_ordem_db.status,
+                    'prazo_estimado': nova_ordem_db.prazo_estimado,
+                    'data': nova_ordem_db.data.strftime('%Y-%m-%d %H:%M:%S') if nova_ordem_db.data else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                
+                pdf_result = gerar_pdf_ordem(cliente_dict, ordem_dict)
+                if isinstance(pdf_result, dict):
+                    nova_ordem_db.pdf_filename = pdf_result.get('pdf_filename', '')
+                    nova_ordem_db.pdf_id = pdf_result.get('pdf_id')
+                    db.session.commit()
+                
+                flash('Ordem de serviço emitida com sucesso!', 'success')
+                return redirect(url_for('admin_ordens'))
+            except Exception as e:
+                print(f"Erro ao salvar ordem no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+                flash('Erro ao salvar ordem. Tente novamente.', 'error')
+                return redirect(url_for('add_ordem_servico'))
+        
+        # Fallback para JSON
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
+        if not cliente:
+            flash('Cliente não encontrado!', 'error')
+            return redirect(url_for('add_ordem_servico'))
+        
+        # Atualizar cupom se usado (JSON)
+        if cupom_usado and not use_database():
+            nova_ordem_id = len(cliente.get('ordens', [])) + 1
+            cupom_usado['usado'] = True
+            cupom_usado['ordem_id'] = nova_ordem_id
+            cupom_usado['data_uso'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Salvar atualização do cupom
+            with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+                fidelidade_data = json.load(f)
+            
+            for i, c in enumerate(fidelidade_data['cupons']):
+                if c.get('id') == cupom_id:
+                    fidelidade_data['cupons'][i] = cupom_usado
+                    break
+            
+            with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(fidelidade_data, f, ensure_ascii=False, indent=2)
         
         # ID da ordem (usado para vincular com cupom)
         nova_ordem_id = len(cliente.get('ordens', [])) + 1
