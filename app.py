@@ -589,8 +589,23 @@ def index():
     
     # Carregar marcas
     if use_database():
-        marcas = Marca.query.filter_by(ativo=True).order_by(Marca.ordem).all()
-        marcas = [{'id': m.id, 'nome': m.nome, 'imagem': m.imagem, 'ordem': m.ordem, 'ativo': m.ativo} for m in marcas]
+        marcas_db = Marca.query.filter_by(ativo=True).order_by(Marca.ordem).all()
+        marcas = []
+        for m in marcas_db:
+            if m.imagem_id:
+                imagem_url = f'/admin/marcas/imagem/{m.imagem_id}'
+            elif m.imagem:
+                imagem_url = m.imagem
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            marcas.append({
+                'id': m.id,
+                'nome': m.nome,
+                'imagem': imagem_url,
+                'ordem': m.ordem,
+                'ativo': m.ativo
+            })
     else:
         init_marcas_file()
         with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
@@ -600,8 +615,23 @@ def index():
     
     # Carregar milestones
     if use_database():
-        milestones = Milestone.query.filter_by(ativo=True).order_by(Milestone.ordem).all()
-        milestones = [{'id': m.id, 'titulo': m.titulo, 'imagem': m.imagem, 'ordem': m.ordem, 'ativo': m.ativo} for m in milestones]
+        milestones_db = Milestone.query.filter_by(ativo=True).order_by(Milestone.ordem).all()
+        milestones = []
+        for m in milestones_db:
+            if m.imagem_id:
+                imagem_url = f'/admin/milestones/imagem/{m.imagem_id}'
+            elif m.imagem:
+                imagem_url = m.imagem
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            milestones.append({
+                'id': m.id,
+                'titulo': m.titulo,
+                'imagem': imagem_url,
+                'ordem': m.ordem,
+                'ativo': m.ativo
+            })
     else:
         init_milestones_file()
         with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
@@ -3131,47 +3161,98 @@ def admin_footer():
 @login_required
 def admin_marcas():
     """Lista todas as marcas cadastradas"""
-    init_marcas_file()
+    if use_database():
+        try:
+            with app.app_context():
+                marcas_db = Marca.query.order_by(Marca.ordem).all()
+                marcas = []
+                for m in marcas_db:
+                    if m.imagem_id:
+                        imagem_url = f'/admin/marcas/imagem/{m.imagem_id}'
+                    elif m.imagem:
+                        imagem_url = m.imagem
+                    else:
+                        imagem_url = 'img/placeholder.png'
+                    
+                    marcas.append({
+                        'id': m.id,
+                        'nome': m.nome,
+                        'imagem': imagem_url,
+                        'ordem': m.ordem,
+                        'ativo': m.ativo
+                    })
+        except Exception as e:
+            print(f"Erro ao buscar marcas do banco: {e}")
+            marcas = []
+    else:
+        init_marcas_file()
+        with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        marcas = sorted(data.get('marcas', []), key=lambda x: x.get('ordem', 999))
     
-    with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    marcas = sorted(data.get('marcas', []), key=lambda x: x.get('ordem', 999))
     return render_template('admin/marcas.html', marcas=marcas)
 
 @app.route('/admin/marcas/add', methods=['GET', 'POST'])
 @login_required
 def add_marca():
     """Adiciona uma nova marca"""
-    init_marcas_file()
-    
     if request.method == 'POST':
-        with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        nome = request.form.get('nome', '').strip()
+        imagem_path_or_id = request.form.get('imagem', '').strip()
+        ordem = request.form.get('ordem', '1')
+        ativo = request.form.get('ativo') == 'on'
         
-        # Obter próximo ID
-        marcas = data.get('marcas', [])
-        novo_id = max([m.get('id', 0) for m in marcas], default=0) + 1
-        
-        # Obter próxima ordem
-        proxima_ordem = max([m.get('ordem', 0) for m in marcas], default=0) + 1
-        
-        nova_marca = {
-            'id': novo_id,
-            'nome': request.form.get('nome', '').strip(),
-            'imagem': request.form.get('imagem', '').strip(),
-            'ordem': proxima_ordem,
-            'ativo': request.form.get('ativo') == 'on'
-        }
-        
-        marcas.append(nova_marca)
-        data['marcas'] = marcas
-        
-        with open(MARCAS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Marca cadastrada com sucesso!', 'success')
-        return redirect(url_for('admin_marcas'))
+        if use_database():
+            try:
+                with app.app_context():
+                    marca = Marca(
+                        nome=nome,
+                        ordem=int(ordem) if ordem.isdigit() else 1,
+                        ativo=ativo
+                    )
+                    
+                    if imagem_path_or_id.startswith('/admin/marcas/imagem/'):
+                        try:
+                            marca.imagem_id = int(imagem_path_or_id.split('/')[-1])
+                        except ValueError:
+                            marca.imagem = imagem_path_or_id
+                    else:
+                        marca.imagem = imagem_path_or_id
+                    
+                    db.session.add(marca)
+                    db.session.commit()
+                    flash('Marca cadastrada com sucesso!', 'success')
+                    return redirect(url_for('admin_marcas'))
+            except Exception as e:
+                print(f"Erro ao adicionar marca no banco: {e}")
+                flash('Erro ao adicionar marca. Tente novamente.', 'error')
+                return redirect(url_for('add_marca'))
+        else:
+            # Fallback para JSON
+            init_marcas_file()
+            with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            marcas = data.get('marcas', [])
+            novo_id = max([m.get('id', 0) for m in marcas], default=0) + 1
+            proxima_ordem = max([m.get('ordem', 0) for m in marcas], default=0) + 1
+            
+            nova_marca = {
+                'id': novo_id,
+                'nome': nome,
+                'imagem': imagem_path_or_id,
+                'ordem': proxima_ordem,
+                'ativo': ativo
+            }
+            
+            marcas.append(nova_marca)
+            data['marcas'] = marcas
+            
+            with open(MARCAS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Marca cadastrada com sucesso!', 'success')
+            return redirect(url_for('admin_marcas'))
     
     return render_template('admin/add_marca.html')
 
@@ -3179,8 +3260,57 @@ def add_marca():
 @login_required
 def edit_marca(marca_id):
     """Edita uma marca existente"""
-    init_marcas_file()
+    if use_database():
+        try:
+            with app.app_context():
+                marca = Marca.query.get(marca_id)
+                if not marca:
+                    flash('Marca não encontrada!', 'error')
+                    return redirect(url_for('admin_marcas'))
+                
+                if request.method == 'POST':
+                    marca.nome = request.form.get('nome', '').strip()
+                    marca.ordem = int(request.form.get('ordem', '1')) if request.form.get('ordem', '1').isdigit() else 1
+                    marca.ativo = request.form.get('ativo') == 'on'
+                    
+                    imagem_nova = request.form.get('imagem', '').strip()
+                    if imagem_nova:
+                        if imagem_nova.startswith('/admin/marcas/imagem/'):
+                            try:
+                                marca.imagem_id = int(imagem_nova.split('/')[-1])
+                                marca.imagem = None
+                            except ValueError:
+                                marca.imagem_id = None
+                                marca.imagem = imagem_nova
+                        else:
+                            marca.imagem_id = None
+                            marca.imagem = imagem_nova
+                    
+                    db.session.commit()
+                    flash('Marca atualizada com sucesso!', 'success')
+                    return redirect(url_for('admin_marcas'))
+                
+                if marca.imagem_id:
+                    imagem_url = f'/admin/marcas/imagem/{marca.imagem_id}'
+                elif marca.imagem:
+                    imagem_url = marca.imagem
+                else:
+                    imagem_url = ''
+                
+                marca_dict = {
+                    'id': marca.id,
+                    'nome': marca.nome,
+                    'imagem': imagem_url,
+                    'ordem': marca.ordem,
+                    'ativo': marca.ativo
+                }
+                return render_template('admin/edit_marca.html', marca=marca_dict)
+        except Exception as e:
+            print(f"Erro ao editar marca no banco: {e}")
+            flash('Erro ao editar marca. Usando arquivos JSON.', 'warning')
     
+    # Fallback para JSON
+    init_marcas_file()
     with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -3209,18 +3339,32 @@ def edit_marca(marca_id):
 @login_required
 def delete_marca(marca_id):
     """Exclui uma marca"""
-    init_marcas_file()
+    if use_database():
+        try:
+            with app.app_context():
+                marca = Marca.query.get(marca_id)
+                if marca:
+                    db.session.delete(marca)
+                    db.session.commit()
+                    flash('Marca excluída com sucesso!', 'success')
+                else:
+                    flash('Marca não encontrada!', 'error')
+        except Exception as e:
+            print(f"Erro ao excluir marca do banco: {e}")
+            flash('Erro ao excluir marca. Tente novamente.', 'error')
+    else:
+        init_marcas_file()
+        with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        marcas = data.get('marcas', [])
+        data['marcas'] = [m for m in marcas if m.get('id') != marca_id]
+        
+        with open(MARCAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Marca excluída com sucesso!', 'success')
     
-    with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    marcas = data.get('marcas', [])
-    data['marcas'] = [m for m in marcas if m.get('id') != marca_id]
-    
-    with open(MARCAS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    flash('Marca excluída com sucesso!', 'success')
     return redirect(url_for('admin_marcas'))
 
 # ==================== MILESTONES MANAGEMENT ====================
@@ -3971,7 +4115,7 @@ def delete_artigo(artigo_id):
 @app.route('/admin/blog/upload-imagem', methods=['POST'])
 @login_required
 def upload_imagem_blog():
-    """Upload de imagem para o blog"""
+    """Upload de imagem para o blog - salva no banco de dados ou sistema de arquivos"""
     if 'imagem' not in request.files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
     
@@ -3979,24 +4123,75 @@ def upload_imagem_blog():
     if file.filename == '':
         return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'}), 400
     
-    if file and allowed_file(file.filename):
-        if file.content_length and file.content_length > MAX_FILE_SIZE:
-            return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
-        
-        filename = secure_filename(file.filename)
-        # Adicionar timestamp para evitar conflitos
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        name, ext = os.path.splitext(filename)
-        filename = f"{name}_{timestamp}{ext}"
-        
-        filepath = os.path.join(BLOG_IMG_DIR, filename)
-        file.save(filepath)
-        
-        # Retornar caminho relativo
-        relative_path = f"img/blog/{filename}"
-        return jsonify({'success': True, 'path': relative_path, 'url': url_for('static', filename=relative_path)})
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido'}), 400
     
-    return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido'}), 400
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
+    
+    file_data = file.read()
+    imagem_tipo = file.mimetype
+    
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem(
+                    nome=secure_filename(file.filename),
+                    dados=file_data,
+                    tipo_mime=imagem_tipo,
+                    tamanho=file_size,
+                    referencia=f'blog_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+                )
+                db.session.add(imagem)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True, 
+                    'path': f'/admin/blog/imagem/{imagem.id}',
+                    'url': f'/admin/blog/imagem/{imagem.id}',
+                    'image_id': imagem.id
+                })
+        except Exception as e:
+            print(f"Erro ao salvar imagem de blog no banco: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback: salvar no sistema de arquivos
+    filename = secure_filename(file.filename)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    name, ext = os.path.splitext(filename)
+    filename = f"{name}_{timestamp}{ext}"
+    
+    if os.path.exists(BLOG_IMG_DIR):
+        filepath = os.path.join(BLOG_IMG_DIR, filename)
+        file.seek(0)
+        file.save(filepath)
+        relative_path = f"img/blog/{filename}"
+    else:
+        relative_path = f'img/placeholder.png'
+    
+    return jsonify({'success': True, 'path': relative_path, 'url': url_for('static', filename=relative_path)})
+
+@app.route('/admin/blog/imagem/<int:image_id>')
+def servir_imagem_blog(image_id):
+    """Rota para servir imagens de blog do banco de dados"""
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem.query.get(image_id)
+                if imagem and imagem.dados:
+                    return Response(
+                        imagem.dados,
+                        mimetype=imagem.tipo_mime,
+                        headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar imagem de blog: {e}")
+    
+    return redirect(url_for('static', filename='img/placeholder.png'))
 
 @app.route('/admin/slides/upload-imagem', methods=['POST'])
 @login_required
@@ -4083,7 +4278,7 @@ def servir_imagem_slide(image_id):
 @app.route('/admin/marcas/upload-imagem', methods=['POST'])
 @login_required
 def upload_imagem_marca():
-    """Upload de imagem para marcas"""
+    """Upload de imagem para marcas - salva no banco de dados ou sistema de arquivos"""
     if 'imagem' not in request.files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
     
@@ -4094,28 +4289,76 @@ def upload_imagem_marca():
     if not allowed_file(file.filename):
         return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP'}), 400
     
-    # Verificar tamanho do arquivo
     file.seek(0, os.SEEK_END)
     file_size = file.tell()
     file.seek(0)
     if file_size > MAX_FILE_SIZE:
         return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
     
+    file_data = file.read()
+    imagem_tipo = file.mimetype
+    
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem(
+                    nome=secure_filename(file.filename),
+                    dados=file_data,
+                    tipo_mime=imagem_tipo,
+                    tamanho=file_size,
+                    referencia=f'marca_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+                )
+                db.session.add(imagem)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True, 
+                    'path': f'/admin/marcas/imagem/{imagem.id}',
+                    'image_id': imagem.id
+                })
+        except Exception as e:
+            print(f"Erro ao salvar imagem de marca no banco: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback: salvar no sistema de arquivos
     filename = secure_filename(file.filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     name, ext = os.path.splitext(filename)
     filename = f"marca_{timestamp}{ext}"
     
-    filepath = os.path.join(MARCAS_IMG_DIR, filename)
-    file.save(filepath)
+    if os.path.exists(MARCAS_IMG_DIR):
+        filepath = os.path.join(MARCAS_IMG_DIR, filename)
+        file.seek(0)
+        file.save(filepath)
+        relative_path = f'img/marcas/{filename}'
+    else:
+        relative_path = f'img/placeholder.png'
     
-    relative_path = f'img/marcas/{filename}'
     return jsonify({'success': True, 'path': relative_path})
+
+@app.route('/admin/marcas/imagem/<int:image_id>')
+def servir_imagem_marca(image_id):
+    """Rota para servir imagens de marcas do banco de dados"""
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem.query.get(image_id)
+                if imagem and imagem.dados:
+                    return Response(
+                        imagem.dados,
+                        mimetype=imagem.tipo_mime,
+                        headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar imagem de marca: {e}")
+    
+    return redirect(url_for('static', filename='img/placeholder.png'))
 
 @app.route('/admin/milestones/upload-imagem', methods=['POST'])
 @login_required
 def upload_imagem_milestone():
-    """Upload de imagem para milestones"""
+    """Upload de imagem para milestones - salva no banco de dados ou sistema de arquivos"""
     if 'imagem' not in request.files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
     
@@ -4126,23 +4369,71 @@ def upload_imagem_milestone():
     if not allowed_file(file.filename):
         return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP'}), 400
     
-    # Verificar tamanho do arquivo
     file.seek(0, os.SEEK_END)
     file_size = file.tell()
     file.seek(0)
     if file_size > MAX_FILE_SIZE:
         return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
     
+    file_data = file.read()
+    imagem_tipo = file.mimetype
+    
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem(
+                    nome=secure_filename(file.filename),
+                    dados=file_data,
+                    tipo_mime=imagem_tipo,
+                    tamanho=file_size,
+                    referencia=f'milestone_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+                )
+                db.session.add(imagem)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True, 
+                    'path': f'/admin/milestones/imagem/{imagem.id}',
+                    'image_id': imagem.id
+                })
+        except Exception as e:
+            print(f"Erro ao salvar imagem de milestone no banco: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback: salvar no sistema de arquivos
     filename = secure_filename(file.filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     name, ext = os.path.splitext(filename)
     filename = f"milestone_{timestamp}{ext}"
     
-    filepath = os.path.join(MILESTONES_IMG_DIR, filename)
-    file.save(filepath)
+    if os.path.exists(MILESTONES_IMG_DIR):
+        filepath = os.path.join(MILESTONES_IMG_DIR, filename)
+        file.seek(0)
+        file.save(filepath)
+        relative_path = f'img/milestones/{filename}'
+    else:
+        relative_path = f'img/placeholder.png'
     
-    relative_path = f'img/milestones/{filename}'
     return jsonify({'success': True, 'path': relative_path})
+
+@app.route('/admin/milestones/imagem/<int:image_id>')
+def servir_imagem_milestone(image_id):
+    """Rota para servir imagens de milestones do banco de dados"""
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem.query.get(image_id)
+                if imagem and imagem.dados:
+                    return Response(
+                        imagem.dados,
+                        mimetype=imagem.tipo_mime,
+                        headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar imagem de milestone: {e}")
+    
+    return redirect(url_for('static', filename='img/placeholder.png'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

@@ -144,18 +144,26 @@ class Marca(db.Model):
     __tablename__ = 'marcas'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
-    imagem = db.Column(db.String(500), nullable=False)
+    imagem = db.Column(db.String(500))  # Caminho ou ID da imagem (fallback)
+    imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
     ordem = db.Column(db.Integer, default=1)
     ativo = db.Column(db.Boolean, default=True)
+    
+    # Relacionamento
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
 
 # ==================== MILESTONES ====================
 class Milestone(db.Model):
     __tablename__ = 'milestones'
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(200), nullable=False)
-    imagem = db.Column(db.String(500), nullable=False)
+    imagem = db.Column(db.String(500))  # Caminho ou ID da imagem (fallback)
+    imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
     ordem = db.Column(db.Integer, default=1)
     ativo = db.Column(db.Boolean, default=True)
+    
+    # Relacionamento
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
 
 # ==================== ADMIN USERS ====================
 class AdminUser(db.Model):
@@ -193,10 +201,14 @@ class Artigo(db.Model):
     autor = db.Column(db.String(200))
     resumo = db.Column(db.Text)
     conteudo = db.Column(db.Text)  # HTML do editor
-    imagem_destaque = db.Column(db.String(500))
+    imagem_destaque = db.Column(db.String(500))  # Caminho ou ID da imagem (fallback)
+    imagem_destaque_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
     data_publicacao = db.Column(db.DateTime, nullable=False)
     ativo = db.Column(db.Boolean, default=True)
     data_criacao = db.Column(db.DateTime, default=datetime.now)
+    
+    # Relacionamento
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_destaque_id], lazy=True)
 
 # ==================== CONTATOS ====================
 class Contato(db.Model):

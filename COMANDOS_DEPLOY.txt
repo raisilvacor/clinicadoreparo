@@ -1,0 +1,36 @@
+========================================
+COMANDOS PARA DEPLOY
+========================================
+
+Execute estes comandos no PowerShell ou CMD:
+
+1. Adicionar todos os arquivos:
+   git add -A
+
+2. Fazer commit:
+   git commit -m "Deploy automatico"
+
+3. Enviar para GitHub:
+   git push origin main
+
+========================================
+COMANDO ÚNICO (tudo de uma vez):
+========================================
+
+git add -A && git commit -m "Deploy automatico" && git push origin main
+
+========================================
+OU use o script:
+========================================
+
+Windows (CMD):
+deploy.bat
+
+Windows (PowerShell):
+.\deploy.bat
+
+PowerShell Script:
+powershell -ExecutionPolicy Bypass -File deploy.ps1
+
+========================================
+

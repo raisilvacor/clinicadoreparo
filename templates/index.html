@@ -138,7 +138,11 @@
         <div class="milestones-grid">
             {% for milestone in milestones %}
             <div class="milestone-image">
+                {% if milestone.imagem and milestone.imagem.startswith('/admin/milestones/imagem/') %}
+                <img src="{{ milestone.imagem }}" alt="{{ milestone.titulo }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                {% else %}
                 <img src="{{ url_for('static', filename=milestone.imagem) }}" alt="{{ milestone.titulo }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -287,17 +291,29 @@
                     {% if marcas %}
                         {% for marca in marcas %}
                         <div class="brand-item">
+                            {% if marca.imagem and marca.imagem.startswith('/admin/marcas/imagem/') %}
+                            <img src="{{ marca.imagem }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                            {% else %}
                             <img src="{{ url_for('static', filename=marca.imagem) }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                            {% endif %}
                         </div>
                         {% endfor %}
                         {% for marca in marcas %}
                         <div class="brand-item">
+                            {% if marca.imagem and marca.imagem.startswith('/admin/marcas/imagem/') %}
+                            <img src="{{ marca.imagem }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                            {% else %}
                             <img src="{{ url_for('static', filename=marca.imagem) }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                            {% endif %}
                         </div>
                         {% endfor %}
                         {% for marca in marcas %}
                         <div class="brand-item">
+                            {% if marca.imagem and marca.imagem.startswith('/admin/marcas/imagem/') %}
+                            <img src="{{ marca.imagem }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                            {% else %}
                             <img src="{{ url_for('static', filename=marca.imagem) }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                            {% endif %}
                         </div>
                         {% endfor %}
                     {% else %}
