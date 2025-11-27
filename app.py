@@ -3053,49 +3053,49 @@ def edit_slide(slide_id):
         try:
             slide = Slide.query.get(slide_id)
             if not slide:
-                    flash('Slide não encontrado!', 'error')
-                    return redirect(url_for('admin_slides'))
+                flash('Slide não encontrado!', 'error')
+                return redirect(url_for('admin_slides'))
+            
+            if request.method == 'POST':
+                slide.link = request.form.get('link', '').strip() or None
+                slide.link_target = request.form.get('link_target', '_self').strip()
+                slide.ordem = int(request.form.get('ordem', '1')) if request.form.get('ordem', '1').isdigit() else 1
+                slide.ativo = request.form.get('ativo') == 'on'
                 
-                if request.method == 'POST':
-                    slide.link = request.form.get('link', '').strip() or None
-                    slide.link_target = request.form.get('link_target', '_self').strip()
-                    slide.ordem = int(request.form.get('ordem', '1')) if request.form.get('ordem', '1').isdigit() else 1
-                    slide.ativo = request.form.get('ativo') == 'on'
-                    
-                    imagem_nova = request.form.get('imagem', '').strip()
-                    if imagem_nova:
-                        if imagem_nova.startswith('/admin/slides/imagem/'):
-                            try:
-                                slide.imagem_id = int(imagem_nova.split('/')[-1])
-                                slide.imagem = None  # Limpar caminho se usar ID
-                            except ValueError:
-                                slide.imagem_id = None
-                                slide.imagem = imagem_nova
-                        else:
-                            slide.imagem_id = None  # Reset se não for imagem do banco
+                imagem_nova = request.form.get('imagem', '').strip()
+                if imagem_nova:
+                    if imagem_nova.startswith('/admin/slides/imagem/'):
+                        try:
+                            slide.imagem_id = int(imagem_nova.split('/')[-1])
+                            slide.imagem = None  # Limpar caminho se usar ID
+                        except ValueError:
+                            slide.imagem_id = None
                             slide.imagem = imagem_nova
-                    
-                    db.session.commit()
-                    flash('Slide atualizado com sucesso!', 'success')
-                    return redirect(url_for('admin_slides'))
+                    else:
+                        slide.imagem_id = None  # Reset se não for imagem do banco
+                        slide.imagem = imagem_nova
                 
-                # Converter para formato compatível com template
-                if slide.imagem_id:
-                    imagem_url = f'/admin/slides/imagem/{slide.imagem_id}'
-                elif slide.imagem:
-                    imagem_url = slide.imagem
-                else:
-                    imagem_url = ''
-                
-                slide_dict = {
-                    'id': slide.id,
-                    'imagem': imagem_url,
-                    'link': slide.link or '',
-                    'link_target': slide.link_target or '_self',
-                    'ordem': slide.ordem,
-                    'ativo': slide.ativo
-                }
-                return render_template('admin/edit_slide.html', slide=slide_dict)
+                db.session.commit()
+                flash('Slide atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_slides'))
+            
+            # Converter para formato compatível com template
+            if slide.imagem_id:
+                imagem_url = f'/admin/slides/imagem/{slide.imagem_id}'
+            elif slide.imagem:
+                imagem_url = slide.imagem
+            else:
+                imagem_url = ''
+            
+            slide_dict = {
+                'id': slide.id,
+                'imagem': imagem_url,
+                'link': slide.link or '',
+                'link_target': slide.link_target or '_self',
+                'ordem': slide.ordem,
+                'ativo': slide.ativo
+            }
+            return render_template('admin/edit_slide.html', slide=slide_dict)
         except Exception as e:
             print(f"Erro ao editar slide no banco: {e}")
             flash('Erro ao editar slide. Usando arquivos JSON.', 'warning')
@@ -3299,46 +3299,46 @@ def edit_marca(marca_id):
         try:
             marca = Marca.query.get(marca_id)
             if not marca:
-                    flash('Marca não encontrada!', 'error')
-                    return redirect(url_for('admin_marcas'))
+                flash('Marca não encontrada!', 'error')
+                return redirect(url_for('admin_marcas'))
+            
+            if request.method == 'POST':
+                marca.nome = request.form.get('nome', '').strip()
+                marca.ordem = int(request.form.get('ordem', '1')) if request.form.get('ordem', '1').isdigit() else 1
+                marca.ativo = request.form.get('ativo') == 'on'
                 
-                if request.method == 'POST':
-                    marca.nome = request.form.get('nome', '').strip()
-                    marca.ordem = int(request.form.get('ordem', '1')) if request.form.get('ordem', '1').isdigit() else 1
-                    marca.ativo = request.form.get('ativo') == 'on'
-                    
-                    imagem_nova = request.form.get('imagem', '').strip()
-                    if imagem_nova:
-                        if imagem_nova.startswith('/admin/marcas/imagem/'):
-                            try:
-                                marca.imagem_id = int(imagem_nova.split('/')[-1])
-                                marca.imagem = None
-                            except ValueError:
-                                marca.imagem_id = None
-                                marca.imagem = imagem_nova
-                        else:
+                imagem_nova = request.form.get('imagem', '').strip()
+                if imagem_nova:
+                    if imagem_nova.startswith('/admin/marcas/imagem/'):
+                        try:
+                            marca.imagem_id = int(imagem_nova.split('/')[-1])
+                            marca.imagem = None
+                        except ValueError:
                             marca.imagem_id = None
                             marca.imagem = imagem_nova
-                    
-                    db.session.commit()
-                    flash('Marca atualizada com sucesso!', 'success')
-                    return redirect(url_for('admin_marcas'))
+                    else:
+                        marca.imagem_id = None
+                        marca.imagem = imagem_nova
                 
-                if marca.imagem_id:
-                    imagem_url = f'/admin/marcas/imagem/{marca.imagem_id}'
-                elif marca.imagem:
-                    imagem_url = marca.imagem
-                else:
-                    imagem_url = ''
-                
-                marca_dict = {
-                    'id': marca.id,
-                    'nome': marca.nome,
-                    'imagem': imagem_url,
-                    'ordem': marca.ordem,
-                    'ativo': marca.ativo
-                }
-                return render_template('admin/edit_marca.html', marca=marca_dict)
+                db.session.commit()
+                flash('Marca atualizada com sucesso!', 'success')
+                return redirect(url_for('admin_marcas'))
+            
+            if marca.imagem_id:
+                imagem_url = f'/admin/marcas/imagem/{marca.imagem_id}'
+            elif marca.imagem:
+                imagem_url = marca.imagem
+            else:
+                imagem_url = ''
+            
+            marca_dict = {
+                'id': marca.id,
+                'nome': marca.nome,
+                'imagem': imagem_url,
+                'ordem': marca.ordem,
+                'ativo': marca.ativo
+            }
+            return render_template('admin/edit_marca.html', marca=marca_dict)
         except Exception as e:
             print(f"Erro ao editar marca no banco: {e}")
             flash('Erro ao editar marca. Usando arquivos JSON.', 'warning')
