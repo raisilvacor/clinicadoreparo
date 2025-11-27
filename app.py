@@ -22,19 +22,37 @@ if database_url:
         # Render usa postgres:// mas SQLAlchemy precisa postgresql://
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        
+        # Adicionar parâmetros SSL se necessário (para Render)
+        if 'render.com' in database_url and '?sslmode=' not in database_url:
+            if '?' in database_url:
+                database_url += '&sslmode=require'
+            else:
+                database_url += '?sslmode=require'
+        
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        # Configurar SSL para conexões externas (Render)
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'connect_args': {
+                'sslmode': 'require',
+                'connect_timeout': 10
+            },
+            'pool_pre_ping': True,  # Verificar conexão antes de usar
+            'pool_recycle': 300  # Reciclar conexões a cada 5 minutos
+        }
         db.init_app(app)
         
         # Criar tabelas se não existirem (apenas se conseguir conectar)
         try:
             with app.app_context():
                 db.create_all()
+                print("DEBUG: Banco de dados configurado e tabelas criadas com sucesso!")
         except Exception as e:
-            print(f"Aviso: Não foi possível conectar ao banco de dados: {e}")
+            print(f"DEBUG: Erro ao conectar ao banco de dados: {type(e).__name__}: {str(e)}")
             print("O sistema continuará funcionando com arquivos JSON.")
     except Exception as e:
-        print(f"Erro ao configurar banco de dados: {e}")
+        print(f"DEBUG: Erro ao configurar banco de dados: {type(e).__name__}: {str(e)}")
         print("O sistema continuará funcionando com arquivos JSON.")
 
 # Credenciais de admin (em produção, use hash e variáveis de ambiente)
@@ -91,17 +109,32 @@ def use_database():
         print("DEBUG: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
     
-    print(f"DEBUG: DATABASE_URL encontrado: {database_url[:20]}...")  # Mostra apenas início por segurança
+    print(f"DEBUG: DATABASE_URL encontrado: {database_url[:30]}...")  # Mostra apenas início por segurança
     
     try:
         # Testar se consegue conectar
         with app.app_context():
-            db.session.execute(db.text('SELECT 1'))
+            result = db.session.execute(db.text('SELECT 1'))
+            result.fetchone()  # Forçar execução da query
         print("DEBUG: Conexão com banco de dados bem-sucedida")
         return True
     except Exception as e:
-        print(f"DEBUG: Erro ao conectar ao banco de dados: {str(e)}")
-        print(f"DEBUG: Tipo do erro: {type(e).__name__}")
+        error_type = type(e).__name__
+        error_msg = str(e)
+        print(f"DEBUG: Erro ao conectar ao banco de dados:")
+        print(f"DEBUG:   Tipo: {error_type}")
+        print(f"DEBUG:   Mensagem: {error_msg}")
+        
+        # Log mais detalhado para erros comuns
+        if 'psycopg2' in error_type or 'psycopg' in error_msg.lower():
+            print("DEBUG:   Problema com driver psycopg2")
+        elif 'connection' in error_msg.lower() or 'connect' in error_msg.lower():
+            print("DEBUG:   Problema de conexão de rede")
+        elif 'authentication' in error_msg.lower() or 'password' in error_msg.lower():
+            print("DEBUG:   Problema de autenticação")
+        elif 'database' in error_msg.lower() and 'does not exist' in error_msg.lower():
+            print("DEBUG:   Banco de dados não existe")
+        
         return False
 
 def get_proximo_numero_ordem():
