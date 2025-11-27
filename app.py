@@ -58,15 +58,21 @@ if database_url:
             'pool_pre_ping': True,  # Verificar conexão antes de usar
             'pool_recycle': 300  # Reciclar conexões a cada 5 minutos
         }
+        
+        # Inicializar o banco de dados
         db.init_app(app)
         
         # Criar tabelas se não existirem (apenas se conseguir conectar)
         try:
             with app.app_context():
+                # Forçar criação do engine
                 db.create_all()
-                print("DEBUG: Banco de dados configurado e tabelas criadas com sucesso!")
+                # Testar conexão
+                with db.engine.connect() as conn:
+                    conn.execute(db.text('SELECT 1'))
+                print("DEBUG: ✅ Banco de dados configurado e conectado com sucesso!")
         except Exception as e:
-            print(f"DEBUG: Erro ao conectar ao banco de dados: {type(e).__name__}: {str(e)}")
+            print(f"DEBUG: ⚠️ Erro ao conectar ao banco de dados: {type(e).__name__}: {str(e)}")
             print("O sistema continuará funcionando com arquivos JSON.")
     except Exception as e:
         print(f"DEBUG: Erro ao configurar banco de dados: {type(e).__name__}: {str(e)}")
@@ -126,13 +132,25 @@ def use_database():
         print("DEBUG: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
     
+    # Verificar se o banco foi configurado
+    if not app.config.get('SQLALCHEMY_DATABASE_URI'):
+        print("DEBUG: Banco de dados não foi configurado no app")
+        return False
+    
     print(f"DEBUG: DATABASE_URL encontrado: {database_url[:50]}...")  # Mostra início para debug
     
     try:
-        # Testar se consegue conectar
+        # Testar se consegue conectar - usar engine diretamente
         with app.app_context():
-            result = db.session.execute(db.text('SELECT 1'))
-            result.fetchone()  # Forçar execução da query
+            # Verificar se o engine está configurado
+            if not hasattr(db, 'engine') or db.engine is None:
+                print("DEBUG: Engine do banco não está configurado")
+                return False
+            
+            # Testar conexão usando o engine diretamente
+            with db.engine.connect() as conn:
+                result = conn.execute(db.text('SELECT 1'))
+                result.fetchone()
         print("DEBUG: ✅ Conexão com banco de dados bem-sucedida!")
         return True
     except Exception as e:
@@ -143,7 +161,9 @@ def use_database():
         print(f"DEBUG:   Mensagem completa: {error_msg}")
         
         # Log mais detalhado para erros comuns
-        if 'psycopg2' in error_type or 'psycopg' in error_msg.lower():
+        if 'bind' in error_msg.lower() or 'session' in error_msg.lower():
+            print("DEBUG:   ⚠️ Problema de configuração do SQLAlchemy (banco não inicializado corretamente)")
+        elif 'psycopg2' in error_type or 'psycopg' in error_msg.lower():
             print("DEBUG:   ⚠️ Problema com driver psycopg2")
         elif 'connection' in error_msg.lower() or 'connect' in error_msg.lower() or 'timeout' in error_msg.lower():
             print("DEBUG:   ⚠️ Problema de conexão de rede (verifique se o banco está ativo)")
@@ -855,11 +875,15 @@ def admin_migrar_dados():
         error_msg = 'Banco de dados não configurado! Configure DATABASE_URL primeiro.'
         if not database_url:
             error_msg += ' (DATABASE_URL não encontrado nas variáveis de ambiente)'
+        elif not app.config.get('SQLALCHEMY_DATABASE_URI'):
+            error_msg += ' (Banco não foi inicializado. Verifique os logs do Render.)'
         else:
             # Tentar obter o erro específico
             try:
                 with app.app_context():
-                    db.session.execute(db.text('SELECT 1'))
+                    if hasattr(db, 'engine') and db.engine:
+                        with db.engine.connect() as conn:
+                            conn.execute(db.text('SELECT 1'))
             except Exception as e:
                 error_detail = str(e)
                 # Limitar tamanho da mensagem
