@@ -7,11 +7,18 @@ Migra todos os dados dos arquivos JSON para o banco de dados PostgreSQL
 import os
 import json
 from datetime import datetime
-from app import app, db
-from models import (
-    Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom,
-    Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Artigo, Contato
-)
+
+# Importações condicionais para permitir uso como módulo
+try:
+    from app import app, db
+    from models import (
+        Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom,
+        Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Artigo, Contato
+    )
+except ImportError:
+    # Se importado como módulo, será importado depois
+    app = None
+    db = None
 
 def parse_datetime(date_str):
     """Converte string de data para datetime"""

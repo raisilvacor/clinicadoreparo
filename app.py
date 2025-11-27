@@ -742,6 +742,63 @@ def admin_logout():
     flash('Logout realizado com sucesso!', 'success')
     return redirect(url_for('admin_login'))
 
+@app.route('/admin/migrar-dados', methods=['GET', 'POST'])
+@login_required
+def admin_migrar_dados():
+    """Rota para executar migração de dados JSON para PostgreSQL"""
+    if request.method == 'GET':
+        # Verificar se já existe dados no banco
+        if use_database():
+            try:
+                clientes_count = Cliente.query.count()
+                servicos_count = Servico.query.count()
+                return render_template('admin/migrar_dados.html', 
+                                     ja_migrado=True,
+                                     clientes_count=clientes_count,
+                                     servicos_count=servicos_count)
+            except:
+                pass
+        
+        return render_template('admin/migrar_dados.html', ja_migrado=False)
+    
+    # POST - Executar migração
+    if not use_database():
+        flash('Banco de dados não configurado! Configure DATABASE_URL primeiro.', 'error')
+        return redirect(url_for('admin_migrar_dados'))
+    
+    try:
+        from migrate_to_db import (
+            migrate_clients, migrate_services, migrate_tecnicos,
+            migrate_slides, migrate_footer, migrate_marcas,
+            migrate_milestones, migrate_admin_users, migrate_agendamentos,
+            migrate_blog, migrate_comprovantes, migrate_cupons, migrate_contatos
+        )
+        
+        # Executar todas as migrações
+        with app.app_context():
+            db.create_all()
+            
+            migrate_clients()
+            migrate_services()
+            migrate_tecnicos()
+            migrate_slides()
+            migrate_footer()
+            migrate_marcas()
+            migrate_milestones()
+            migrate_admin_users()
+            migrate_agendamentos()
+            migrate_blog()
+            migrate_comprovantes()
+            migrate_cupons()
+            migrate_contatos()
+        
+        flash('✅ Migração concluída com sucesso! Todos os dados foram migrados para o PostgreSQL.', 'success')
+        return redirect(url_for('admin_dashboard'))
+    
+    except Exception as e:
+        flash(f'❌ Erro na migração: {str(e)}', 'error')
+        return redirect(url_for('admin_migrar_dados'))
+
 @app.route('/admin')
 @login_required
 def admin_dashboard():
