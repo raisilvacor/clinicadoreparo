@@ -31,7 +31,11 @@
             <tr>
                 <td>
                     {% if servico.imagem %}
-                    <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px;" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% if servico.imagem.startswith('/admin/servicos/imagem/') %}
+                            <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px;" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% else %}
+                            <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px;" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% endif %}
                     {% else %}
                     <span class="text-muted">Sem imagem</span>
                     {% endif %}

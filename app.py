@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session, send_file, Response
 from datetime import datetime
 import json
 import os
@@ -10,7 +10,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Artigo, Contato
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Artigo, Contato, Imagem
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -594,8 +594,25 @@ def index():
     
     # Carregar serviços
     if use_database():
-        servicos = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
-        servicos = [{'id': s.id, 'nome': s.nome, 'descricao': s.descricao, 'imagem': s.imagem, 'ordem': s.ordem, 'ativo': s.ativo} for s in servicos]
+        servicos_db = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
+        servicos = []
+        for s in servicos_db:
+            # Se tem imagem_id, usar rota do banco, senão usar caminho estático
+            if s.imagem_id:
+                imagem_url = f'/admin/servicos/imagem/{s.imagem_id}'
+            elif s.imagem:
+                imagem_url = s.imagem
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            servicos.append({
+                'id': s.id,
+                'nome': s.nome,
+                'descricao': s.descricao,
+                'imagem': imagem_url,
+                'ordem': s.ordem,
+                'ativo': s.ativo
+            })
     else:
         init_data_file()
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
@@ -856,6 +873,37 @@ def delete_contato(contato_id):
 @app.route('/admin/servicos')
 @login_required
 def admin_servicos():
+    if use_database():
+        try:
+            with app.app_context():
+                servicos = Servico.query.order_by(Servico.ordem).all()
+                # Converter para formato compatível com template
+                servicos_list = []
+                for s in servicos:
+                    # Determinar URL da imagem
+                    if s.imagem_id:
+                        imagem_url = f'/admin/servicos/imagem/{s.imagem_id}'
+                    elif s.imagem:
+                        imagem_url = s.imagem
+                    else:
+                        imagem_url = ''
+                    
+                    servico_dict = {
+                        'id': s.id,
+                        'nome': s.nome,
+                        'descricao': s.descricao,
+                        'imagem': imagem_url,
+                        'ordem': s.ordem,
+                        'ativo': s.ativo,
+                        'data': s.data.strftime('%Y-%m-%d %H:%M:%S') if s.data else ''
+                    }
+                    servicos_list.append(servico_dict)
+                return render_template('admin/servicos.html', servicos=servicos_list)
+        except Exception as e:
+            print(f"Erro ao buscar serviços do banco: {e}")
+            flash('Erro ao carregar serviços do banco. Usando arquivos JSON.', 'warning')
+    
+    # Fallback para JSON
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -865,7 +913,7 @@ def admin_servicos():
 @app.route('/admin/servicos/upload', methods=['POST'])
 @login_required
 def upload_servico_imagem():
-    """Rota para upload de imagem de serviço"""
+    """Rota para upload de imagem de serviço - salva no banco de dados"""
     if 'imagem' not in request.files:
         return jsonify({'error': 'Nenhum arquivo enviado'}), 400
     
@@ -883,19 +931,85 @@ def upload_servico_imagem():
     if file_size > MAX_FILE_SIZE:
         return jsonify({'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
     
-    # Gerar nome único para o arquivo
+    # Ler dados do arquivo
+    file_data = file.read()
+    
+    # Determinar tipo MIME
+    ext = os.path.splitext(file.filename)[1].lower()
+    mime_types = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    }
+    imagem_tipo = mime_types.get(ext, 'image/jpeg')
+    
+    # Se usar banco de dados, salvar no banco
+    if use_database():
+        try:
+            with app.app_context():
+                # Criar registro de imagem no banco
+                imagem = Imagem(
+                    nome=file.filename,
+                    dados=file_data,
+                    tipo_mime=imagem_tipo,
+                    tamanho=file_size,
+                    referencia=f'servico_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+                )
+                db.session.add(imagem)
+                db.session.commit()
+                
+                # Retornar ID da imagem para usar no serviço
+                return jsonify({
+                    'success': True, 
+                    'path': f'/admin/servicos/imagem/{imagem.id}',
+                    'image_id': imagem.id
+                })
+        except Exception as e:
+            print(f"Erro ao salvar imagem no banco: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback: salvar no sistema de arquivos (para desenvolvimento local)
     filename = secure_filename(file.filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     name, ext = os.path.splitext(filename)
     filename = f"servico_{timestamp}{ext}"
     
-    # Salvar arquivo
-    filepath = os.path.join(SERVICOS_IMG_DIR, filename)
-    file.save(filepath)
+    if os.path.exists(SERVICOS_IMG_DIR):
+        filepath = os.path.join(SERVICOS_IMG_DIR, filename)
+        file.seek(0)
+        file.save(filepath)
+        relative_path = f'img/servicos/{filename}'
+    else:
+        relative_path = f'img/placeholder.png'
     
-    # Retornar caminho relativo
-    relative_path = f'img/servicos/{filename}'
     return jsonify({'success': True, 'path': relative_path})
+
+@app.route('/admin/servicos/imagem/<int:image_id>')
+def servir_imagem_servico(image_id):
+    """Rota para servir imagens do banco de dados"""
+    if use_database():
+        try:
+            with app.app_context():
+                imagem = Imagem.query.get(image_id)
+                if imagem and imagem.dados:
+                    return Response(
+                        imagem.dados,
+                        mimetype=imagem.tipo_mime or 'image/jpeg',
+                        headers={
+                            'Content-Disposition': f'inline; filename={imagem.nome or "imagem.jpg"}',
+                            'Cache-Control': 'public, max-age=31536000'  # Cache por 1 ano
+                        }
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar imagem: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback: retornar placeholder
+    return redirect(url_for('static', filename='img/placeholder.png'))
 
 @app.route('/admin/servicos/add', methods=['GET', 'POST'])
 @login_required
@@ -907,35 +1021,115 @@ def add_servico_admin():
         ordem = request.form.get('ordem', '999')
         ativo = request.form.get('ativo') == 'on'
         
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        # Extrair image_id se a imagem veio do banco (formato: /admin/servicos/imagem/123)
+        imagem_id = None
+        if imagem.startswith('/admin/servicos/imagem/'):
+            try:
+                imagem_id = int(imagem.split('/')[-1])
+            except:
+                pass
         
-        # Obter próximo ID
-        max_id = max([s.get('id', 0) for s in data['services']], default=0)
-        
-        novo_servico = {
-            'id': max_id + 1,
-            'nome': nome,
-            'descricao': descricao,
-            'imagem': imagem,
-            'ordem': int(ordem) if ordem.isdigit() else 999,
-            'ativo': ativo,
-            'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        data['services'].append(novo_servico)
-        
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Serviço adicionado com sucesso!', 'success')
-        return redirect(url_for('admin_servicos'))
+        if use_database():
+            try:
+                with app.app_context():
+                    servico = Servico(
+                        nome=nome,
+                        descricao=descricao,
+                        imagem=imagem,
+                        imagem_id=imagem_id,
+                        ordem=int(ordem) if ordem.isdigit() else 999,
+                        ativo=ativo,
+                        data=datetime.now()
+                    )
+                    db.session.add(servico)
+                    db.session.commit()
+                    flash('Serviço adicionado com sucesso!', 'success')
+                    return redirect(url_for('admin_servicos'))
+            except Exception as e:
+                flash(f'Erro ao adicionar serviço: {str(e)}', 'error')
+                return redirect(url_for('add_servico_admin'))
+        else:
+            # Fallback para JSON
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            max_id = max([s.get('id', 0) for s in data['services']], default=0)
+            
+            novo_servico = {
+                'id': max_id + 1,
+                'nome': nome,
+                'descricao': descricao,
+                'imagem': imagem,
+                'ordem': int(ordem) if ordem.isdigit() else 999,
+                'ativo': ativo,
+                'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            data['services'].append(novo_servico)
+            
+            with open(DATA_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Serviço adicionado com sucesso!', 'success')
+            return redirect(url_for('admin_servicos'))
     
     return render_template('admin/add_servico.html')
 
 @app.route('/admin/servicos/<int:servico_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_servico(servico_id):
+    if use_database():
+        try:
+            with app.app_context():
+                servico = Servico.query.get(servico_id)
+                if not servico:
+                    flash('Serviço não encontrado!', 'error')
+                    return redirect(url_for('admin_servicos'))
+                
+                if request.method == 'POST':
+                    servico.nome = request.form.get('nome')
+                    servico.descricao = request.form.get('descricao')
+                    imagem_nova = request.form.get('imagem', '').strip()
+                    if imagem_nova:
+                        servico.imagem = imagem_nova
+                        # Extrair image_id se veio do banco
+                        if imagem_nova.startswith('/admin/servicos/imagem/'):
+                            try:
+                                servico.imagem_id = int(imagem_nova.split('/')[-1])
+                            except:
+                                pass
+                        else:
+                            servico.imagem_id = None
+                    servico.ordem = int(request.form.get('ordem', '999')) if request.form.get('ordem', '999').isdigit() else 999
+                    servico.ativo = request.form.get('ativo') == 'on'
+                    
+                    db.session.commit()
+                    flash('Serviço atualizado com sucesso!', 'success')
+                    return redirect(url_for('admin_servicos'))
+                
+                # Converter para formato compatível com template
+                if servico.imagem_id:
+                    imagem_url = f'/admin/servicos/imagem/{servico.imagem_id}'
+                elif servico.imagem:
+                    imagem_url = servico.imagem
+                else:
+                    imagem_url = ''
+                
+                servico_dict = {
+                    'id': servico.id,
+                    'nome': servico.nome,
+                    'descricao': servico.descricao,
+                    'imagem': imagem_url,
+                    'ordem': servico.ordem,
+                    'ativo': servico.ativo,
+                    'data': servico.data.strftime('%Y-%m-%d %H:%M:%S') if servico.data else ''
+                }
+                return render_template('admin/edit_servico.html', servico=servico_dict)
+        except Exception as e:
+            print(f"Erro ao editar serviço no banco: {e}")
+            flash('Erro ao editar serviço. Usando arquivos JSON.', 'warning')
+    
+    # Fallback para JSON
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
     

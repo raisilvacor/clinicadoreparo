@@ -20,16 +20,32 @@ class Cliente(db.Model):
     # Relacionamentos
     ordens = db.relationship('OrdemServico', backref='cliente', lazy=True, cascade='all, delete-orphan')
 
+# ==================== IMAGENS ====================
+class Imagem(db.Model):
+    """Tabela para armazenar imagens no banco de dados"""
+    __tablename__ = 'imagens'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200))
+    dados = db.Column(db.LargeBinary, nullable=False)  # Dados binários da imagem
+    tipo_mime = db.Column(db.String(50), nullable=False)  # image/jpeg, image/png, etc
+    tamanho = db.Column(db.Integer)  # Tamanho em bytes
+    data_upload = db.Column(db.DateTime, default=datetime.now)
+    referencia = db.Column(db.String(200))  # Referência (ex: 'servico_123')
+
 # ==================== SERVIÇOS ====================
 class Servico(db.Model):
     __tablename__ = 'servicos'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
     descricao = db.Column(db.Text)
-    imagem = db.Column(db.String(500))
+    imagem = db.Column(db.String(500))  # Caminho ou ID da imagem
+    imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
     ordem = db.Column(db.Integer, default=999)
     ativo = db.Column(db.Boolean, default=True)
     data = db.Column(db.DateTime, default=datetime.now)
+    
+    # Relacionamento
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
 
 # ==================== TÉCNICOS ====================
 class Tecnico(db.Model):

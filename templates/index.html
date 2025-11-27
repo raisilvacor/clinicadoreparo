@@ -150,7 +150,11 @@
                 {% for servico in servicos %}
                 <div class="service-card">
                     <div class="service-image">
-                        <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        {% if servico.imagem and servico.imagem.startswith('/admin/servicos/imagem/') %}
+                            <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        {% else %}
+                            <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        {% endif %}
                     </div>
                     <h3>{{ servico.nome }}</h3>
                     <p>{{ servico.descricao }}</p>

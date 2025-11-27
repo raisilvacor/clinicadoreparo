@@ -44,7 +44,11 @@
             <small class="form-help">Clique em "Escolher Imagem do Computador" para fazer upload de uma nova imagem ou digite o caminho manualmente (imagem deve ser quadrada, ex: 500x500px)</small>
             <div id="imagem_preview" style="margin-top: 10px;">
                 {% if servico.imagem %}
-                <img id="preview_img" src="{{ url_for('static', filename=servico.imagem) }}" alt="Preview" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 5px;" onerror="this.style.display='none'">
+                    {% if servico.imagem.startswith('/admin/servicos/imagem/') %}
+                        <img id="preview_img" src="{{ servico.imagem }}" alt="Preview" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 5px;" onerror="this.style.display='none'">
+                    {% else %}
+                        <img id="preview_img" src="{{ url_for('static', filename=servico.imagem) }}" alt="Preview" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 5px;" onerror="this.style.display='none'">
+                    {% endif %}
                 {% else %}
                 <img id="preview_img" src="" alt="Preview" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 5px; display: none;">
                 {% endif %}
