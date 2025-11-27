@@ -1821,57 +1821,106 @@ def edit_ordem_servico(cliente_id, ordem_id):
 @app.route('/admin/clientes/<int:cliente_id>/ordens/<int:ordem_id>/delete', methods=['POST'])
 @login_required
 def delete_ordem_servico(cliente_id, ordem_id):
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
-    if not cliente:
-        flash('Cliente não encontrado!', 'error')
-        return redirect(url_for('admin_ordens'))
-    
-    # Buscar ordem antes de excluir
-    ordem = next((o for o in cliente.get('ordens', []) if o.get('id') == ordem_id), None)
-    
-    # Se a ordem tiver cupom aplicado, reverter o cupom para disponível
-    if ordem and ordem.get('cupom_id'):
-        cupom_id_ordem_excluida = ordem['cupom_id']
-        if os.path.exists(FIDELIDADE_FILE):
-            with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
-                fidelidade_data = json.load(f)
+    if use_database():
+        try:
+            # Buscar ordem no banco
+            ordem = OrdemServico.query.filter_by(id=ordem_id, cliente_id=cliente_id).first()
+            if not ordem:
+                flash('Ordem de serviço não encontrada!', 'error')
+                return redirect(url_for('admin_ordens'))
             
-            # Buscar cupom e reverter apenas se estiver vinculado à ordem que está sendo excluída
-            cupom = next((c for c in fidelidade_data['cupons'] if c.get('id') == cupom_id_ordem_excluida), None)
-            if cupom:
-                # Verificar se o cupom está realmente vinculado à ordem que está sendo excluída
-                if cupom.get('ordem_id') == ordem_id:
-                    cupom['usado'] = False
-                    cupom['ordem_id'] = None
-                    cupom['data_uso'] = None
-                    
-                    # Salvar alterações do cupom
-                    with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
-                        json.dump(fidelidade_data, f, ensure_ascii=False, indent=2)
+            # Se a ordem tiver cupom aplicado, reverter o cupom para disponível
+            if ordem.cupom_id:
+                try:
+                    cupom = Cupom.query.get(ordem.cupom_id)
+                    if cupom and cupom.ordem_id == ordem_id:
+                        cupom.usado = False
+                        cupom.ordem_id = None
+                        cupom.data_uso = None
+                        db.session.commit()
+                except Exception as e:
+                    print(f"Erro ao reverter cupom: {e}")
+                    db.session.rollback()
+            
+            # Deletar PDF do banco se existir
+            if ordem.pdf_id:
+                try:
+                    pdf_doc = PDFDocument.query.get(ordem.pdf_id)
+                    if pdf_doc:
+                        db.session.delete(pdf_doc)
+                except Exception as e:
+                    print(f"Erro ao deletar PDF: {e}")
+            
+            # Deletar ordem
+            db.session.delete(ordem)
+            db.session.commit()
+            
+            flash('Ordem de serviço excluída com sucesso!', 'success')
+            return redirect(url_for('admin_ordens'))
+        except Exception as e:
+            print(f"Erro ao excluir ordem do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                db.session.rollback()
+            except:
+                pass
+            flash('Erro ao excluir ordem. Tente novamente.', 'error')
+            return redirect(url_for('admin_ordens'))
     
-    # Deletar PDF se existir
-    if ordem and ordem.get('pdf_filename'):
-        pdf_path = os.path.join(PDFS_DIR, ordem['pdf_filename'])
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
-    
-    # Remover ordem
-    cliente['ordens'] = [o for o in cliente.get('ordens', []) if o.get('id') != ordem_id]
-    
-    # Atualizar cliente na lista
-    for i, c in enumerate(data['clients']):
-        if c.get('id') == cliente_id:
-            data['clients'][i] = cliente
-            break
-    
-    with open(CLIENTS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    flash('Ordem de serviço excluída com sucesso!', 'success')
-    return redirect(url_for('admin_ordens'))
+    # Fallback para JSON (apenas se banco não estiver disponível)
+    try:
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
+        if not cliente:
+            flash('Cliente não encontrado!', 'error')
+            return redirect(url_for('admin_ordens'))
+        
+        # Buscar ordem antes de excluir
+        ordem = next((o for o in cliente.get('ordens', []) if o.get('id') == ordem_id), None)
+        
+        # Se a ordem tiver cupom aplicado, reverter o cupom para disponível
+        if ordem and ordem.get('cupom_id'):
+            cupom_id_ordem_excluida = ordem['cupom_id']
+            if os.path.exists(FIDELIDADE_FILE):
+                with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+                    fidelidade_data = json.load(f)
+                
+                # Buscar cupom e reverter apenas se estiver vinculado à ordem que está sendo excluída
+                cupom = next((c for c in fidelidade_data['cupons'] if c.get('id') == cupom_id_ordem_excluida), None)
+                if cupom:
+                    # Verificar se o cupom está realmente vinculado à ordem que está sendo excluída
+                    if cupom.get('ordem_id') == ordem_id:
+                        cupom['usado'] = False
+                        cupom['ordem_id'] = None
+                        cupom['data_uso'] = None
+                        
+                        # Salvar alterações do cupom
+                        with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
+                            json.dump(fidelidade_data, f, ensure_ascii=False, indent=2)
+        
+        # Remover ordem
+        cliente['ordens'] = [o for o in cliente.get('ordens', []) if o.get('id') != ordem_id]
+        
+        # Atualizar cliente na lista
+        for i, c in enumerate(data['clients']):
+            if c.get('id') == cliente_id:
+                data['clients'][i] = cliente
+                break
+        
+        with open(CLIENTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Ordem de serviço excluída com sucesso!', 'success')
+        return redirect(url_for('admin_ordens'))
+    except Exception as e:
+        print(f"Erro ao excluir ordem (JSON): {e}")
+        import traceback
+        traceback.print_exc()
+        flash('Erro ao excluir ordem. Tente novamente.', 'error')
+        return redirect(url_for('admin_ordens'))
 
 # ==================== PDF GENERATION ====================
 
