@@ -3,4 +3,7 @@ Werkzeug==3.0.1
 reportlab==4.0.7
 requests==2.31.0
 twilio==9.0.0
+<<<<<<< HEAD
 gunicorn==21.2.0
+=======
+>>>>>>> dfa56f644eee5de50b31e02eec2bdad80decb77e

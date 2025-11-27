@@ -1,0 +1,551 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Robô WhatsApp - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fab fa-whatsapp"></i> Robô WhatsApp - VirTEc</h1>
+    <p>Configure o seu técnico virtual automatizado</p>
+</div>
+
+<div class="admin-section">
+    <form method="POST" action="{{ url_for('admin_whatsapp_bot') }}">
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="ativo" {% if config.ativo %}checked{% endif %}>
+                Ativar Robô WhatsApp
+            </label>
+            <small class="form-help">Marque para ativar o robô automatizado</small>
+        </div>
+
+        <div class="form-group">
+            <label for="tipo_integracao">
+                <i class="fas fa-plug"></i>
+                Tipo de Integração
+            </label>
+            <select id="tipo_integracao" name="tipo_integracao" onchange="toggleIntegrationType()">
+                <option value="evolution">Evolution API (Recomendado - Mais fácil)</option>
+                <option value="twilio">Twilio WhatsApp</option>
+                <option value="whatsapp_business">WhatsApp Business API</option>
+                <option value="manual">Manual (Webhook customizado)</option>
+            </select>
+            <small class="form-help">Escolha o tipo de integração que você deseja usar</small>
+        </div>
+
+        <div id="evolution_config" class="integration-config">
+            <div class="info-box" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 1.5rem;">
+                <div style="background: #fff3cd; border-left: 4px solid #ff9800; padding: 1rem; margin-bottom: 1rem; border-radius: 5px;">
+                    <p style="margin: 0; color: #856404;"><strong>⚠️ ATENÇÃO:</strong> Se seu site está hospedado no Render, Railway, Heroku ou outro servidor, você <strong>DEVE</strong> usar uma Evolution API online (Opção 1). <strong>NÃO</strong> use localhost ou Docker local, pois o servidor não consegue acessar seu computador!</p>
+                </div>
+                
+                <p><strong>⚠️ Importante:</strong> Antes de configurar, você precisa ter a Evolution API rodando!</p>
+                
+                <p style="margin-top: 1rem;"><strong>🌐 Opção 1: Usar Evolution API Online (MAIS FÁCIL - Recomendado para Sites Hospedados)</strong></p>
+                <div style="margin-left: 1.5rem; margin-top: 0.5rem; background: #e8f5e9; padding: 1rem; border-radius: 5px;">
+                    <p><strong>✅ Vantagens:</strong> Não precisa instalar nada, funciona imediatamente, e funciona perfeitamente com sites hospedados!</p>
+                    <p style="margin-top: 0.5rem;"><strong>Como usar:</strong></p>
+                    <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <li>Acesse um serviço de Evolution API online (gratuito ou pago)</li>
+                        <li>Exemplos de serviços:
+                            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                                <li><a href="https://evolution-api.com" target="_blank">Evolution API Cloud</a></li>
+                                <li>Pesquise por "Evolution API hosting" ou "WhatsApp API service" no Google</li>
+                            </ul>
+                        </li>
+                        <li>Copie a URL da API fornecida (ex: <code>https://sua-api.com</code>)</li>
+                        <li>Cole a URL no campo abaixo</li>
+                        <li>Pronto! Você não precisa instalar nada no seu computador</li>
+                    </ol>
+                    <p style="margin-top: 0.5rem; color: #2e7d32; font-weight: bold;">💡 Esta é a opção mais fácil e recomendada!</p>
+                </div>
+                
+                <p style="margin-top: 1rem;"><strong>💻 Opção 2: Instalar com Node.js (Avançado - Requer conhecimento técnico)</strong></p>
+                <div style="margin-left: 1.5rem; margin-top: 0.5rem; background: #fff3e0; padding: 1rem; border-radius: 5px; border-left: 3px solid #ff9800;">
+                    <p><strong>⚠️ Nota:</strong> Esta opção é mais complexa e requer conhecimento técnico. Recomendamos usar a <strong>Opção 1 (Online)</strong> que é muito mais fácil.</p>
+                    <p style="margin-top: 0.5rem;"><strong>Requisitos:</strong> Node.js instalado (baixe em <a href="https://nodejs.org" target="_blank">nodejs.org</a>)</p>
+                    <p style="margin-top: 0.5rem;"><strong>Passos:</strong></p>
+                    <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <li>Instale o Node.js (se ainda não tiver)</li>
+                        <li>Pesquise no GitHub por "evolution-api" ou "whatsapp-api" para encontrar o repositório oficial</li>
+                        <li>Siga as instruções de instalação do repositório encontrado</li>
+                        <li>Use a URL: <code>http://localhost:8080</code> (ou a porta configurada)</li>
+                    </ol>
+                    <p style="margin-top: 0.5rem; color: #e65100; font-weight: bold;">💡 Dica: Se você não tem experiência técnica, use a Opção 1 (Online) que é muito mais fácil!</p>
+                </div>
+                
+                <p style="margin-top: 1rem;"><strong>📦 Opção 3: Usar com Docker (Requer Docker instalado)</strong></p>
+                <div style="margin-left: 1.5rem; margin-top: 0.5rem; background: #fce4ec; padding: 1rem; border-radius: 5px;">
+                    <p><strong>Requisitos:</strong> Docker Desktop instalado</p>
+                    <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <li>Instale o Docker Desktop: <a href="https://www.docker.com/products/docker-desktop" target="_blank">Baixar Docker Desktop</a></li>
+                        <li>Abra o Docker Desktop e aguarde iniciar completamente</li>
+                        <li>Execute no terminal: 
+                            <div style="background: #263238; color: #fff; padding: 0.5rem; border-radius: 3px; margin-top: 0.5rem; font-family: monospace;">
+                                docker run -p 8080:8080 atendai/evolution-api
+                            </div>
+                        </li>
+                        <li>Aguarde a mensagem "Evolution API is running"</li>
+                        <li>Use a URL: <code>http://localhost:8080</code></li>
+                    </ol>
+                </div>
+                
+                <div style="margin-top: 1rem; padding: 1rem; background: #fff9c4; border-radius: 5px; border-left: 4px solid #fbc02d;">
+                    <p style="margin: 0;"><strong>💡 Recomendação:</strong> Se você não tem experiência técnica, use a <strong>Opção 1 (Evolution API Online)</strong>. É a forma mais rápida e fácil de começar!</p>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="evolution_api_url">
+                    <i class="fas fa-link"></i>
+                    URL da Evolution API
+                </label>
+                <input type="text" id="evolution_api_url" name="evolution_api_url" 
+                       value="{{ config.get('evolution_api_url', '') }}" 
+                       placeholder="Ex: https://sua-api.com" required>
+                <small class="form-help">
+                    URL base da sua Evolution API.<br>
+                    <strong style="color: #d32f2f;">⚠️ IMPORTANTE:</strong> Se seu site está hospedado no Render ou outro servidor, você <strong>DEVE</strong> usar uma URL online (ex: https://sua-api.com), <strong>NÃO</strong> use localhost!<br>
+                    <strong>Online:</strong> https://sua-api.com (recomendado para sites hospedados)<br>
+                    <strong>Local:</strong> http://localhost:8080 (apenas para desenvolvimento local)
+                </small>
+                <button type="button" onclick="testarConexaoAPI()" class="btn btn-secondary" style="margin-top: 0.5rem; width: 100%;">
+                    <i class="fas fa-network-wired"></i> Testar Conexão com a API
+                </button>
+                <div id="test-status" style="margin-top: 0.5rem; padding: 0.5rem; border-radius: 5px; display: none;"></div>
+            </div>
+            <div class="form-group">
+                <label for="evolution_api_key">
+                    <i class="fas fa-key"></i>
+                    API Key
+                </label>
+                <input type="text" id="evolution_api_key" name="evolution_api_key" 
+                       value="{{ config.get('evolution_api_key', '') }}" 
+                       placeholder="Sua chave de API (opcional)">
+                <small class="form-help">Chave de API da Evolution API (opcional, deixe em branco se não usar)</small>
+            </div>
+            
+            <input type="hidden" id="evolution_instance_name" name="evolution_instance_name" 
+                   value="{{ config.get('evolution_instance_name', '') }}">
+            
+            <div class="form-group">
+                <button type="button" onclick="configurarEvolutionAPI()" class="btn btn-primary" style="width: 100%;">
+                    <i class="fas fa-cog"></i>
+                    Configurar Automaticamente e Gerar QR Code
+                </button>
+                <small class="form-help">Clique para criar a instância automaticamente, configurar o webhook e gerar o QR Code. Você só precisa escanear o QR Code!</small>
+            </div>
+
+            <div id="qr-code-container" style="display: none; margin-top: 2rem;">
+                <div class="info-box" style="background: #e8f5e9; border-left: 4px solid #4caf50;">
+                    <h3 style="margin-bottom: 1rem; color: #2e7d32;">
+                        <i class="fas fa-qrcode"></i> Escaneie o QR Code
+                    </h3>
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 10px; margin: 1rem 0;">
+                        <img id="qr-code-image" src="" alt="QR Code" style="max-width: 300px; border: 2px solid #ddd; padding: 1rem;">
+                    </div>
+                    <p style="text-align: center; margin-top: 1rem;">
+                        <strong>Como fazer:</strong><br>
+                        1. Abra o WhatsApp no seu celular<br>
+                        2. Vá em <strong>Menu > Dispositivos conectados</strong><br>
+                        3. Toque em <strong>"Conectar um dispositivo"</strong><br>
+                        4. Escaneie o QR Code acima
+                    </p>
+                    <div id="connection-status" style="text-align: center; margin-top: 1rem; padding: 0.5rem; border-radius: 5px; background: #fff3cd; color: #856404;">
+                        <i class="fas fa-spinner fa-spin"></i> Aguardando conexão...
+                    </div>
+                    <button type="button" onclick="verificarConexao()" class="btn btn-secondary" style="width: 100%; margin-top: 1rem;">
+                        <i class="fas fa-sync"></i> Verificar Conexão
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="twilio_config" class="integration-config" style="display: none;">
+            <div class="info-box" style="background: #e3f2fd; border-left: 4px solid #2196f3; margin-bottom: 1.5rem;">
+                <p><strong>📋 Como configurar o Twilio:</strong></p>
+                <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <li>Preencha os campos abaixo com suas credenciais do Twilio</li>
+                    <li>No console do Twilio (<a href="https://console.twilio.com" target="_blank">console.twilio.com</a>), configure o webhook:</li>
+                    <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <li>Vá em <strong>Messaging > Settings > WhatsApp Sandbox</strong> (ou WhatsApp Senders)</li>
+                        <li>Configure a URL do webhook: <code id="twilio-webhook-url">https://seu-dominio.com/api/whatsapp/webhook</code></li>
+                        <button type="button" onclick="copyTwilioWebhookUrl()" class="btn btn-secondary" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; font-size: 0.85em;">
+                            <i class="fas fa-copy"></i> Copiar URL do Webhook
+                        </button>
+                        <li>Salve as configurações</li>
+                    </ul>
+                    <li>Salve as configurações abaixo</li>
+                </ol>
+            </div>
+            
+            <div class="form-group">
+                <label for="twilio_account_sid">
+                    <i class="fas fa-id-card"></i>
+                    Account SID
+                </label>
+                <input type="text" id="twilio_account_sid" name="twilio_account_sid" 
+                       value="{{ config.get('twilio_account_sid', 'AC15407b6862491174e0d41408bfbf0fd1') }}" 
+                       placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+            </div>
+            <div class="form-group">
+                <label for="twilio_auth_token">
+                    <i class="fas fa-key"></i>
+                    Auth Token
+                </label>
+                <input type="password" id="twilio_auth_token" name="twilio_auth_token" 
+                       value="{{ config.get('twilio_auth_token', '47ed26bdd93e6ba3c1df87b4288fabcb') }}" 
+                       placeholder="Seu token de autenticação">
+            </div>
+            <div class="form-group">
+                <label for="twilio_from_number">
+                    <i class="fab fa-whatsapp"></i>
+                    Número Twilio (WhatsApp)
+                </label>
+                <input type="text" id="twilio_from_number" name="twilio_from_number" 
+                       value="{{ config.get('twilio_from_number', 'whatsapp:+5493513583340') }}" 
+                       placeholder="whatsapp:+5493513583340">
+                <small class="form-help">Formato: whatsapp:+[código do país][número] (ex: whatsapp:+5493513583340)</small>
+            </div>
+        </div>
+
+        <div id="whatsapp_business_config" class="integration-config" style="display: none;">
+            <div class="form-group">
+                <label for="business_access_token">
+                    <i class="fas fa-key"></i>
+                    Access Token
+                </label>
+                <input type="text" id="business_access_token" name="business_access_token" 
+                       value="{{ config.get('business_access_token', '') }}" 
+                       placeholder="Seu access token">
+            </div>
+            <div class="form-group">
+                <label for="business_phone_number_id">
+                    <i class="fas fa-phone"></i>
+                    Phone Number ID
+                </label>
+                <input type="text" id="business_phone_number_id" name="business_phone_number_id" 
+                       value="{{ config.get('business_phone_number_id', '') }}" 
+                       placeholder="ID do número de telefone">
+            </div>
+        </div>
+
+        <div id="manual_config" class="integration-config" style="display: none;">
+            <div class="form-group">
+                <label for="numero_whatsapp">
+                    <i class="fab fa-whatsapp"></i>
+                    Número do WhatsApp
+                </label>
+                <input type="text" id="numero_whatsapp" name="numero_whatsapp" 
+                       value="{{ config.numero_whatsapp }}" 
+                       placeholder="Ex: 5586988959957">
+                <small class="form-help">Número do WhatsApp que receberá as mensagens</small>
+            </div>
+            <div class="info-box">
+                <p><strong>Webhook URL:</strong> Configure na sua API para apontar para:</p>
+                <div class="code-box">
+                    <code id="webhook-url">http://seu-dominio.com/api/whatsapp/webhook</code>
+                    <button type="button" onclick="copyWebhookUrl()" class="btn btn-secondary" style="margin-left: 10px; padding: 0.25rem 0.5rem;">
+                        <i class="fas fa-copy"></i> Copiar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="mensagem_inicial">
+                <i class="fas fa-comment"></i>
+                Mensagem Inicial
+            </label>
+            <textarea id="mensagem_inicial" name="mensagem_inicial" rows="2" required>{{ config.mensagem_inicial }}</textarea>
+            <small class="form-help">Primeira mensagem que o robô enviará</small>
+        </div>
+
+        <div class="form-group">
+            <label for="pergunta">
+                <i class="fas fa-question-circle"></i>
+                Pergunta
+            </label>
+            <textarea id="pergunta" name="pergunta" rows="2" required>{{ config.pergunta }}</textarea>
+            <small class="form-help">Pergunta que o robô fará após a mensagem inicial</small>
+        </div>
+
+        <div class="admin-section">
+            <div class="section-header">
+                <h2><i class="fas fa-list"></i> Opções de Resposta</h2>
+                <p>Configure as opções que o cliente pode escolher</p>
+            </div>
+
+            {% for i in range(1, 6) %}
+            {% set opcao_num = i|string %}
+            {% set opcao = config.opcoes[i-1] if config.opcoes|length >= i else {'numero': opcao_num, 'texto': ''} %}
+            {% set resposta_texto = config.respostas[opcao.numero] if opcao.numero in config.respostas else '' %}
+            <div class="form-row">
+                <div class="form-group" style="flex: 0 0 80px;">
+                    <label for="opcao_numero_{{ i }}">Número</label>
+                    <input type="text" id="opcao_numero_{{ i }}" name="opcao_numero_{{ i }}" 
+                           value="{{ opcao.numero }}" maxlength="1" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="opcao_texto_{{ i }}">Texto da Opção {{ i }}</label>
+                    <input type="text" id="opcao_texto_{{ i }}" name="opcao_texto_{{ i }}" 
+                           value="{{ opcao.texto }}" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="resposta_{{ i }}">Resposta Automática {{ i }}</label>
+                    <textarea id="resposta_{{ i }}" name="resposta_{{ i }}" rows="2" required>{{ resposta_texto }}</textarea>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                Salvar Configurações
+            </button>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                Voltar
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
+        <h2><i class="fas fa-info-circle"></i> Como Funciona</h2>
+    </div>
+    <div class="info-box">
+        <p><strong>1.</strong> Configure o número do WhatsApp que receberá as mensagens</p>
+        <p><strong>2.</strong> Defina a mensagem inicial e a pergunta</p>
+        <p><strong>3.</strong> Configure as 5 opções de resposta e suas respostas automáticas</p>
+        <p><strong>4.</strong> Ative o robô marcando a opção "Ativar Robô WhatsApp"</p>
+        <p><strong>5.</strong> Configure o webhook na sua API do WhatsApp para apontar para:</p>
+        <div class="code-box">
+            <code>http://seu-dominio.com/api/whatsapp/webhook</code>
+        </div>
+        <p><strong>Importante:</strong> Para o robô funcionar, você precisa:</p>
+        <ul style="margin-left: 2rem; margin-top: 1rem;">
+            <li>Ter uma conta em uma API do WhatsApp (Twilio, WhatsApp Business API, Evolution API, etc.)</li>
+            <li>Configurar o webhook URL para apontar para o endpoint acima</li>
+            <li>Garantir que o servidor esteja acessível publicamente (use ngrok para testes locais)</li>
+        </ul>
+        <p style="margin-top: 1rem;"><strong>Status do Webhook:</strong> <span id="webhook-status">Verificando...</span></p>
+    </div>
+</div>
+
+<script>
+function toggleIntegrationType() {
+    const tipo = document.getElementById('tipo_integracao').value;
+    const configs = ['evolution_config', 'twilio_config', 'whatsapp_business_config', 'manual_config'];
+    
+    configs.forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+    
+    document.getElementById(tipo + '_config').style.display = 'block';
+}
+
+function copyTwilioWebhookUrl() {
+    const webhookUrl = window.location.origin + '/api/whatsapp/webhook';
+    navigator.clipboard.writeText(webhookUrl).then(function() {
+        alert('URL do webhook copiada para a área de transferência!');
+    });
+}
+
+function copyWebhookUrl() {
+    const url = window.location.origin + '/api/whatsapp/webhook';
+    navigator.clipboard.writeText(url).then(() => {
+        alert('URL copiada para a área de transferência!');
+    });
+}
+
+// Verificar status do webhook
+fetch('/api/whatsapp/webhook', { method: 'GET' })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('webhook-status').textContent = '✅ Webhook ativo e funcionando';
+        document.getElementById('webhook-status').style.color = 'green';
+    })
+    .catch(error => {
+        document.getElementById('webhook-status').textContent = '❌ Erro ao conectar webhook';
+        document.getElementById('webhook-status').style.color = 'red';
+    });
+
+// Atualizar URL do webhook
+if (document.getElementById('webhook-url')) {
+    document.getElementById('webhook-url').textContent = window.location.origin + '/api/whatsapp/webhook';
+}
+if (document.getElementById('twilio-webhook-url')) {
+    document.getElementById('twilio-webhook-url').textContent = window.location.origin + '/api/whatsapp/webhook';
+}
+
+// Inicializar tipo de integração
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoSalvo = '{{ config.get("tipo_integracao", "evolution") }}';
+    if (tipoSalvo) {
+        document.getElementById('tipo_integracao').value = tipoSalvo;
+        toggleIntegrationType();
+    }
+});
+
+function configurarEvolutionAPI() {
+    const apiUrl = document.getElementById('evolution_api_url').value;
+    const apiKey = document.getElementById('evolution_api_key').value;
+    
+    if (!apiUrl) {
+        alert('Por favor, preencha a URL da Evolution API primeiro!');
+        return;
+    }
+    
+    // Mostrar loading
+    const qrContainer = document.getElementById('qr-code-container');
+    qrContainer.style.display = 'block';
+    document.getElementById('qr-code-image').src = '';
+    document.getElementById('connection-status').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Configurando...';
+    
+    // Chamar API para criar instância e obter QR Code
+    fetch('/api/whatsapp/setup-evolution', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            api_url: apiUrl,
+            api_key: apiKey
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Mostrar QR Code
+            document.getElementById('qr-code-image').src = data.qr_code;
+            document.getElementById('connection-status').innerHTML = '<i class="fas fa-qrcode"></i> QR Code gerado! Escaneie com seu WhatsApp.';
+            document.getElementById('connection-status').style.background = '#d1ecf1';
+            document.getElementById('connection-status').style.color = '#0c5460';
+            
+            // Salvar nome da instância
+            if (data.instance_name) {
+                document.getElementById('evolution_instance_name').value = data.instance_name;
+            }
+            
+            // Verificar conexão periodicamente
+            const checkInterval = setInterval(() => {
+                verificarConexao(true).then(connected => {
+                    if (connected) {
+                        clearInterval(checkInterval);
+                        document.getElementById('connection-status').innerHTML = '<i class="fas fa-check-circle"></i> WhatsApp conectado com sucesso!';
+                        document.getElementById('connection-status').style.background = '#d4edda';
+                        document.getElementById('connection-status').style.color = '#155724';
+                    }
+                });
+            }, 3000);
+        } else {
+            alert('Erro: ' + (data.message || 'Não foi possível configurar a Evolution API'));
+            document.getElementById('connection-status').innerHTML = '<i class="fas fa-exclamation-circle"></i> Erro: ' + (data.message || 'Erro desconhecido');
+            document.getElementById('connection-status').style.background = '#f8d7da';
+            document.getElementById('connection-status').style.color = '#721c24';
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao configurar Evolution API: ' + error.message);
+        document.getElementById('connection-status').innerHTML = '<i class="fas fa-exclamation-circle"></i> Erro ao conectar';
+        document.getElementById('connection-status').style.background = '#f8d7da';
+        document.getElementById('connection-status').style.color = '#721c24';
+    });
+}
+
+function testarConexaoAPI() {
+    const apiUrl = document.getElementById('evolution_api_url').value;
+    const apiKey = document.getElementById('evolution_api_key').value;
+    
+    if (!apiUrl) {
+        alert('Por favor, preencha a URL da Evolution API primeiro!');
+        return;
+    }
+    
+    const testStatus = document.getElementById('test-status');
+    testStatus.style.display = 'block';
+    testStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testando conexão...';
+    testStatus.style.background = '#fff3cd';
+    testStatus.style.color = '#856404';
+    
+    fetch('/api/whatsapp/test-connection', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            api_url: apiUrl,
+            api_key: apiKey
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.connected) {
+            testStatus.innerHTML = '<i class="fas fa-check-circle"></i> ✅ Conexão OK! Evolution API está funcionando.';
+            testStatus.style.background = '#d4edda';
+            testStatus.style.color = '#155724';
+        } else {
+            testStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Erro: ' + (data.message || 'Não foi possível conectar à Evolution API');
+            testStatus.style.background = '#f8d7da';
+            testStatus.style.color = '#721c24';
+        }
+    })
+    .catch(error => {
+        testStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Erro: ' + error.message;
+        testStatus.style.background = '#f8d7da';
+        testStatus.style.color = '#721c24';
+    });
+}
+
+function verificarConexao(silent = false) {
+    const apiUrl = document.getElementById('evolution_api_url').value;
+    const apiKey = document.getElementById('evolution_api_key').value;
+    const instanceName = document.getElementById('evolution_instance_name').value || 'default';
+    
+    if (!apiUrl) {
+        if (!silent) alert('Configure a URL da Evolution API primeiro!');
+        return Promise.resolve(false);
+    }
+    
+    return fetch('/api/whatsapp/check-connection', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            api_url: apiUrl,
+            api_key: apiKey,
+            instance_name: instanceName
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.connected) {
+            document.getElementById('connection-status').innerHTML = '<i class="fas fa-check-circle"></i> WhatsApp conectado com sucesso!';
+            document.getElementById('connection-status').style.background = '#d4edda';
+            document.getElementById('connection-status').style.color = '#155724';
+            if (!silent) {
+                alert('WhatsApp conectado com sucesso!');
+            }
+            return true;
+        } else {
+            document.getElementById('connection-status').innerHTML = '<i class="fas fa-clock"></i> Aguardando conexão... Escaneie o QR Code acima.';
+            document.getElementById('connection-status').style.background = '#fff3cd';
+            document.getElementById('connection-status').style.color = '#856404';
+            return false;
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        if (!silent) {
+            alert('Erro ao verificar conexão: ' + error.message);
+        }
+        return false;
+    });
+}
+</script>
+{% endblock %}
+
