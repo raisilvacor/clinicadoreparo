@@ -99,11 +99,35 @@ Edite os templates em `templates/` para alterar telefones, endereços e outras i
 
 Edite o arquivo `templates/servicos.html` para adicionar novos serviços.
 
+## 🚀 Deploy
+
+O projeto está pronto para deploy em várias plataformas. Consulte o arquivo `DEPLOY.md` para instruções detalhadas de deploy em:
+
+- **Railway** (Recomendado - Grátis)
+- **Render**
+- **Heroku**
+- **PythonAnywhere**
+
+### Arquivos de Deploy
+
+- `Procfile`: Configuração para Heroku/Railway
+- `runtime.txt`: Versão do Python
+- `.env.example`: Exemplo de variáveis de ambiente
+- `DEPLOY.md`: Guia completo de deploy
+
+### Variáveis de Ambiente
+
+Configure as seguintes variáveis de ambiente em produção:
+
+- `SECRET_KEY`: Chave secreta para sessões (obrigatória)
+- `FLASK_ENV`: `production` para produção
+- `PORT`: Porta do servidor (padrão: 5000)
+
 ## 📝 Notas
 
-- Os dados de contato são salvos em `data/services.json`
-- A chave secreta do Flask deve ser alterada em produção (linha 5 de `app.py`)
-- Para produção, considere usar um servidor WSGI como Gunicorn
+- Os dados são salvos em arquivos JSON na pasta `data/`
+- A chave secreta deve ser alterada em produção (use variável de ambiente `SECRET_KEY`)
+- Para produção, o projeto usa Gunicorn (incluído no `requirements.txt`)
 
 ## 🌐 Tecnologias Utilizadas
 

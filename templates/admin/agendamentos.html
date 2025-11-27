@@ -1,0 +1,165 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Agendamentos - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-calendar-check"></i> Agendamentos</h1>
+    <p>Gerencie todos os agendamentos solicitados</p>
+</div>
+
+{% if agendamentos %}
+<div class="admin-table-card">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Contato</th>
+                <th>Data/Hora</th>
+                <th>Serviço</th>
+                <th>Status</th>
+                <th>Data Solicitação</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for agendamento in agendamentos %}
+            <tr>
+                <td><strong>#{{ agendamento.id }}</strong></td>
+                <td>
+                    <strong>{{ agendamento.nome }}</strong>
+                    {% if agendamento.email %}
+                    <br><small class="text-muted">{{ agendamento.email }}</small>
+                    {% endif %}
+                </td>
+                <td>{{ agendamento.telefone }}</td>
+                <td>
+                    <strong>{{ agendamento.data_agendamento }}</strong>
+                    <br><small class="text-muted">{{ agendamento.hora_agendamento }}</small>
+                </td>
+                <td>{{ agendamento.tipo_servico }}</td>
+                <td>
+                    <span class="status-badge status-{{ agendamento.status }}">
+                        {% if agendamento.status == 'pendente' %}
+                        <i class="fas fa-clock"></i> Pendente
+                        {% elif agendamento.status == 'confirmado' %}
+                        <i class="fas fa-check-circle"></i> Confirmado
+                        {% elif agendamento.status == 'cancelado' %}
+                        <i class="fas fa-times-circle"></i> Cancelado
+                        {% elif agendamento.status == 'concluido' %}
+                        <i class="fas fa-check"></i> Concluído
+                        {% else %}
+                        {{ agendamento.status }}
+                        {% endif %}
+                    </span>
+                </td>
+                <td>{{ agendamento.data_criacao }}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button onclick="reenviarNotificacao({{ agendamento.id }})" class="btn-icon btn-info" title="Reenviar Notificação WhatsApp">
+                            <i class="fab fa-whatsapp"></i>
+                        </button>
+                        <form method="POST" action="{{ url_for('atualizar_status_agendamento', agendamento_id=agendamento.id) }}" style="display: inline;">
+                            <select name="status" onchange="this.form.submit()" class="status-select">
+                                <option value="pendente" {% if agendamento.status == 'pendente' %}selected{% endif %}>Pendente</option>
+                                <option value="confirmado" {% if agendamento.status == 'confirmado' %}selected{% endif %}>Confirmado</option>
+                                <option value="cancelado" {% if agendamento.status == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                                <option value="concluido" {% if agendamento.status == 'concluido' %}selected{% endif %}>Concluído</option>
+                            </select>
+                        </form>
+                        <form method="POST" action="{{ url_for('delete_agendamento', agendamento_id=agendamento.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este agendamento?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% if agendamento.observacoes %}
+            <tr class="observacoes-row">
+                <td colspan="8">
+                    <div class="observacoes-box">
+                        <strong><i class="fas fa-comment"></i> Observações:</strong> {{ agendamento.observacoes }}
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="admin-empty-state">
+    <i class="fas fa-calendar-times"></i>
+    <h3>Nenhum agendamento encontrado</h3>
+    <p>Ainda não há agendamentos solicitados.</p>
+</div>
+{% endif %}
+
+<style>
+.status-select {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.observacoes-row {
+    background: var(--bg-secondary);
+}
+
+.observacoes-box {
+    padding: 0.75rem;
+    background: white;
+    border-left: 3px solid var(--primary-color);
+    border-radius: 5px;
+    margin: 0.5rem 0;
+}
+
+.observacoes-box strong {
+    color: var(--primary-color);
+    margin-right: 0.5rem;
+}
+
+.btn-info {
+    background: #25D366;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #20BA5A;
+}
+</style>
+
+<script>
+function reenviarNotificacao(agendamentoId) {
+    if (confirm('Deseja reenviar a notificação do WhatsApp para este agendamento?')) {
+        fetch(`/admin/agendamentos/${agendamentoId}/reenviar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Notificação enviada com sucesso!');
+            } else {
+                alert('Erro ao enviar notificação: ' + (data.error || 'Erro desconhecido'));
+                if (data.url) {
+                    if (confirm('Deseja abrir o WhatsApp manualmente?')) {
+                        window.open(data.url, '_blank');
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            alert('Erro ao enviar notificação: ' + error.message);
+        });
+    }
+}
+</script>
+{% endblock %}
+

@@ -32,7 +32,7 @@
         <tbody>
             {% for ordem in ordens %}
             <tr>
-                <td><strong>#{{ "%04d"|format(ordem.numero_ordem if ordem.numero_ordem else ordem.id) }}</strong></td>
+                <td><strong>{{ ordem.numero_ordem if ordem.numero_ordem else ordem.id }}</strong></td>
                 <td><strong>{{ ordem.cliente_nome }}</strong></td>
                 <td>{{ ordem.servico }}</td>
                 <td>{{ ordem.marca }} {{ ordem.modelo }}</td>

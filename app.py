@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 import os
 from functools import wraps
+from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib import colors
@@ -11,77 +12,203 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 app = Flask(__name__)
-app.secret_key = 'sua_chave_secreta_aqui_altere_em_producao'
+app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
 
 # Credenciais de admin (em produção, use hash e variáveis de ambiente)
-ADMIN_USERNAME = 'raisilva'
-ADMIN_PASSWORD = 'Rs2025'  # Altere em produção!
+ADMIN_USERNAME = 'admin'
+ADMIN_PASSWORD = 'admin123'  # Altere em produção!
 
 # Caminhos para os arquivos de dados
 DATA_FILE = 'data/services.json'
 CLIENTS_FILE = 'data/clients.json'
 COMPROVANTES_FILE = 'data/comprovantes.json'
 FIDELIDADE_FILE = 'data/fidelidade.json'
-WHATSAPP_BOT_FILE = 'data/whatsapp_bot.json'
+TECNICOS_FILE = 'data/tecnicos.json'
+SLIDES_FILE = 'data/slides.json'
+FOOTER_FILE = 'data/footer.json'
+MARCAS_FILE = 'data/marcas.json'
+MILESTONES_FILE = 'data/milestones.json'
+ADMIN_USERS_FILE = 'data/admin_users.json'
+AGENDAMENTOS_FILE = 'data/agendamentos.json'
+BLOG_FILE = 'data/blog.json'
 PDFS_DIR = 'static/pdfs'
+SERVICOS_IMG_DIR = 'static/img/servicos'
+BLOG_IMG_DIR = 'static/img/blog'
+SLIDES_IMG_DIR = 'static/img/slides'
+MARCAS_IMG_DIR = 'static/img/marcas'
+MILESTONES_IMG_DIR = 'static/img/milestones'
 
-# Criar diretório de PDFs se não existir
+# Criar diretórios se não existirem
 if not os.path.exists(PDFS_DIR):
     os.makedirs(PDFS_DIR)
+if not os.path.exists(SERVICOS_IMG_DIR):
+    os.makedirs(SERVICOS_IMG_DIR)
+if not os.path.exists(BLOG_IMG_DIR):
+    os.makedirs(BLOG_IMG_DIR)
+if not os.path.exists(SLIDES_IMG_DIR):
+    os.makedirs(SLIDES_IMG_DIR)
+if not os.path.exists(MARCAS_IMG_DIR):
+    os.makedirs(MARCAS_IMG_DIR)
+if not os.path.exists(MILESTONES_IMG_DIR):
+    os.makedirs(MILESTONES_IMG_DIR)
+
+# Configurações de upload
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ==================== FUNÇÕES AUXILIARES ====================
 
 def get_proximo_numero_ordem():
-    """Retorna o próximo número sequencial de ordem"""
+    """Gera um número aleatório de 6 dígitos sem ser sequencial"""
+    import random
+    
     with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
     # Coletar todos os números de ordem existentes
-    numeros_existentes = []
+    numeros_existentes = set()
     for cliente in data['clients']:
         for ordem in cliente.get('ordens', []):
             if ordem.get('numero_ordem'):
                 try:
-                    numeros_existentes.append(int(ordem['numero_ordem']))
+                    # Converter para int, removendo # se houver
+                    num = str(ordem['numero_ordem']).replace('#', '').strip()
+                    numeros_existentes.add(int(num))
                 except:
                     pass
     
-    # Retornar o próximo número
-    if numeros_existentes:
-        return max(numeros_existentes) + 1
-    else:
-        return 1
+    def eh_sequencial(numero):
+        """Verifica se o número é sequencial (crescente ou decrescente)"""
+        str_num = str(numero)
+        if len(str_num) != 6:
+            return False
+        
+        # Verificar se é sequencial crescente (ex: 123456)
+        crescente = True
+        for i in range(len(str_num) - 1):
+            if int(str_num[i+1]) != int(str_num[i]) + 1:
+                crescente = False
+                break
+        
+        # Verificar se é sequencial decrescente (ex: 654321)
+        decrescente = True
+        for i in range(len(str_num) - 1):
+            if int(str_num[i+1]) != int(str_num[i]) - 1:
+                decrescente = False
+                break
+        
+        return crescente or decrescente
+    
+    def gerar_numero_aleatorio():
+        """Gera um número aleatório de 6 dígitos (100000 a 999999)"""
+        return random.randint(100000, 999999)
+    
+    # Tentar gerar um número único que não seja sequencial (máximo 10000 tentativas)
+    max_tentativas = 10000
+    for _ in range(max_tentativas):
+        numero = gerar_numero_aleatorio()
+        # Verificar se não é sequencial e se não existe
+        if not eh_sequencial(numero) and numero not in numeros_existentes:
+            return numero
+    
+    # Se não conseguir, tentar números não sequenciais de forma sistemática
+    # Começar de 100000 e pular sequenciais
+    numero_base = 100000
+    tentativas_fallback = 0
+    max_fallback = 100000
+    while tentativas_fallback < max_fallback:
+        if not eh_sequencial(numero_base) and numero_base not in numeros_existentes:
+            return numero_base
+        numero_base += 1
+        tentativas_fallback += 1
+        # Garantir que não ultrapasse 999999
+        if numero_base > 999999:
+            numero_base = 100000
+    
+    # Último recurso: número aleatório (pode ser sequencial, mas é raro)
+    return random.randint(100000, 999999)
 
 def atualizar_numeros_ordens():
-    """Atualiza ordens existentes que não têm número de ordem"""
+    """Atualiza ordens existentes que não têm número de ordem (gera números aleatórios não sequenciais)"""
+    import random
+    
     with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
     atualizado = False
     
     # Coletar todos os números existentes
-    numeros_existentes = []
+    numeros_existentes = set()
     for cliente in data['clients']:
         for ordem in cliente.get('ordens', []):
             if ordem.get('numero_ordem'):
                 try:
-                    numeros_existentes.append(int(ordem['numero_ordem']))
+                    # Converter para int, removendo # se houver
+                    num = str(ordem['numero_ordem']).replace('#', '').strip()
+                    numeros_existentes.add(int(num))
                 except:
                     pass
     
-    # Determinar próximo número
-    if numeros_existentes:
-        numero_atual = max(numeros_existentes) + 1
-    else:
-        numero_atual = 1
+    def eh_sequencial(numero):
+        """Verifica se o número é sequencial (crescente ou decrescente)"""
+        str_num = str(numero)
+        if len(str_num) != 6:
+            return False
+        
+        # Verificar se é sequencial crescente (ex: 123456)
+        crescente = True
+        for i in range(len(str_num) - 1):
+            if int(str_num[i+1]) != int(str_num[i]) + 1:
+                crescente = False
+                break
+        
+        # Verificar se é sequencial decrescente (ex: 654321)
+        decrescente = True
+        for i in range(len(str_num) - 1):
+            if int(str_num[i+1]) != int(str_num[i]) - 1:
+                decrescente = False
+                break
+        
+        return crescente or decrescente
     
-    # Atribuir números para ordens sem número
+    def gerar_numero_aleatorio():
+        """Gera um número aleatório de 6 dígitos (100000 a 999999)"""
+        return random.randint(100000, 999999)
+    
+    # Atribuir números aleatórios para ordens sem número
     for cliente in data['clients']:
         for ordem in cliente.get('ordens', []):
             if not ordem.get('numero_ordem'):
-                ordem['numero_ordem'] = numero_atual
-                numero_atual += 1
-                atualizado = True
+                # Gerar número único que não seja sequencial
+                max_tentativas = 10000
+                numero_gerado = None
+                for _ in range(max_tentativas):
+                    numero = gerar_numero_aleatorio()
+                    if not eh_sequencial(numero) and numero not in numeros_existentes:
+                        numero_gerado = numero
+                        break
+                
+                if numero_gerado:
+                    ordem['numero_ordem'] = numero_gerado
+                    numeros_existentes.add(numero_gerado)
+                    atualizado = True
+                else:
+                    # Fallback: usar número não sequencial de forma sistemática
+                    numero_base = 100000
+                    tentativas = 0
+                    while tentativas < 100000:
+                        if not eh_sequencial(numero_base) and numero_base not in numeros_existentes:
+                            ordem['numero_ordem'] = numero_base
+                            numeros_existentes.add(numero_base)
+                            atualizado = True
+                            break
+                        numero_base += 1
+                        tentativas += 1
+                        if numero_base > 999999:
+                            numero_base = 100000
     
     if atualizado:
         with open(CLIENTS_FILE, 'w', encoding='utf-8') as f:
@@ -99,21 +226,27 @@ def init_data_file():
                     'id': 1,
                     'nome': 'Reparo de Celulares',
                     'descricao': 'Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.',
-                    'preco': None,
+                    'imagem': 'img/servico-celular.jpg',
+                    'ordem': 1,
+                    'ativo': True,
                     'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 },
                 {
                     'id': 2,
                     'nome': 'Eletrodomésticos',
                     'descricao': 'Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.',
-                    'preco': None,
+                    'imagem': 'img/servico-eletrodomestico.jpg',
+                    'ordem': 2,
+                    'ativo': True,
                     'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 },
                 {
                     'id': 3,
                     'nome': 'Computadores e Notebook',
                     'descricao': 'Reparo e manutenção de computadores, notebooks e componentes.',
-                    'preco': None,
+                    'imagem': 'img/servico-computador.jpg',
+                    'ordem': 3,
+                    'ativo': True,
                     'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
             ],
@@ -133,40 +266,237 @@ def init_data_file():
                     'id': 1,
                     'nome': 'Reparo de Celulares',
                     'descricao': 'Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.',
-                    'preco': None,
+                    'imagem': 'img/servico-celular.jpg',
+                    'ordem': 1,
+                    'ativo': True,
                     'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 },
                 {
                     'id': 2,
                     'nome': 'Eletrodomésticos',
                     'descricao': 'Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.',
-                    'preco': None,
+                    'imagem': 'img/servico-eletrodomestico.jpg',
+                    'ordem': 2,
+                    'ativo': True,
                     'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 },
                 {
                     'id': 3,
                     'nome': 'Computadores e Notebook',
                     'descricao': 'Reparo e manutenção de computadores, notebooks e componentes.',
-                    'preco': None,
+                    'imagem': 'img/servico-computador.jpg',
+                    'ordem': 3,
+                    'ativo': True,
                     'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
             ]
             with open(DATA_FILE, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+        else:
+            # Atualizar serviços existentes para incluir novos campos se não existirem
+            updated = False
+            for servico in data.get('services', []):
+                if 'imagem' not in servico:
+                    servico['imagem'] = ''
+                if 'ordem' not in servico:
+                    servico['ordem'] = servico.get('id', 999)
+                if 'ativo' not in servico:
+                    servico['ativo'] = True
+                if 'preco' in servico:
+                    # Remover campo preco antigo
+                    del servico['preco']
+                    updated = True
+            
+            if updated:
+                with open(DATA_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
 
 init_data_file()
 
+# ==================== ADMIN USERS ====================
+
+def init_admin_users_file():
+    """Inicializa arquivo de usuários admin se não existir"""
+    if not os.path.exists(ADMIN_USERS_FILE):
+        data_dir = os.path.dirname(ADMIN_USERS_FILE)
+        if data_dir and not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+        default_data = {
+            'users': [
+                {
+                    'id': 1,
+                    'username': 'admin',
+                    'password': 'admin123',
+                    'nome': 'Administrador',
+                    'email': 'admin@clinicadoreparo.com',
+                    'ativo': True,
+                    'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+            ]
+        }
+        with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_data, f, ensure_ascii=False, indent=2)
+
+init_admin_users_file()
+
+# ==================== FOOTER ====================
+
+def init_footer_file():
+    """Inicializa arquivo de rodapé se não existir"""
+    if not os.path.exists(FOOTER_FILE):
+        data_dir = os.path.dirname(FOOTER_FILE)
+        if data_dir and not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+        default_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {
+                'facebook': '',
+                'instagram': '',
+                'whatsapp': 'https://wa.me/5586988959957'
+            },
+            'contato': {
+                'telefone': '(11) 99999-9999',
+                'email': 'contato@techassist.com.br',
+                'endereco': 'São Paulo, SP'
+            },
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': 'https://wa.me/5586988959957'
+        }
+        with open(FOOTER_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_data, f, ensure_ascii=False, indent=2)
+
+init_footer_file()
+
+# ==================== MARCAS ====================
+
+def init_marcas_file():
+    """Inicializa arquivo de marcas se não existir"""
+    if not os.path.exists(MARCAS_FILE):
+        data_dir = os.path.dirname(MARCAS_FILE)
+        if data_dir and not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+        default_data = {
+            'marcas': [
+                {'id': i, 'nome': f'Marca {i}', 'imagem': f'logos/{i}.png', 'ordem': i, 'ativo': True}
+                for i in range(1, 25)
+            ]
+        }
+        with open(MARCAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_data, f, ensure_ascii=False, indent=2)
+
+init_marcas_file()
+
+# ==================== MILESTONES ====================
+
+def init_milestones_file():
+    """Inicializa arquivo de milestones se não existir"""
+    if not os.path.exists(MILESTONES_FILE):
+        data_dir = os.path.dirname(MILESTONES_FILE)
+        if data_dir and not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+        default_data = {
+            'milestones': [
+                {'id': 1, 'titulo': 'Diagnóstico Preciso', 'imagem': 'img/milestone1.png', 'ordem': 1, 'ativo': True},
+                {'id': 2, 'titulo': 'Reparo Especializado', 'imagem': 'img/milestone2.png', 'ordem': 2, 'ativo': True},
+                {'id': 3, 'titulo': 'Atendimento Rápido', 'imagem': 'img/milestone3.png', 'ordem': 3, 'ativo': True}
+            ]
+        }
+        with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_data, f, ensure_ascii=False, indent=2)
+
+init_milestones_file()
+
+# ==================== SLIDES ====================
+
+def init_slides_file():
+    """Inicializa arquivo de slides se não existir"""
+    if not os.path.exists(SLIDES_FILE):
+        data_dir = os.path.dirname(SLIDES_FILE)
+        if data_dir and not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+        default_data = {
+            'slides': [
+                {
+                    'id': 1,
+                    'imagem': 'img/milestone1.png',
+                    'ordem': 1,
+                    'ativo': True
+                },
+                {
+                    'id': 2,
+                    'imagem': 'img/milestone2.png',
+                    'ordem': 2,
+                    'ativo': True
+                },
+                {
+                    'id': 3,
+                    'imagem': 'img/milestone3.png',
+                    'ordem': 3,
+                    'ativo': True
+                }
+            ]
+        }
+        with open(SLIDES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_data, f, ensure_ascii=False, indent=2)
+
+init_slides_file()
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    init_slides_file()
+    
+    with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+        slides_data = json.load(f)
+    
+    # Filtrar apenas slides ativos e ordenar por ordem
+    slides = [s for s in slides_data.get('slides', []) if s.get('ativo', True)]
+    slides = sorted(slides, key=lambda x: x.get('ordem', 999))
+    
+    # Carregar dados do rodapé
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    
+    # Carregar marcas
+    init_marcas_file()
+    with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+        marcas_data = json.load(f)
+    
+    # Filtrar apenas marcas ativas e ordenar por ordem
+    marcas = [m for m in marcas_data.get('marcas', []) if m.get('ativo', True)]
+    marcas = sorted(marcas, key=lambda x: x.get('ordem', 999))
+    
+    # Carregar milestones
+    init_milestones_file()
+    with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+        milestones_data = json.load(f)
+    
+    # Filtrar apenas milestones ativos e ordenar por ordem
+    milestones = [m for m in milestones_data.get('milestones', []) if m.get('ativo', True)]
+    milestones = sorted(milestones, key=lambda x: x.get('ordem', 999))
+    
+    # Carregar serviços
+    init_data_file()
+    with open(DATA_FILE, 'r', encoding='utf-8') as f:
+        services_data = json.load(f)
+    servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
+    servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
+    
+    return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos)
 
 @app.route('/sobre')
 def sobre():
-    return render_template('sobre.html')
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    return render_template('sobre.html', footer=footer_data)
 
 @app.route('/servicos')
 def servicos():
-    return render_template('servicos.html')
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    return render_template('servicos.html', footer=footer_data)
 
 @app.route('/contato', methods=['GET', 'POST'])
 def contato():
@@ -199,7 +529,81 @@ def contato():
         flash('Mensagem enviada com sucesso! Entraremos em contato em breve.', 'success')
         return redirect(url_for('contato'))
     
-    return render_template('contato.html')
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    return render_template('contato.html', footer=footer_data)
+
+@app.route('/rastrear', methods=['GET', 'POST'])
+def rastrear():
+    if request.method == 'POST':
+        codigo = request.form.get('codigo', '').strip()
+        
+        if not codigo:
+            flash('Por favor, informe o código da ordem de serviço.', 'error')
+            return render_template('rastrear.html')
+        
+        # Buscar ordem pelo número
+        ordem_encontrada = None
+        cliente_encontrado = None
+        
+        try:
+            with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Buscar em todos os clientes
+            for cliente in data.get('clients', []):
+                for ordem in cliente.get('ordens', []):
+                    if str(ordem.get('numero_ordem', '')) == str(codigo):
+                        ordem_encontrada = ordem
+                        cliente_encontrado = cliente
+                        break
+                if ordem_encontrada:
+                    break
+        except Exception as e:
+            flash('Erro ao buscar ordem de serviço.', 'error')
+            return render_template('rastrear.html')
+        
+        if not ordem_encontrada:
+            flash('Ordem de serviço não encontrada. Verifique o código informado.', 'error')
+            return render_template('rastrear.html')
+        
+        # Buscar técnico se houver tecnico_id na ordem
+        tecnico_encontrado = None
+        tecnico_id = ordem_encontrada.get('tecnico_id')
+        if tecnico_id:
+            try:
+                init_tecnicos_file()
+                with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
+                    tecnicos_data = json.load(f)
+                
+                tecnico_encontrado = next((t for t in tecnicos_data.get('tecnicos', []) if t.get('id') == tecnico_id), None)
+            except Exception as e:
+                print(f"Erro ao buscar técnico: {str(e)}")
+        
+        # Usar prazo estimado da ordem se existir, caso contrário calcular baseado no status
+        prazo_estimado = ordem_encontrada.get('prazo_estimado') or calcular_prazo_estimado(ordem_encontrada.get('status'))
+        
+        return render_template('rastreamento_resultado.html', 
+                             ordem=ordem_encontrada, 
+                             cliente=cliente_encontrado,
+                             tecnico=tecnico_encontrado,
+                             prazo_estimado=prazo_estimado)
+    
+    return render_template('rastrear.html')
+
+def calcular_prazo_estimado(status):
+    """Calcula prazo estimado baseado no status"""
+    prazos = {
+        'pendente': '3-5 dias úteis',
+        'em_andamento': '2-4 dias úteis',
+        'aguardando_pecas': '5-7 dias úteis',
+        'pronto': 'Pronto para retirada',
+        'pago': 'Pronto para retirada',
+        'entregue': 'Entregue',
+        'cancelado': 'Cancelado'
+    }
+    return prazos.get(status, 'A definir')
 
 @app.route('/api/servicos', methods=['GET'])
 def get_servicos():
@@ -238,18 +642,40 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
+        # Verificar usuário padrão (backward compatibility)
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['admin_logged_in'] = True
+            session['admin_username'] = username
+            session['admin_user_id'] = 0  # ID 0 para usuário padrão
             flash('Login realizado com sucesso!', 'success')
             return redirect(url_for('admin_dashboard'))
-        else:
-            flash('Usuário ou senha incorretos!', 'error')
+        
+        # Verificar usuários no arquivo JSON
+        try:
+            init_admin_users_file()
+            with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+                users_data = json.load(f)
+            
+            user = next((u for u in users_data.get('users', []) if u.get('username') == username and u.get('ativo', True)), None)
+            
+            if user and user.get('password') == password:
+                session['admin_logged_in'] = True
+                session['admin_username'] = username
+                session['admin_user_id'] = user.get('id')
+                flash('Login realizado com sucesso!', 'success')
+                return redirect(url_for('admin_dashboard'))
+            else:
+                flash('Usuário ou senha incorretos!', 'error')
+        except Exception as e:
+            flash('Erro ao verificar credenciais. Tente novamente.', 'error')
     
     return render_template('admin/login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin_logged_in', None)
+    session.pop('admin_username', None)
+    session.pop('admin_user_id', None)
     flash('Logout realizado com sucesso!', 'success')
     return redirect(url_for('admin_login'))
 
@@ -300,7 +726,43 @@ def admin_servicos():
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    return render_template('admin/servicos.html', servicos=data['services'])
+    servicos = sorted(data['services'], key=lambda x: x.get('ordem', 999))
+    return render_template('admin/servicos.html', servicos=servicos)
+
+@app.route('/admin/servicos/upload', methods=['POST'])
+@login_required
+def upload_servico_imagem():
+    """Rota para upload de imagem de serviço"""
+    if 'imagem' not in request.files:
+        return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['imagem']
+    if file.filename == '':
+        return jsonify({'error': 'Nenhum arquivo selecionado'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP'}), 400
+    
+    # Verificar tamanho do arquivo
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
+    
+    # Gerar nome único para o arquivo
+    filename = secure_filename(file.filename)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    name, ext = os.path.splitext(filename)
+    filename = f"servico_{timestamp}{ext}"
+    
+    # Salvar arquivo
+    filepath = os.path.join(SERVICOS_IMG_DIR, filename)
+    file.save(filepath)
+    
+    # Retornar caminho relativo
+    relative_path = f'img/servicos/{filename}'
+    return jsonify({'success': True, 'path': relative_path})
 
 @app.route('/admin/servicos/add', methods=['GET', 'POST'])
 @login_required
@@ -308,16 +770,23 @@ def add_servico_admin():
     if request.method == 'POST':
         nome = request.form.get('nome')
         descricao = request.form.get('descricao')
-        preco = request.form.get('preco')
+        imagem = request.form.get('imagem', '').strip()
+        ordem = request.form.get('ordem', '999')
+        ativo = request.form.get('ativo') == 'on'
         
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
+        # Obter próximo ID
+        max_id = max([s.get('id', 0) for s in data['services']], default=0)
+        
         novo_servico = {
-            'id': len(data['services']) + 1,
+            'id': max_id + 1,
             'nome': nome,
             'descricao': descricao,
-            'preco': preco,
+            'imagem': imagem,
+            'ordem': int(ordem) if ordem.isdigit() else 999,
+            'ativo': ativo,
             'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
@@ -330,6 +799,34 @@ def add_servico_admin():
         return redirect(url_for('admin_servicos'))
     
     return render_template('admin/add_servico.html')
+
+@app.route('/admin/servicos/<int:servico_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_servico(servico_id):
+    with open(DATA_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    servico = next((s for s in data['services'] if s.get('id') == servico_id), None)
+    if not servico:
+        flash('Serviço não encontrado!', 'error')
+        return redirect(url_for('admin_servicos'))
+    
+    if request.method == 'POST':
+        servico['nome'] = request.form.get('nome')
+        servico['descricao'] = request.form.get('descricao')
+        imagem_nova = request.form.get('imagem', '').strip()
+        if imagem_nova:
+            servico['imagem'] = imagem_nova
+        servico['ordem'] = int(request.form.get('ordem', '999')) if request.form.get('ordem', '999').isdigit() else 999
+        servico['ativo'] = request.form.get('ativo') == 'on'
+        
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Serviço atualizado com sucesso!', 'success')
+        return redirect(url_for('admin_servicos'))
+    
+    return render_template('admin/edit_servico.html', servico=servico)
 
 @app.route('/admin/servicos/<int:servico_id>/delete', methods=['POST'])
 @login_required
@@ -408,6 +905,69 @@ def add_cliente_admin():
         return redirect(url_for('admin_clientes'))
     
     return render_template('admin/add_cliente.html')
+
+@app.route('/admin/clientes/<int:cliente_id>')
+@login_required
+def view_cliente(cliente_id):
+    """Visualiza detalhes de um cliente"""
+    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
+    
+    if not cliente:
+        flash('Cliente não encontrado!', 'error')
+        return redirect(url_for('admin_clientes'))
+    
+    return render_template('admin/view_cliente.html', cliente=cliente)
+
+@app.route('/admin/clientes/<int:cliente_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_cliente(cliente_id):
+    """Edita um cliente existente"""
+    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
+    
+    if not cliente:
+        flash('Cliente não encontrado!', 'error')
+        return redirect(url_for('admin_clientes'))
+    
+    if request.method == 'POST':
+        # Verificar se username foi alterado e se já existe
+        novo_username = request.form.get('username')
+        if novo_username != cliente.get('username'):
+            if any(c.get('username') == novo_username and c.get('id') != cliente_id for c in data['clients']):
+                flash('Este nome de usuário já está em uso!', 'error')
+                return render_template('admin/edit_cliente.html', cliente=cliente)
+        
+        # Atualizar dados do cliente
+        cliente['nome'] = request.form.get('nome')
+        cliente['email'] = request.form.get('email')
+        cliente['telefone'] = request.form.get('telefone')
+        cliente['cpf'] = request.form.get('cpf')
+        cliente['endereco'] = request.form.get('endereco')
+        cliente['username'] = novo_username
+        
+        # Atualizar senha apenas se fornecida
+        nova_senha = request.form.get('password')
+        if nova_senha and nova_senha.strip():
+            cliente['password'] = nova_senha  # Em produção, usar hash!
+        
+        # Atualizar na lista
+        for i, c in enumerate(data['clients']):
+            if c.get('id') == cliente_id:
+                data['clients'][i] = cliente
+                break
+        
+        with open(CLIENTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Cliente atualizado com sucesso!', 'success')
+        return redirect(url_for('admin_clientes'))
+    
+    return render_template('admin/edit_cliente.html', cliente=cliente)
 
 @app.route('/admin/clientes/<int:cliente_id>/delete', methods=['POST'])
 @login_required
@@ -507,6 +1067,8 @@ def add_ordem_servico():
         diagnostico_tecnico = request.form.get('diagnostico_tecnico')
         custo_mao_obra = request.form.get('custo_mao_obra', '0.00')
         status = request.form.get('status', 'pendente')
+        tecnico_id = request.form.get('tecnico_id')
+        prazo_estimado = request.form.get('prazo_estimado', '').strip()
         
         # Coletar peças
         pecas = []
@@ -593,8 +1155,10 @@ def add_ordem_servico():
             'desconto_percentual': desconto_percentual,
             'valor_desconto': valor_desconto,
             'cupom_id': cupom_id if cupom_usado else None,
+            'tecnico_id': int(tecnico_id) if tecnico_id and tecnico_id != '' else None,
             'total': total,
             'status': status,
+            'prazo_estimado': prazo_estimado if prazo_estimado else None,
             'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
@@ -634,11 +1198,16 @@ def add_ordem_servico():
         flash('Ordem de serviço emitida com sucesso!', 'success')
         return redirect(url_for('admin_ordens'))
     
+    init_tecnicos_file()
+    
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         services_data = json.load(f)
     
     with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
         clients_data = json.load(f)
+    
+    with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
+        tecnicos_data = json.load(f)
     
     # Buscar cupons disponíveis para cada cliente
     cupons_por_cliente = {}
@@ -656,6 +1225,7 @@ def add_ordem_servico():
     return render_template('admin/add_ordem.html', 
                          clientes=clients_data['clients'], 
                          servicos=services_data['services'],
+                         tecnicos=tecnicos_data.get('tecnicos', []),
                          cupons_por_cliente=cupons_por_cliente)
 
 @app.route('/admin/clientes/<int:cliente_id>/ordens/<int:ordem_id>')
@@ -704,6 +1274,8 @@ def edit_ordem_servico(cliente_id, ordem_id):
         diagnostico_tecnico = request.form.get('diagnostico_tecnico')
         custo_mao_obra = request.form.get('custo_mao_obra', '0.00')
         status = request.form.get('status', 'pendente')
+        prazo_estimado = request.form.get('prazo_estimado', '').strip()
+        tecnico_id = request.form.get('tecnico_id')
         
         # Coletar peças
         pecas = []
@@ -730,7 +1302,7 @@ def edit_ordem_servico(cliente_id, ordem_id):
         except:
             total = 0.00
         
-        # Atualizar ordem (manter número da ordem original)
+        # Atualizar ordem (manter número da ordem original e campos de desconto)
         ordem_atualizada = {
             'id': ordem_id,
             'numero_ordem': ordem.get('numero_ordem', get_proximo_numero_ordem()),
@@ -744,8 +1316,14 @@ def edit_ordem_servico(cliente_id, ordem_id):
             'pecas': pecas,
             'custo_pecas': total_pecas,
             'custo_mao_obra': float(custo_mao_obra) if custo_mao_obra else 0.00,
+            'subtotal': ordem.get('subtotal', total),
+            'desconto_percentual': ordem.get('desconto_percentual', 0.00),
+            'valor_desconto': ordem.get('valor_desconto', 0.00),
+            'cupom_id': ordem.get('cupom_id'),
             'total': total,
             'status': status,
+            'prazo_estimado': prazo_estimado if prazo_estimado else ordem.get('prazo_estimado'),
+            'tecnico_id': int(tecnico_id) if tecnico_id and tecnico_id != '' else ordem.get('tecnico_id'),
             'data': ordem.get('data', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
             'pdf_filename': ordem.get('pdf_filename')
         }
@@ -797,7 +1375,15 @@ def edit_ordem_servico(cliente_id, ordem_id):
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         services_data = json.load(f)
     
-    return render_template('admin/edit_ordem.html', cliente=cliente, ordem=ordem, servicos=services_data['services'])
+    init_tecnicos_file()
+    with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
+        tecnicos_data = json.load(f)
+    
+    return render_template('admin/edit_ordem.html', 
+                         cliente=cliente, 
+                         ordem=ordem, 
+                         servicos=services_data['services'],
+                         tecnicos=tecnicos_data.get('tecnicos', []))
 
 @app.route('/admin/clientes/<int:cliente_id>/ordens/<int:ordem_id>/delete', methods=['POST'])
 @login_required
@@ -913,11 +1499,13 @@ def gerar_pdf_ordem(cliente, ordem):
     story.append(Spacer(1, 0.4*cm))
     
     # Informações da Ordem (Nº da OS, Data, Status)
-    numero_ordem = ordem.get('numero_ordem', ordem.get('id', 1))
+    numero_ordem = ordem.get('numero_ordem', ordem.get('id', 100000))
     try:
-        numero_formatado = f"#{int(numero_ordem)}"
+        # Formatar sem zeros à esquerda e sem #
+        numero_formatado = str(int(numero_ordem))
     except:
-        numero_formatado = f"#{numero_ordem}"
+        # Se não conseguir converter, usar o valor original sem #
+        numero_formatado = str(numero_ordem).replace('#', '').strip()
     
     # Formatar data
     try:
@@ -1419,7 +2007,7 @@ def gerar_pdf_comprovante(cliente, ordem, comprovante):
     info_data = [
         ['Número do Comprovante:', f"#{comprovante['id']:04d}"],
         ['Data:', data_formatada],
-        ['Número da Ordem:', f"#{comprovante['numero_ordem']:04d}"],
+        ['Número da Ordem:', str(comprovante['numero_ordem'])],
     ]
     info_table = Table(info_data, colWidths=[5*cm, 12*cm])
     info_table.setStyle(TableStyle([
@@ -1831,562 +2419,1218 @@ def get_cupons_cliente(cliente_id):
     cupons = [c for c in data['cupons'] if c.get('cliente_id') == cliente_id and not c.get('usado', False)]
     return jsonify({'cupons': cupons})
 
-# ==================== WHATSAPP BOT ====================
 
-def init_whatsapp_bot_file():
-    """Inicializa arquivo do robô WhatsApp se não existir"""
-    if not os.path.exists(WHATSAPP_BOT_FILE):
-        data_dir = os.path.dirname(WHATSAPP_BOT_FILE)
+# ==================== TÉCNICOS ====================
+
+def init_tecnicos_file():
+    """Inicializa arquivo de técnicos se não existir"""
+    if not os.path.exists(TECNICOS_FILE):
+        data_dir = os.path.dirname(TECNICOS_FILE)
         if data_dir and not os.path.exists(data_dir):
             os.makedirs(data_dir, exist_ok=True)
-        default_config = {
-            'ativo': False,
-            'tipo_integracao': 'evolution',
-            'numero_whatsapp': '',
-            'evolution_api_url': '',
-            'evolution_api_key': '',
-            'evolution_instance_name': 'default',
-            'twilio_account_sid': '',
-            'twilio_auth_token': '',
-            'twilio_from_number': '',
-            'business_access_token': '',
-            'business_phone_number_id': '',
-            'mensagem_inicial': 'Olá! sou o VirTEc, seu técnico virtual.',
-            'pergunta': 'Qual serviço está buscando?',
-            'opcoes': [
-                {'numero': '1', 'texto': 'Reparação de celulares'},
-                {'numero': '2', 'texto': 'Reparação de Eletrodomésticos'},
-                {'numero': '3', 'texto': 'Reparação de Notebooks e Computadores'},
-                {'numero': '4', 'texto': 'Outro tipo de serviço'},
-                {'numero': '5', 'texto': 'Falar com Técnico especialista'}
-            ],
-            'respostas': {
-                '1': 'Entendido! Você está interessado em Reparação de celulares. Em breve um técnico entrará em contato.',
-                '2': 'Entendido! Você está interessado em Reparação de Eletrodomésticos. Em breve um técnico entrará em contato.',
-                '3': 'Entendido! Você está interessado em Reparação de Notebooks e Computadores. Em breve um técnico entrará em contato.',
-                '4': 'Entendido! Você está interessado em outro tipo de serviço. Em breve um técnico entrará em contato.',
-                '5': 'Entendido! Você deseja falar com um técnico especialista. Em breve um técnico entrará em contato.'
-            }
-        }
-        with open(WHATSAPP_BOT_FILE, 'w', encoding='utf-8') as f:
-            json.dump(default_config, f, ensure_ascii=False, indent=2)
+        default_data = {'tecnicos': []}
+        with open(TECNICOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_data, f, ensure_ascii=False, indent=2)
 
-@app.route('/admin/whatsapp-bot', methods=['GET', 'POST'])
+@app.route('/admin/tecnicos', methods=['GET'])
 @login_required
-def admin_whatsapp_bot():
-    """Página de configuração do robô WhatsApp"""
-    init_whatsapp_bot_file()
+def admin_tecnicos():
+    """Lista todos os técnicos cadastrados"""
+    init_tecnicos_file()
+    
+    with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    tecnicos = data.get('tecnicos', [])
+    return render_template('admin/tecnicos.html', tecnicos=tecnicos)
+
+@app.route('/admin/tecnicos/add', methods=['GET', 'POST'])
+@login_required
+def add_tecnico():
+    """Adiciona um novo técnico"""
+    init_tecnicos_file()
     
     if request.method == 'POST':
-        with open(WHATSAPP_BOT_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
+        with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
         
-        # Atualizar configurações
-        config['ativo'] = request.form.get('ativo') == 'on'
-        config['tipo_integracao'] = request.form.get('tipo_integracao', 'evolution')
-        config['numero_whatsapp'] = request.form.get('numero_whatsapp', '')
-        config['evolution_api_url'] = request.form.get('evolution_api_url', '')
-        config['evolution_api_key'] = request.form.get('evolution_api_key', '')
-        config['evolution_instance_name'] = request.form.get('evolution_instance_name', 'default')
-        config['twilio_account_sid'] = request.form.get('twilio_account_sid', '')
-        config['twilio_auth_token'] = request.form.get('twilio_auth_token', '')
-        config['twilio_from_number'] = request.form.get('twilio_from_number', '')
-        config['business_access_token'] = request.form.get('business_access_token', '')
-        config['business_phone_number_id'] = request.form.get('business_phone_number_id', '')
-        config['mensagem_inicial'] = request.form.get('mensagem_inicial', '')
-        config['pergunta'] = request.form.get('pergunta', '')
+        # Obter próximo ID
+        tecnicos = data.get('tecnicos', [])
+        novo_id = max([t.get('id', 0) for t in tecnicos], default=0) + 1
         
-        # Atualizar opções
-        config['opcoes'] = []
-        for i in range(1, 6):
-            numero = request.form.get(f'opcao_numero_{i}', '')
-            texto = request.form.get(f'opcao_texto_{i}', '')
-            if numero and texto:
-                config['opcoes'].append({'numero': numero, 'texto': texto})
-        
-        # Atualizar respostas
-        for i in range(1, 6):
-            numero = request.form.get(f'opcao_numero_{i}', '')
-            resposta = request.form.get(f'resposta_{i}', '')
-            if numero and resposta:
-                config['respostas'][numero] = resposta
-        
-        # Salvar configurações
-        with open(WHATSAPP_BOT_FILE, 'w', encoding='utf-8') as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
-        
-        # Configurar webhook automaticamente na Evolution API se for esse tipo
-        if config.get('tipo_integracao') == 'evolution' and config.get('evolution_api_url'):
-            try:
-                webhook_url = request.host_url.rstrip('/') + '/api/whatsapp/webhook'
-                configurar_webhook_evolution(config, webhook_url)
-            except Exception as e:
-                print(f"Erro ao configurar webhook: {str(e)}")
-        
-        flash('Configurações do robô WhatsApp salvas com sucesso!', 'success')
-        return redirect(url_for('admin_whatsapp_bot'))
-    
-    # GET - Exibir configurações
-    with open(WHATSAPP_BOT_FILE, 'r', encoding='utf-8') as f:
-        config = json.load(f)
-    
-    return render_template('admin/whatsapp_bot.html', config=config)
-
-def configurar_webhook_evolution(config, webhook_url):
-    """Configura webhook automaticamente na Evolution API"""
-    try:
-        import requests
-        api_url = config.get('evolution_api_url', '')
-        instance_name = config.get('evolution_instance_name', 'default')
-        api_key = config.get('evolution_api_key', '')
-        
-        if not api_url:
-            return
-        
-        url = f"{api_url}/webhook/set/{instance_name}"
-        headers = {'Content-Type': 'application/json'}
-        if api_key:
-            headers['apikey'] = api_key
-        
-        payload = {
-            'url': webhook_url,
-            'events': ['messages.upsert', 'messages.update']
+        novo_tecnico = {
+            'id': novo_id,
+            'nome': request.form.get('nome', '').strip(),
+            'cpf': request.form.get('cpf', '').strip(),
+            'telefone': request.form.get('telefone', '').strip(),
+            'email': request.form.get('email', '').strip(),
+            'especialidade': request.form.get('especialidade', '').strip(),
+            'data_cadastro': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
-        response = requests.post(url, json=payload, headers=headers, timeout=5)
-        if response.status_code == 200:
-            print(f"Webhook configurado com sucesso: {webhook_url}")
-        else:
-            print(f"Erro ao configurar webhook: {response.status_code}")
-    except ImportError:
-        print("Biblioteca 'requests' não instalada. Instale com: pip install requests")
-    except Exception as e:
-        print(f"Erro ao configurar webhook Evolution API: {str(e)}")
+        tecnicos.append(novo_tecnico)
+        data['tecnicos'] = tecnicos
+        
+        with open(TECNICOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Técnico cadastrado com sucesso!', 'success')
+        return redirect(url_for('admin_tecnicos'))
+    
+    return render_template('admin/add_tecnico.html')
 
-@app.route('/api/whatsapp/setup-evolution', methods=['POST'])
+@app.route('/admin/tecnicos/<int:tecnico_id>/edit', methods=['GET', 'POST'])
 @login_required
-def setup_evolution_api():
-    """Configura automaticamente a Evolution API e retorna QR Code"""
-    try:
-        import requests
-        import base64
+def edit_tecnico(tecnico_id):
+    """Edita um técnico existente"""
+    init_tecnicos_file()
+    
+    with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    tecnicos = data.get('tecnicos', [])
+    tecnico = next((t for t in tecnicos if t.get('id') == tecnico_id), None)
+    
+    if not tecnico:
+        flash('Técnico não encontrado!', 'error')
+        return redirect(url_for('admin_tecnicos'))
+    
+    if request.method == 'POST':
+        tecnico['nome'] = request.form.get('nome', '').strip()
+        tecnico['cpf'] = request.form.get('cpf', '').strip()
+        tecnico['telefone'] = request.form.get('telefone', '').strip()
+        tecnico['email'] = request.form.get('email', '').strip()
+        tecnico['especialidade'] = request.form.get('especialidade', '').strip()
         
-        data = request.get_json()
-        api_url = data.get('api_url', '').rstrip('/')
-        api_key = data.get('api_key', '')
+        with open(TECNICOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
-        if not api_url:
-            return jsonify({'success': False, 'message': 'URL da API não fornecida'}), 400
+        flash('Técnico atualizado com sucesso!', 'success')
+        return redirect(url_for('admin_tecnicos'))
+    
+    return render_template('admin/edit_tecnico.html', tecnico=tecnico)
+
+@app.route('/admin/tecnicos/<int:tecnico_id>/delete', methods=['POST'])
+@login_required
+def delete_tecnico(tecnico_id):
+    """Exclui um técnico"""
+    init_tecnicos_file()
+    
+    with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    tecnicos = data.get('tecnicos', [])
+    data['tecnicos'] = [t for t in tecnicos if t.get('id') != tecnico_id]
+    
+    with open(TECNICOS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    flash('Técnico excluído com sucesso!', 'success')
+    return redirect(url_for('admin_tecnicos'))
+
+@app.route('/admin/slides', methods=['GET'])
+@login_required
+def admin_slides():
+    """Lista todos os slides cadastrados"""
+    init_slides_file()
+    
+    with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    slides = sorted(data.get('slides', []), key=lambda x: x.get('ordem', 999))
+    return render_template('admin/slides.html', slides=slides)
+
+@app.route('/admin/slides/add', methods=['GET', 'POST'])
+@login_required
+def add_slide():
+    """Adiciona um novo slide"""
+    init_slides_file()
+    
+    if request.method == 'POST':
+        with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
         
-        # Gerar nome único para a instância
-        instance_name = f"clinica-reparo-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        # Obter próximo ID
+        slides = data.get('slides', [])
+        novo_id = max([s.get('id', 0) for s in slides], default=0) + 1
         
-        headers = {'Content-Type': 'application/json'}
-        if api_key:
-            headers['apikey'] = api_key
+        # Obter próxima ordem
+        proxima_ordem = max([s.get('ordem', 0) for s in slides], default=0) + 1
         
-        # Preparar URL do webhook
-        webhook_url = request.host_url.rstrip('/') + '/api/whatsapp/webhook'
-        
-        # Criar instância com webhook configurado
-        create_url = f"{api_url}/instance/create"
-        create_payload = {
-            'instanceName': instance_name,
-            'token': instance_name,
-            'qrcode': True,
-            'integration': 'WHATSAPP-BAILEYS',
-            'webhook': {
-                'url': webhook_url,
-                'events': ['messages.upsert', 'messages.update'],
-                'webhook_by_events': True,
-                'webhook_base64': False
-            }
+        novo_slide = {
+            'id': novo_id,
+            'imagem': request.form.get('imagem', '').strip(),
+            'link': request.form.get('link', '').strip(),
+            'link_target': request.form.get('link_target', '_self').strip(),
+            'ordem': proxima_ordem,
+            'ativo': request.form.get('ativo') == 'on'
         }
         
-        response = requests.post(create_url, json=create_payload, headers=headers, timeout=10)
+        slides.append(novo_slide)
+        data['slides'] = slides
         
-        # Se falhar com webhook, tentar criar sem webhook primeiro
-        if response.status_code not in [200, 201]:
-            create_payload_simple = {
-                'instanceName': instance_name,
-                'token': instance_name,
-                'qrcode': True,
-                'integration': 'WHATSAPP-BAILEYS'
-            }
-            response = requests.post(create_url, json=create_payload_simple, headers=headers, timeout=10)
-            
-            if response.status_code not in [200, 201]:
-                return jsonify({
-                    'success': False, 
-                    'message': f'Erro ao criar instância: {response.status_code} - {response.text[:200]}'
-                }), 400
+        with open(SLIDES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
-        # Aguardar um pouco para a instância ser criada
-        import time
-        time.sleep(2)
-        
-        # Obter QR Code
-        qr_url = f"{api_url}/instance/connect/{instance_name}"
-        qr_response = requests.get(qr_url, headers=headers, timeout=10)
-        
-        if qr_response.status_code == 200:
-            qr_data = qr_response.json()
-            qr_code_base64 = qr_data.get('base64', '') or qr_data.get('qrcode', {}).get('base64', '')
-            
-            if qr_code_base64:
-                # Atualizar configuração com o nome da instância
-                with open(WHATSAPP_BOT_FILE, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                
-                config['evolution_api_url'] = api_url
-                config['evolution_api_key'] = api_key
-                config['evolution_instance_name'] = instance_name
-                config['tipo_integracao'] = 'evolution'
-                
-                with open(WHATSAPP_BOT_FILE, 'w', encoding='utf-8') as f:
-                    json.dump(config, f, ensure_ascii=False, indent=2)
-                
-                # Configurar webhook automaticamente (se não foi configurado na criação)
-                try:
-                    configurar_webhook_evolution(config, webhook_url)
-                except:
-                    pass
-                
-                return jsonify({
-                    'success': True,
-                    'qr_code': f"data:image/png;base64,{qr_code_base64}",
-                    'instance_name': instance_name
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': 'QR Code não gerado. Verifique se a Evolution API está rodando.'
-                }), 400
-        else:
-            return jsonify({
-                'success': False,
-                'message': f'Erro ao obter QR Code: {qr_response.status_code} - {qr_response.text[:200]}'
-            }), 400
-            
-    except ImportError:
-        return jsonify({
-            'success': False,
-            'message': 'Biblioteca requests não instalada. Execute: pip install requests'
-        }), 500
-    except requests.exceptions.ConnectionError as e:
-        return jsonify({
-            'success': False,
-            'message': 'Não foi possível conectar à Evolution API. Verifique se ela está rodando. Execute: docker run -p 8080:8080 atendai/evolution-api'
-        }), 400
-    except Exception as e:
-        error_msg = str(e)
-        if 'Connection refused' in error_msg or '10061' in error_msg or 'Failed to establish' in error_msg:
-            return jsonify({
-                'success': False,
-                'message': 'Não foi possível conectar à Evolution API em ' + api_url + '. Verifique se a Evolution API está rodando. Execute: docker run -p 8080:8080 atendai/evolution-api'
-            }), 400
-        return jsonify({
-            'success': False,
-            'message': f'Erro: {error_msg}'
-        }), 500
+        flash('Slide cadastrado com sucesso!', 'success')
+        return redirect(url_for('admin_slides'))
+    
+    return render_template('admin/add_slide.html')
 
-@app.route('/api/whatsapp/test-connection', methods=['POST'])
+@app.route('/admin/slides/<int:slide_id>/edit', methods=['GET', 'POST'])
 @login_required
-def test_evolution_connection():
-    """Testa conexão com a Evolution API"""
+def edit_slide(slide_id):
+    """Edita um slide existente"""
+    init_slides_file()
+    
+    with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    slides = data.get('slides', [])
+    slide = next((s for s in slides if s.get('id') == slide_id), None)
+    
+    if not slide:
+        flash('Slide não encontrado!', 'error')
+        return redirect(url_for('admin_slides'))
+    
+    if request.method == 'POST':
+        slide['imagem'] = request.form.get('imagem', '').strip()
+        slide['link'] = request.form.get('link', '').strip()
+        slide['link_target'] = request.form.get('link_target', '_self').strip()
+        slide['ordem'] = int(request.form.get('ordem', 1))
+        slide['ativo'] = request.form.get('ativo') == 'on'
+        
+        with open(SLIDES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Slide atualizado com sucesso!', 'success')
+        return redirect(url_for('admin_slides'))
+    
+    return render_template('admin/edit_slide.html', slide=slide)
+
+@app.route('/admin/slides/<int:slide_id>/delete', methods=['POST'])
+@login_required
+def delete_slide(slide_id):
+    """Exclui um slide"""
+    init_slides_file()
+    
+    with open(SLIDES_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    slides = data.get('slides', [])
+    data['slides'] = [s for s in slides if s.get('id') != slide_id]
+    
+    with open(SLIDES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    flash('Slide excluído com sucesso!', 'success')
+    return redirect(url_for('admin_slides'))
+
+# ==================== FOOTER MANAGEMENT ====================
+
+@app.route('/admin/footer', methods=['GET', 'POST'])
+@login_required
+def admin_footer():
+    """Gerencia o rodapé do site"""
+    init_footer_file()
+    
+    if request.method == 'POST':
+        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Atualizar dados
+        data['descricao'] = request.form.get('descricao', '').strip()
+        data['redes_sociais']['facebook'] = request.form.get('facebook', '').strip()
+        data['redes_sociais']['instagram'] = request.form.get('instagram', '').strip()
+        data['redes_sociais']['whatsapp'] = request.form.get('whatsapp', '').strip()
+        data['contato']['telefone'] = request.form.get('telefone', '').strip()
+        data['contato']['email'] = request.form.get('email', '').strip()
+        data['contato']['endereco'] = request.form.get('endereco', '').strip()
+        data['copyright'] = request.form.get('copyright', '').strip()
+        data['whatsapp_float'] = request.form.get('whatsapp_float', '').strip()
+        
+        with open(FOOTER_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Rodapé atualizado com sucesso!', 'success')
+        return redirect(url_for('admin_footer'))
+    
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    
+    return render_template('admin/footer.html', footer=footer_data)
+
+# ==================== MARCAS MANAGEMENT ====================
+
+@app.route('/admin/marcas', methods=['GET'])
+@login_required
+def admin_marcas():
+    """Lista todas as marcas cadastradas"""
+    init_marcas_file()
+    
+    with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    marcas = sorted(data.get('marcas', []), key=lambda x: x.get('ordem', 999))
+    return render_template('admin/marcas.html', marcas=marcas)
+
+@app.route('/admin/marcas/add', methods=['GET', 'POST'])
+@login_required
+def add_marca():
+    """Adiciona uma nova marca"""
+    init_marcas_file()
+    
+    if request.method == 'POST':
+        with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Obter próximo ID
+        marcas = data.get('marcas', [])
+        novo_id = max([m.get('id', 0) for m in marcas], default=0) + 1
+        
+        # Obter próxima ordem
+        proxima_ordem = max([m.get('ordem', 0) for m in marcas], default=0) + 1
+        
+        nova_marca = {
+            'id': novo_id,
+            'nome': request.form.get('nome', '').strip(),
+            'imagem': request.form.get('imagem', '').strip(),
+            'ordem': proxima_ordem,
+            'ativo': request.form.get('ativo') == 'on'
+        }
+        
+        marcas.append(nova_marca)
+        data['marcas'] = marcas
+        
+        with open(MARCAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Marca cadastrada com sucesso!', 'success')
+        return redirect(url_for('admin_marcas'))
+    
+    return render_template('admin/add_marca.html')
+
+@app.route('/admin/marcas/<int:marca_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_marca(marca_id):
+    """Edita uma marca existente"""
+    init_marcas_file()
+    
+    with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    marcas = data.get('marcas', [])
+    marca = next((m for m in marcas if m.get('id') == marca_id), None)
+    
+    if not marca:
+        flash('Marca não encontrada!', 'error')
+        return redirect(url_for('admin_marcas'))
+    
+    if request.method == 'POST':
+        marca['nome'] = request.form.get('nome', '').strip()
+        marca['imagem'] = request.form.get('imagem', '').strip()
+        marca['ordem'] = int(request.form.get('ordem', 1))
+        marca['ativo'] = request.form.get('ativo') == 'on'
+        
+        with open(MARCAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Marca atualizada com sucesso!', 'success')
+        return redirect(url_for('admin_marcas'))
+    
+    return render_template('admin/edit_marca.html', marca=marca)
+
+@app.route('/admin/marcas/<int:marca_id>/delete', methods=['POST'])
+@login_required
+def delete_marca(marca_id):
+    """Exclui uma marca"""
+    init_marcas_file()
+    
+    with open(MARCAS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    marcas = data.get('marcas', [])
+    data['marcas'] = [m for m in marcas if m.get('id') != marca_id]
+    
+    with open(MARCAS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    flash('Marca excluída com sucesso!', 'success')
+    return redirect(url_for('admin_marcas'))
+
+# ==================== MILESTONES MANAGEMENT ====================
+
+@app.route('/admin/milestones', methods=['GET'])
+@login_required
+def admin_milestones():
+    """Lista todos os milestones cadastrados"""
+    init_milestones_file()
+    
+    with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    milestones = sorted(data.get('milestones', []), key=lambda x: x.get('ordem', 999))
+    return render_template('admin/milestones.html', milestones=milestones)
+
+@app.route('/admin/milestones/add', methods=['GET', 'POST'])
+@login_required
+def add_milestone():
+    """Adiciona um novo milestone"""
+    init_milestones_file()
+    
+    if request.method == 'POST':
+        with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Obter próximo ID
+        milestones = data.get('milestones', [])
+        novo_id = max([m.get('id', 0) for m in milestones], default=0) + 1
+        
+        # Obter próxima ordem
+        proxima_ordem = max([m.get('ordem', 0) for m in milestones], default=0) + 1
+        
+        novo_milestone = {
+            'id': novo_id,
+            'titulo': request.form.get('titulo', '').strip(),
+            'imagem': request.form.get('imagem', '').strip(),
+            'ordem': proxima_ordem,
+            'ativo': request.form.get('ativo') == 'on'
+        }
+        
+        milestones.append(novo_milestone)
+        data['milestones'] = milestones
+        
+        with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Milestone cadastrado com sucesso!', 'success')
+        return redirect(url_for('admin_milestones'))
+    
+    return render_template('admin/add_milestone.html')
+
+@app.route('/admin/milestones/<int:milestone_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_milestone(milestone_id):
+    """Edita um milestone existente"""
+    init_milestones_file()
+    
+    with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    milestones = data.get('milestones', [])
+    milestone = next((m for m in milestones if m.get('id') == milestone_id), None)
+    
+    if not milestone:
+        flash('Milestone não encontrado!', 'error')
+        return redirect(url_for('admin_milestones'))
+    
+    if request.method == 'POST':
+        milestone['titulo'] = request.form.get('titulo', '').strip()
+        milestone['imagem'] = request.form.get('imagem', '').strip()
+        milestone['ordem'] = int(request.form.get('ordem', 1))
+        milestone['ativo'] = request.form.get('ativo') == 'on'
+        
+        with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Milestone atualizado com sucesso!', 'success')
+        return redirect(url_for('admin_milestones'))
+    
+    return render_template('admin/edit_milestone.html', milestone=milestone)
+
+@app.route('/admin/milestones/<int:milestone_id>/delete', methods=['POST'])
+@login_required
+def delete_milestone(milestone_id):
+    """Exclui um milestone"""
+    init_milestones_file()
+    
+    with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    milestones = data.get('milestones', [])
+    data['milestones'] = [m for m in milestones if m.get('id') != milestone_id]
+    
+    with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    flash('Milestone excluído com sucesso!', 'success')
+    return redirect(url_for('admin_milestones'))
+
+# ==================== ADMIN USERS MANAGEMENT ====================
+
+@app.route('/admin/usuarios')
+@login_required
+def admin_usuarios():
+    init_admin_users_file()
+    with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    usuarios = sorted(data.get('users', []), key=lambda x: x.get('id', 0))
+    return render_template('admin/usuarios.html', usuarios=usuarios)
+
+@app.route('/admin/usuarios/add', methods=['GET', 'POST'])
+@login_required
+def add_usuario_admin():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        nome = request.form.get('nome', '').strip()
+        email = request.form.get('email', '').strip()
+        ativo = request.form.get('ativo') == 'on'
+        
+        if not username or not password:
+            flash('Usuário e senha são obrigatórios!', 'error')
+            return render_template('admin/add_usuario.html')
+        
+        init_admin_users_file()
+        with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Verificar se username já existe
+        if any(u.get('username') == username for u in data.get('users', [])):
+            flash('Este nome de usuário já está em uso!', 'error')
+            return render_template('admin/add_usuario.html')
+        
+        # Obter próximo ID
+        max_id = max([u.get('id', 0) for u in data.get('users', [])], default=0)
+        
+        novo_usuario = {
+            'id': max_id + 1,
+            'username': username,
+            'password': password,
+            'nome': nome,
+            'email': email,
+            'ativo': ativo,
+            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        data.setdefault('users', []).append(novo_usuario)
+        
+        with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Usuário adicionado com sucesso!', 'success')
+        return redirect(url_for('admin_usuarios'))
+    
+    return render_template('admin/add_usuario.html')
+
+@app.route('/admin/usuarios/<int:usuario_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_usuario_admin(usuario_id):
+    init_admin_users_file()
+    with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    usuario = next((u for u in data.get('users', []) if u.get('id') == usuario_id), None)
+    if not usuario:
+        flash('Usuário não encontrado!', 'error')
+        return redirect(url_for('admin_usuarios'))
+    
+    # Não permitir editar o próprio usuário se for o usuário padrão (id 0)
+    current_user_id = session.get('admin_user_id', 0)
+    if usuario_id == current_user_id and current_user_id == 0:
+        flash('Não é possível editar o usuário padrão através desta interface!', 'error')
+        return redirect(url_for('admin_usuarios'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        nome = request.form.get('nome', '').strip()
+        email = request.form.get('email', '').strip()
+        ativo = request.form.get('ativo') == 'on'
+        
+        if not username:
+            flash('Nome de usuário é obrigatório!', 'error')
+            return render_template('admin/edit_usuario.html', usuario=usuario)
+        
+        # Verificar se username já existe (exceto o próprio usuário)
+        if any(u.get('username') == username and u.get('id') != usuario_id for u in data.get('users', [])):
+            flash('Este nome de usuário já está em uso!', 'error')
+            return render_template('admin/edit_usuario.html', usuario=usuario)
+        
+        usuario['username'] = username
+        if password:  # Só atualiza senha se foi informada
+            usuario['password'] = password
+        usuario['nome'] = nome
+        usuario['email'] = email
+        usuario['ativo'] = ativo
+        
+        with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Usuário atualizado com sucesso!', 'success')
+        return redirect(url_for('admin_usuarios'))
+    
+    return render_template('admin/edit_usuario.html', usuario=usuario)
+
+@app.route('/admin/usuarios/<int:usuario_id>/delete', methods=['POST'])
+@login_required
+def delete_usuario_admin(usuario_id):
+    # Não permitir excluir o próprio usuário
+    current_user_id = session.get('admin_user_id', 0)
+    if usuario_id == current_user_id:
+        flash('Você não pode excluir seu próprio usuário!', 'error')
+        return redirect(url_for('admin_usuarios'))
+    
+    init_admin_users_file()
+    with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    data['users'] = [u for u in data.get('users', []) if u.get('id') != usuario_id]
+    
+    with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    flash('Usuário excluído com sucesso!', 'success')
+    return redirect(url_for('admin_usuarios'))
+
+@app.context_processor
+def inject_footer():
+    """Injeta dados do rodapé em todos os templates"""
+    init_footer_file()
+    try:
+        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+            footer_data = json.load(f)
+        return {'footer': footer_data}
+    except:
+        return {'footer': None}
+
+@app.context_processor
+def inject_servicos():
+    """Injeta serviços ativos em todos os templates"""
+    init_data_file()
+    try:
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            services_data = json.load(f)
+        servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
+        servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
+        return {'servicos_footer': servicos}
+    except:
+        return {'servicos_footer': []}
+
+@app.template_filter('get_status_label')
+def get_status_label(status):
+    """Traduz o status para português"""
+    status_labels = {
+        'pendente': 'Pendente',
+        'em_andamento': 'Em Andamento',
+        'aguardando_pecas': 'Aguardando Peças',
+        'pronto': 'Pronto',
+        'pago': 'Pago',
+        'entregue': 'Entregue',
+        'cancelado': 'Cancelado'
+    }
+    return status_labels.get(status, status.capitalize())
+
+# ==================== SISTEMA DE AGENDAMENTO ====================
+
+def init_agendamentos_file():
+    """Inicializa arquivo de agendamentos se não existir"""
+    if not os.path.exists(AGENDAMENTOS_FILE):
+        data_dir = os.path.dirname(AGENDAMENTOS_FILE)
+        if data_dir and not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+        with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'agendamentos': []}, f, ensure_ascii=False, indent=2)
+
+init_agendamentos_file()
+
+def enviar_notificacao_whatsapp(mensagem):
+    """Envia notificação via WhatsApp"""
     try:
         import requests
+        from urllib.parse import quote
+        import re
         
-        data = request.get_json()
-        api_url = data.get('api_url', '').rstrip('/')
-        api_key = data.get('api_key', '')
+        # Buscar número do WhatsApp do footer
+        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+            footer_data = json.load(f)
         
-        if not api_url:
-            return jsonify({'connected': False, 'message': 'URL não fornecida'}), 400
+        whatsapp_link = footer_data.get('whatsapp_float') or footer_data.get('redes_sociais', {}).get('whatsapp', '')
         
-        headers = {'Content-Type': 'application/json'}
-        if api_key:
-            headers['apikey'] = api_key
+        if not whatsapp_link:
+            print("WhatsApp não configurado no footer")
+            return None
         
-        # Testar conexão básica com a API
-        test_url = f"{api_url}/health"
-        try:
-            response = requests.get(test_url, headers=headers, timeout=5)
-            if response.status_code == 200:
-                return jsonify({
-                    'connected': True,
-                    'message': 'Evolution API está funcionando!'
-                })
-        except:
-            pass
+        # Extrair número do link (formato: https://wa.me/5586988959957)
+        numero_match = re.search(r'wa\.me/(\d+)', whatsapp_link)
+        if not numero_match:
+            print("Número do WhatsApp não encontrado no link")
+            return None
         
-        # Tentar endpoint alternativo
-        test_url = f"{api_url}/"
-        try:
-            response = requests.get(test_url, headers=headers, timeout=5)
-            if response.status_code in [200, 404, 401]:  # 404 ou 401 também indica que a API está respondendo
-                return jsonify({
-                    'connected': True,
-                    'message': 'Evolution API está respondendo!'
-                })
-        except:
-            pass
+        numero_destino = numero_match.group(1)
         
-        # Se chegou aqui, não conseguiu conectar
-        return jsonify({
-            'connected': False,
-            'message': 'Não foi possível conectar à Evolution API. Verifique se ela está rodando e se a URL está correta.'
-        }), 400
-            
-    except ImportError:
-        return jsonify({
-            'connected': False,
-            'message': 'Biblioteca requests não instalada. Execute: pip install requests'
-        }), 500
-    except requests.exceptions.ConnectionError:
-        return jsonify({
-            'connected': False,
-            'message': 'Erro de conexão. Verifique se a Evolution API está rodando. Execute: docker run -p 8080:8080 atendai/evolution-api'
-        }), 400
-    except Exception as e:
-        error_msg = str(e)
-        if 'Connection refused' in error_msg or '10061' in error_msg:
-            return jsonify({
-                'connected': False,
-                'message': 'Não foi possível conectar. Verifique se a Evolution API está rodando em ' + api_url
-            }), 400
-        return jsonify({
-            'connected': False,
-            'message': f'Erro: {error_msg}'
-        }), 500
-
-@app.route('/api/whatsapp/check-connection', methods=['POST'])
-@login_required
-def check_whatsapp_connection():
-    """Verifica se o WhatsApp está conectado"""
-    try:
-        import requests
+        # Tentar enviar via API Evolution API (se configurada)
+        # Você pode configurar a URL da sua API Evolution API aqui
+        evolution_api_url = os.environ.get('EVOLUTION_API_URL', '')
+        evolution_api_key = os.environ.get('EVOLUTION_API_KEY', '')
+        evolution_instance = os.environ.get('EVOLUTION_INSTANCE', '')
         
-        data = request.get_json()
-        api_url = data.get('api_url', '').rstrip('/')
-        api_key = data.get('api_key', '')
-        instance_name = data.get('instance_name', 'default')
-        
-        if not api_url:
-            return jsonify({'connected': False, 'message': 'URL não fornecida'}), 400
-        
-        headers = {'Content-Type': 'application/json'}
-        if api_key:
-            headers['apikey'] = api_key
-        
-        # Verificar status da instância
-        status_url = f"{api_url}/instance/connectionState/{instance_name}"
-        response = requests.get(status_url, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            status_data = response.json()
-            state = status_data.get('state', '').lower()
-            
-            connected = state in ['open', 'connected']
-            
-            return jsonify({
-                'connected': connected,
-                'state': state,
-                'message': 'Conectado' if connected else 'Aguardando conexão'
-            })
-        else:
-            return jsonify({
-                'connected': False,
-                'message': f'Erro ao verificar status: {response.status_code}'
-            }), 400
-            
-    except ImportError:
-        return jsonify({
-            'connected': False,
-            'message': 'Biblioteca requests não instalada'
-        }), 500
-    except requests.exceptions.ConnectionError:
-        return jsonify({
-            'connected': False,
-            'message': 'Erro de conexão com a Evolution API'
-        }), 400
-    except Exception as e:
-        return jsonify({
-            'connected': False,
-            'message': f'Erro: {str(e)}'
-        }), 500
-
-@app.route('/api/whatsapp/webhook', methods=['POST', 'GET'])
-def whatsapp_webhook():
-    """Webhook para receber mensagens do WhatsApp"""
-    init_whatsapp_bot_file()
-    
-    if request.method == 'GET':
-        # Verificação do webhook (para APIs como Twilio)
-        return jsonify({'status': 'ok'}), 200
-    
-    # POST - Receber mensagem
-    try:
-        with open(WHATSAPP_BOT_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        
-        if not config.get('ativo', False):
-            return jsonify({'status': 'bot_inactive'}), 200
-        
-        # Extrair dados da mensagem (formato pode variar conforme a API)
-        # Twilio pode enviar como form-data ou JSON
-        data = request.get_json() or request.form.to_dict() or {}
-        
-        # Tentar diferentes formatos de API
-        from_number = None
-        message_body = None
-        
-        # Formato Twilio (form-data ou JSON)
-        if 'From' in data and 'Body' in data:
-            from_number = data['From'].replace('whatsapp:', '').replace('+', '')
-            message_body = data['Body'].strip()
-        
-        # Formato WhatsApp Business API
-        elif 'entry' in data and len(data.get('entry', [])) > 0:
-            entry = data['entry'][0]
-            if 'changes' in entry and len(entry['changes']) > 0:
-                change = entry['changes'][0]
-                if 'value' in change and 'messages' in change['value']:
-                    messages = change['value']['messages']
-                    if len(messages) > 0:
-                        message = messages[0]
-                        from_number = message.get('from', '').replace('+', '')
-                        message_body = message.get('text', {}).get('body', '').strip()
-        
-        # Formato genérico
-        elif 'from' in data and 'message' in data:
-            from_number = str(data['from']).replace('+', '')
-            message_body = str(data['message']).strip()
-        
-        if not from_number or not message_body:
-            return jsonify({'status': 'invalid_data'}), 400
-        
-        # Processar mensagem
-        resposta = processar_mensagem_whatsapp(from_number, message_body, config)
-        
-        if resposta:
-            # Enviar resposta automaticamente
-            enviar_resposta_whatsapp(from_number, resposta, config)
-            
-            return jsonify({
-                'status': 'success',
-                'to': from_number,
-                'message': resposta
-            }), 200
-        
-        return jsonify({'status': 'no_response'}), 200
-        
-    except Exception as e:
-        print(f"Erro no webhook: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-def processar_mensagem_whatsapp(from_number, message_body, config):
-    """Processa mensagem recebida e retorna resposta"""
-    # Normalizar mensagem
-    message_lower = message_body.lower().strip()
-    
-    # Verificar se é primeira mensagem ou resposta a opção
-    # Aqui você pode usar um sistema de sessão/conversação
-    
-    # Se a mensagem contém apenas números (1-5), é uma resposta às opções
-    if message_lower in ['1', '2', '3', '4', '5']:
-        if message_lower in config.get('respostas', {}):
-            return config['respostas'][message_lower]
-        else:
-            return "Opção inválida. Por favor, escolha uma opção de 1 a 5."
-    
-    # Se é qualquer outra mensagem (oi, ola, etc), enviar mensagem inicial
-    mensagem_completa = f"{config.get('mensagem_inicial', '')}\n\n{config.get('pergunta', '')}\n\n"
-    
-    # Adicionar opções
-    for opcao in config.get('opcoes', []):
-        mensagem_completa += f"{opcao['numero']}. {opcao['texto']}\n"
-    
-    return mensagem_completa.strip()
-
-def enviar_resposta_whatsapp(to_number, message, config):
-    """Envia resposta via API do WhatsApp"""
-    try:
-        tipo_integracao = config.get('tipo_integracao', 'evolution')
-        
-        # Evolution API
-        if tipo_integracao == 'evolution':
+        if evolution_api_url and evolution_api_key and evolution_instance:
             try:
-                import requests
-                api_url = config.get('evolution_api_url', '')
-                instance_name = config.get('evolution_instance_name', 'default')
-                api_key = config.get('evolution_api_key', '')
-                
-                if api_url:
-                    url = f"{api_url}/message/sendText/{instance_name}"
-                    headers = {'Content-Type': 'application/json'}
-                    if api_key:
-                        headers['apikey'] = api_key
-                    
-                    payload = {
-                        'number': to_number,
-                        'text': message
-                    }
-                    
-                    requests.post(url, json=payload, headers=headers, timeout=5)
-            except ImportError:
-                print("Biblioteca 'requests' não instalada. Instale com: pip install requests")
+                url = f"{evolution_api_url}/message/sendText/{evolution_instance}"
+                headers = {
+                    'Content-Type': 'application/json',
+                    'apikey': evolution_api_key
+                }
+                payload = {
+                    "number": numero_destino,
+                    "text": mensagem
+                }
+                response = requests.post(url, json=payload, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    print(f"Notificação WhatsApp enviada via Evolution API para {numero_destino}")
+                    return True
+                else:
+                    print(f"Erro ao enviar via Evolution API: {response.status_code} - {response.text}")
             except Exception as e:
                 print(f"Erro ao enviar via Evolution API: {str(e)}")
         
-        # Twilio
-        elif tipo_integracao == 'twilio':
+        # Tentar enviar via Twilio (se configurado)
+        twilio_account_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
+        twilio_auth_token = os.environ.get('TWILIO_AUTH_TOKEN', '')
+        twilio_whatsapp_from = os.environ.get('TWILIO_WHATSAPP_FROM', '')
+        
+        if twilio_account_sid and twilio_auth_token and twilio_whatsapp_from:
             try:
                 from twilio.rest import Client
-                account_sid = config.get('twilio_account_sid', '')
-                auth_token = config.get('twilio_auth_token', '')
-                from_number = config.get('twilio_from_number', '')
-                
-                if account_sid and auth_token and from_number:
-                    client = Client(account_sid, auth_token)
-                    client.messages.create(
-                        body=message,
-                        from_=from_number,
-                        to=f'whatsapp:+{to_number}'
-                    )
-            except ImportError:
-                print("Biblioteca 'twilio' não instalada. Instale com: pip install twilio")
+                client = Client(twilio_account_sid, twilio_auth_token)
+                message = client.messages.create(
+                    body=mensagem,
+                    from_=twilio_whatsapp_from,
+                    to=f'whatsapp:+{numero_destino}'
+                )
+                print(f"Notificação WhatsApp enviada via Twilio para {numero_destino}. SID: {message.sid}")
+                return True
             except Exception as e:
                 print(f"Erro ao enviar via Twilio: {str(e)}")
         
-        # WhatsApp Business API
-        elif tipo_integracao == 'whatsapp_business':
-            try:
-                import requests
-                access_token = config.get('business_access_token', '')
-                phone_number_id = config.get('business_phone_number_id', '')
-                
-                if access_token and phone_number_id:
-                    url = f"https://graph.facebook.com/v18.0/{phone_number_id}/messages"
-                    headers = {
-                        'Authorization': f'Bearer {access_token}',
-                        'Content-Type': 'application/json'
-                    }
-                    payload = {
-                        'messaging_product': 'whatsapp',
-                        'to': to_number,
-                        'type': 'text',
-                        'text': {'body': message}
-                    }
-                    requests.post(url, json=payload, headers=headers, timeout=5)
-            except ImportError:
-                print("Biblioteca 'requests' não instalada. Instale com: pip install requests")
-            except Exception as e:
-                print(f"Erro ao enviar via WhatsApp Business API: {str(e)}")
-                
+        # Se nenhuma API configurada, gerar URL e fazer log detalhado
+        mensagem_codificada = quote(mensagem)
+        url_whatsapp = f"https://wa.me/{numero_destino}?text={mensagem_codificada}"
+        
+        print("=" * 60)
+        print("NOTIFICAÇÃO WHATSAPP - NENHUMA API CONFIGURADA")
+        print("=" * 60)
+        print(f"URL do WhatsApp: {url_whatsapp}")
+        print("\nMensagem que seria enviada:")
+        print("-" * 60)
+        print(mensagem)
+        print("-" * 60)
+        print("\nPara configurar envio automático, consulte CONFIGURACAO_WHATSAPP.md")
+        print("=" * 60)
+        
+        # Tentar abrir a URL automaticamente (funciona apenas em ambiente local/desenvolvimento)
+        try:
+            import webbrowser
+            webbrowser.open(url_whatsapp)
+            print("✓ URL do WhatsApp aberta no navegador")
+        except Exception as e:
+            print(f"⚠ Não foi possível abrir o navegador automaticamente: {str(e)}")
+            print(f"   Abra manualmente: {url_whatsapp}")
+        
+        return url_whatsapp
+        
     except Exception as e:
-        print(f"Erro ao enviar mensagem: {str(e)}")
+        print(f"Erro ao enviar notificação WhatsApp: {str(e)}")
+        import traceback
+        traceback.print_exc()
+    return None
+
+@app.route('/agendamento', methods=['GET', 'POST'])
+def agendamento():
+    """Página de agendamento de serviços"""
+    if request.method == 'POST':
+        nome = request.form.get('nome', '').strip()
+        telefone = request.form.get('telefone', '').strip()
+        email = request.form.get('email', '').strip()
+        data_agendamento = request.form.get('data_agendamento', '').strip()
+        hora_agendamento = request.form.get('hora_agendamento', '').strip()
+        tipo_servico = request.form.get('tipo_servico', '').strip()
+        observacoes = request.form.get('observacoes', '').strip()
+        
+        # Validações
+        if not nome or not telefone or not data_agendamento or not hora_agendamento or not tipo_servico:
+            flash('Por favor, preencha todos os campos obrigatórios!', 'error')
+            return redirect(url_for('agendamento'))
+        
+        # Salvar agendamento
+        init_agendamentos_file()
+        with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+            agendamentos_data = json.load(f)
+        
+        novo_agendamento = {
+            'id': len(agendamentos_data['agendamentos']) + 1,
+            'nome': nome,
+            'telefone': telefone,
+            'email': email,
+            'data_agendamento': data_agendamento,
+            'hora_agendamento': hora_agendamento,
+            'tipo_servico': tipo_servico,
+            'observacoes': observacoes,
+            'status': 'pendente',
+            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        agendamentos_data['agendamentos'].append(novo_agendamento)
+        
+        with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
+        
+        # Enviar notificação WhatsApp
+        mensagem = f"🔔 *NOVO AGENDAMENTO*\n\n"
+        mensagem += f"👤 *Cliente:* {nome}\n"
+        mensagem += f"📞 *Telefone:* {telefone}\n"
+        if email:
+            mensagem += f"📧 *E-mail:* {email}\n"
+        mensagem += f"📅 *Data:* {data_agendamento}\n"
+        mensagem += f"⏰ *Hora:* {hora_agendamento}\n"
+        mensagem += f"🔧 *Serviço:* {tipo_servico}\n"
+        if observacoes:
+            mensagem += f"📝 *Observações:* {observacoes}\n"
+        mensagem += f"\n_Agendamento criado em {novo_agendamento['data_criacao']}_"
+        
+        resultado = enviar_notificacao_whatsapp(mensagem)
+        
+        if resultado:
+            print(f"Notificação WhatsApp processada: {resultado}")
+        else:
+            print("Aviso: Notificação WhatsApp não foi enviada. Verifique as configurações.")
+        
+        flash('Agendamento solicitado com sucesso! Entraremos em contato em breve para confirmar.', 'success')
+        return redirect(url_for('agendamento'))
+    
+    # GET - Exibir formulário
+    init_data_file()
+    with open(DATA_FILE, 'r', encoding='utf-8') as f:
+        services_data = json.load(f)
+    
+    servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
+    
+    return render_template('agendamento.html', servicos=servicos)
+
+@app.route('/admin/agendamentos')
+@login_required
+def admin_agendamentos():
+    """Lista todos os agendamentos"""
+    init_agendamentos_file()
+    with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+        agendamentos_data = json.load(f)
+    
+    agendamentos = sorted(agendamentos_data.get('agendamentos', []), 
+                         key=lambda x: x.get('data_criacao', ''), reverse=True)
+    
+    return render_template('admin/agendamentos.html', agendamentos=agendamentos)
+
+@app.route('/admin/agendamentos/<int:agendamento_id>/status', methods=['POST'])
+@login_required
+def atualizar_status_agendamento(agendamento_id):
+    """Atualiza status do agendamento"""
+    novo_status = request.form.get('status', 'pendente')
+    
+    init_agendamentos_file()
+    with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+        agendamentos_data = json.load(f)
+    
+    agendamento = next((a for a in agendamentos_data['agendamentos'] if a.get('id') == agendamento_id), None)
+    if agendamento:
+        agendamento['status'] = novo_status
+        agendamento['data_atualizacao'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
+        
+        flash('Status do agendamento atualizado com sucesso!', 'success')
+    else:
+        flash('Agendamento não encontrado!', 'error')
+    
+    return redirect(url_for('admin_agendamentos'))
+
+@app.route('/admin/agendamentos/<int:agendamento_id>/reenviar', methods=['POST'])
+@login_required
+def reenviar_notificacao_agendamento(agendamento_id):
+    """Reenvia notificação WhatsApp de um agendamento"""
+    init_agendamentos_file()
+    with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+        agendamentos_data = json.load(f)
+    
+    agendamento = next((a for a in agendamentos_data['agendamentos'] if a.get('id') == agendamento_id), None)
+    if not agendamento:
+        return jsonify({'success': False, 'error': 'Agendamento não encontrado'}), 404
+    
+    # Montar mensagem
+    mensagem = f"🔔 *NOVO AGENDAMENTO*\n\n"
+    mensagem += f"👤 *Cliente:* {agendamento['nome']}\n"
+    mensagem += f"📞 *Telefone:* {agendamento['telefone']}\n"
+    if agendamento.get('email'):
+        mensagem += f"📧 *E-mail:* {agendamento['email']}\n"
+    mensagem += f"📅 *Data:* {agendamento['data_agendamento']}\n"
+    mensagem += f"⏰ *Hora:* {agendamento['hora_agendamento']}\n"
+    mensagem += f"🔧 *Serviço:* {agendamento['tipo_servico']}\n"
+    if agendamento.get('observacoes'):
+        mensagem += f"📝 *Observações:* {agendamento['observacoes']}\n"
+    mensagem += f"\n_Agendamento criado em {agendamento['data_criacao']}_"
+    
+    resultado = enviar_notificacao_whatsapp(mensagem)
+    
+    if resultado and resultado is not True:
+        # Se retornou URL, significa que não foi enviado automaticamente
+        return jsonify({'success': False, 'error': 'API não configurada', 'url': resultado})
+    elif resultado:
+        return jsonify({'success': True, 'message': 'Notificação enviada com sucesso'})
+    else:
+        return jsonify({'success': False, 'error': 'Erro ao enviar notificação'})
+
+@app.route('/admin/agendamentos/<int:agendamento_id>/delete', methods=['POST'])
+@login_required
+def delete_agendamento(agendamento_id):
+    """Exclui um agendamento"""
+    init_agendamentos_file()
+    with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+        agendamentos_data = json.load(f)
+    
+    agendamentos_data['agendamentos'] = [a for a in agendamentos_data['agendamentos'] if a.get('id') != agendamento_id]
+    
+    with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
+    
+    flash('Agendamento excluído com sucesso!', 'success')
+    return redirect(url_for('admin_agendamentos'))
+
+# ==================== BLOG ====================
+
+def init_blog_file():
+    """Inicializa arquivo de blog se não existir"""
+    if not os.path.exists(BLOG_FILE):
+        data_dir = os.path.dirname(BLOG_FILE)
+        if data_dir and not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+        with open(BLOG_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'artigos': []}, f, ensure_ascii=False, indent=2)
+
+init_blog_file()
+
+@app.route('/blog')
+def blog():
+    """Página principal do blog"""
+    init_blog_file()
+    with open(BLOG_FILE, 'r', encoding='utf-8') as f:
+        blog_data = json.load(f)
+    
+    artigos = sorted([a for a in blog_data.get('artigos', []) if a.get('ativo', True)], 
+                    key=lambda x: x.get('data_publicacao', ''), reverse=True)
+    
+    return render_template('blog.html', artigos=artigos)
+
+@app.route('/blog/<int:artigo_id>')
+def artigo(artigo_id):
+    """Página individual do artigo"""
+    init_blog_file()
+    with open(BLOG_FILE, 'r', encoding='utf-8') as f:
+        blog_data = json.load(f)
+    
+    artigo_encontrado = next((a for a in blog_data.get('artigos', []) if a.get('id') == artigo_id and a.get('ativo', True)), None)
+    
+    if not artigo_encontrado:
+        flash('Artigo não encontrado!', 'error')
+        return redirect(url_for('blog'))
+    
+    # Buscar artigos relacionados (mesma categoria)
+    artigos_relacionados = [a for a in blog_data.get('artigos', []) 
+                           if a.get('id') != artigo_id 
+                           and a.get('ativo', True)
+                           and a.get('categoria') == artigo_encontrado.get('categoria')][:3]
+    
+    return render_template('artigo.html', artigo=artigo_encontrado, artigos_relacionados=artigos_relacionados)
+
+@app.route('/admin/blog')
+@login_required
+def admin_blog():
+    """Lista todos os artigos do blog"""
+    init_blog_file()
+    with open(BLOG_FILE, 'r', encoding='utf-8') as f:
+        blog_data = json.load(f)
+    
+    artigos = sorted(blog_data.get('artigos', []), 
+                    key=lambda x: x.get('data_publicacao', ''), reverse=True)
+    
+    return render_template('admin/blog.html', artigos=artigos)
+
+@app.route('/admin/blog/add', methods=['GET', 'POST'])
+@login_required
+def add_artigo():
+    """Adicionar novo artigo"""
+    if request.method == 'POST':
+        titulo = request.form.get('titulo', '').strip()
+        subtitulo = request.form.get('subtitulo', '').strip()
+        slug = request.form.get('slug', '').strip()
+        resumo = request.form.get('resumo', '').strip()
+        conteudo = request.form.get('conteudo', '').strip()
+        autor = request.form.get('autor', '').strip()
+        categoria = request.form.get('categoria', '').strip()
+        imagem_destaque = request.form.get('imagem_destaque', '').strip()
+        data_publicacao = request.form.get('data_publicacao', '').strip()
+        hora_publicacao = request.form.get('hora_publicacao', '').strip()
+        ativo = request.form.get('ativo') == 'on'
+        
+        if not titulo or not conteudo or not data_publicacao or not hora_publicacao:
+            flash('Título, conteúdo, data e hora são obrigatórios!', 'error')
+            return redirect(url_for('add_artigo'))
+        
+        # Gerar slug se não fornecido
+        if not slug:
+            import re
+            slug = re.sub(r'[^a-z0-9]+', '-', titulo.lower())
+            slug = re.sub(r'^-+|-+$', '', slug)
+        
+        # Combinar data e hora
+        data_hora_publicacao = f"{data_publicacao} {hora_publicacao}:00"
+        
+        init_blog_file()
+        with open(BLOG_FILE, 'r', encoding='utf-8') as f:
+            blog_data = json.load(f)
+        
+        novo_id = max([a.get('id', 0) for a in blog_data.get('artigos', [])], default=0) + 1
+        
+        novo_artigo = {
+            'id': novo_id,
+            'titulo': titulo,
+            'subtitulo': subtitulo,
+            'slug': slug,
+            'resumo': resumo,
+            'conteudo': conteudo,
+            'autor': autor or 'Equipe Clínica do Reparo',
+            'categoria': categoria or 'Geral',
+            'imagem_destaque': imagem_destaque,
+            'ativo': ativo,
+            'data_publicacao': data_hora_publicacao,
+            'hora_publicacao': hora_publicacao,
+            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        blog_data['artigos'].append(novo_artigo)
+        
+        with open(BLOG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(blog_data, f, ensure_ascii=False, indent=2)
+        
+        flash('Artigo criado com sucesso!', 'success')
+        return redirect(url_for('admin_blog'))
+    
+    return render_template('admin/add_artigo.html')
+
+@app.route('/admin/blog/<int:artigo_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_artigo(artigo_id):
+    """Editar artigo"""
+    init_blog_file()
+    with open(BLOG_FILE, 'r', encoding='utf-8') as f:
+        blog_data = json.load(f)
+    
+    artigo_encontrado = next((a for a in blog_data.get('artigos', []) if a.get('id') == artigo_id), None)
+    
+    if not artigo_encontrado:
+        flash('Artigo não encontrado!', 'error')
+        return redirect(url_for('admin_blog'))
+    
+    if request.method == 'POST':
+        titulo = request.form.get('titulo', '').strip()
+        subtitulo = request.form.get('subtitulo', '').strip()
+        slug = request.form.get('slug', '').strip()
+        resumo = request.form.get('resumo', '').strip()
+        conteudo = request.form.get('conteudo', '').strip()
+        autor = request.form.get('autor', '').strip()
+        categoria = request.form.get('categoria', '').strip()
+        imagem_destaque = request.form.get('imagem_destaque', '').strip()
+        data_publicacao = request.form.get('data_publicacao', '').strip()
+        hora_publicacao = request.form.get('hora_publicacao', '').strip()
+        ativo = request.form.get('ativo') == 'on'
+        
+        if not titulo or not conteudo or not data_publicacao or not hora_publicacao:
+            flash('Título, conteúdo, data e hora são obrigatórios!', 'error')
+            return redirect(url_for('edit_artigo', artigo_id=artigo_id))
+        
+        # Gerar slug se não fornecido
+        if not slug:
+            import re
+            slug = re.sub(r'[^a-z0-9]+', '-', titulo.lower())
+            slug = re.sub(r'^-+|-+$', '', slug)
+        
+        # Combinar data e hora
+        data_hora_publicacao = f"{data_publicacao} {hora_publicacao}:00"
+        
+        artigo_encontrado.update({
+            'titulo': titulo,
+            'subtitulo': subtitulo,
+            'slug': slug,
+            'resumo': resumo,
+            'conteudo': conteudo,
+            'autor': autor or 'Equipe Clínica do Reparo',
+            'categoria': categoria or 'Geral',
+            'imagem_destaque': imagem_destaque,
+            'ativo': ativo,
+            'data_publicacao': data_hora_publicacao,
+            'hora_publicacao': hora_publicacao,
+            'data_atualizacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+        # Atualizar na lista
+        for i, artigo in enumerate(blog_data['artigos']):
+            if artigo.get('id') == artigo_id:
+                blog_data['artigos'][i] = artigo_encontrado
+                break
+        
+        with open(BLOG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(blog_data, f, ensure_ascii=False, indent=2)
+        
+        flash('Artigo atualizado com sucesso!', 'success')
+        return redirect(url_for('admin_blog'))
+    
+    return render_template('admin/edit_artigo.html', artigo=artigo_encontrado)
+
+@app.route('/admin/blog/<int:artigo_id>/delete', methods=['POST'])
+@login_required
+def delete_artigo(artigo_id):
+    """Excluir artigo"""
+    init_blog_file()
+    with open(BLOG_FILE, 'r', encoding='utf-8') as f:
+        blog_data = json.load(f)
+    
+    blog_data['artigos'] = [a for a in blog_data['artigos'] if a.get('id') != artigo_id]
+    
+    with open(BLOG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(blog_data, f, ensure_ascii=False, indent=2)
+    
+    flash('Artigo excluído com sucesso!', 'success')
+    return redirect(url_for('admin_blog'))
+
+@app.route('/admin/blog/upload-imagem', methods=['POST'])
+@login_required
+def upload_imagem_blog():
+    """Upload de imagem para o blog"""
+    if 'imagem' not in request.files:
+        return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['imagem']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'}), 400
+    
+    if file and allowed_file(file.filename):
+        if file.content_length and file.content_length > MAX_FILE_SIZE:
+            return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
+        
+        filename = secure_filename(file.filename)
+        # Adicionar timestamp para evitar conflitos
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        name, ext = os.path.splitext(filename)
+        filename = f"{name}_{timestamp}{ext}"
+        
+        filepath = os.path.join(BLOG_IMG_DIR, filename)
+        file.save(filepath)
+        
+        # Retornar caminho relativo
+        relative_path = f"img/blog/{filename}"
+        return jsonify({'success': True, 'path': relative_path, 'url': url_for('static', filename=relative_path)})
+    
+    return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido'}), 400
+
+@app.route('/admin/slides/upload-imagem', methods=['POST'])
+@login_required
+def upload_imagem_slide():
+    """Upload de imagem para slides"""
+    if 'imagem' not in request.files:
+        return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['imagem']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP'}), 400
+    
+    # Verificar tamanho do arquivo
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
+    
+    filename = secure_filename(file.filename)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    name, ext = os.path.splitext(filename)
+    filename = f"slide_{timestamp}{ext}"
+    
+    filepath = os.path.join(SLIDES_IMG_DIR, filename)
+    file.save(filepath)
+    
+    relative_path = f'img/slides/{filename}'
+    return jsonify({'success': True, 'path': relative_path})
+
+@app.route('/admin/marcas/upload-imagem', methods=['POST'])
+@login_required
+def upload_imagem_marca():
+    """Upload de imagem para marcas"""
+    if 'imagem' not in request.files:
+        return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['imagem']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP'}), 400
+    
+    # Verificar tamanho do arquivo
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
+    
+    filename = secure_filename(file.filename)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    name, ext = os.path.splitext(filename)
+    filename = f"marca_{timestamp}{ext}"
+    
+    filepath = os.path.join(MARCAS_IMG_DIR, filename)
+    file.save(filepath)
+    
+    relative_path = f'img/marcas/{filename}'
+    return jsonify({'success': True, 'path': relative_path})
+
+@app.route('/admin/milestones/upload-imagem', methods=['POST'])
+@login_required
+def upload_imagem_milestone():
+    """Upload de imagem para milestones"""
+    if 'imagem' not in request.files:
+        return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['imagem']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP'}), 400
+    
+    # Verificar tamanho do arquivo
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
+    
+    filename = secure_filename(file.filename)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    name, ext = os.path.splitext(filename)
+    filename = f"milestone_{timestamp}{ext}"
+    
+    filepath = os.path.join(MILESTONES_IMG_DIR, filename)
+    file.save(filepath)
+    
+    relative_path = f'img/milestones/{filename}'
+    return jsonify({'success': True, 'path': relative_path})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    app.run(debug=debug, host='0.0.0.0', port=port)
 

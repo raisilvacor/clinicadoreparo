@@ -13,26 +13,32 @@
       "ordens": [
         {
           "id": 1,
-          "numero_ordem": 1,
+          "numero_ordem": 524232,
           "servico": "Reparo de Celulares",
           "tipo_aparelho": "Celular",
-          "marca": "teste",
-          "modelo": "teste",
-          "numero_serie": "11656565651",
-          "defeitos_cliente": "teste",
-          "diagnostico_tecnico": "teste",
+          "marca": "Apple",
+          "modelo": "Iphone 8 Plus",
+          "numero_serie": "15461651231435214",
+          "defeitos_cliente": "Nao pega sinal",
+          "diagnostico_tecnico": "troca de Antena",
           "pecas": [
             {
-              "nome": "Tela",
-              "custo": 100.0
+              "nome": "Antena IPH 8 Plus",
+              "custo": 160.0
             }
           ],
-          "custo_pecas": 100.0,
-          "custo_mao_obra": 50.0,
-          "total": 150.0,
-          "status": "pago",
-          "data": "2025-11-04 17:33:18",
-          "pdf_filename": "ordem_1_1_20251104_175314.pdf"
+          "custo_pecas": 160.0,
+          "custo_mao_obra": 60.0,
+          "subtotal": 220.0,
+          "desconto_percentual": 0.0,
+          "valor_desconto": 0.0,
+          "cupom_id": null,
+          "total": 220.0,
+          "status": "em_andamento",
+          "prazo_estimado": "1 dia",
+          "tecnico_id": 1,
+          "data": "2025-11-26 21:36:23",
+          "pdf_filename": "ordem_1_1_20251126_233832.pdf"
         }
       ]
     }

@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "admin123",
+      "nome": "Administrador",
+      "email": "admin@clinicadoreparo.com",
+      "ativo": true,
+      "data_criacao": "2025-11-26 22:50:06"
+    }
+  ]
+}

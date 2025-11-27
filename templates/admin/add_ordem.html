@@ -36,6 +36,20 @@
             </select>
         </div>
         
+        <div class="form-group">
+            <label for="tecnico_id">
+                <i class="fas fa-user-cog"></i>
+                Técnico Responsável
+            </label>
+            <select id="tecnico_id" name="tecnico_id">
+                <option value="">Selecione um técnico (opcional)</option>
+                {% for tecnico in tecnicos %}
+                <option value="{{ tecnico.id }}">{{ tecnico.nome }} - {{ tecnico.especialidade }}</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Selecione o técnico que será responsável por esta ordem de serviço</small>
+        </div>
+        
         <div class="section-divider">
             <h3><i class="fas fa-box"></i> Características do Aparelho</h3>
         </div>
@@ -189,6 +203,15 @@
                 <option value="pago">Pago</option>
                 <option value="cancelado">Cancelado</option>
             </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="prazo_estimado">
+                <i class="fas fa-calendar-alt"></i>
+                Prazo Estimado
+            </label>
+            <input type="text" id="prazo_estimado" name="prazo_estimado" placeholder="Ex: 5 dias úteis, 1 semana, 15 dias">
+            <small class="form-help">Informe o prazo estimado para conclusão do serviço</small>
         </div>
         
         <div class="form-actions">

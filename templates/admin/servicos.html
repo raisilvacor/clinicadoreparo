@@ -18,28 +18,45 @@
     <table class="admin-table">
         <thead>
             <tr>
-                <th>ID</th>
+                <th>Imagem</th>
                 <th>Nome</th>
                 <th>Descrição</th>
-                <th>Preço</th>
-                <th>Data</th>
+                <th>Ordem</th>
+                <th>Status</th>
                 <th>Ações</th>
             </tr>
         </thead>
         <tbody>
             {% for servico in servicos %}
             <tr>
-                <td>{{ servico.id }}</td>
-                <td><strong>{{ servico.nome }}</strong></td>
-                <td>{{ servico.descricao }}</td>
-                <td>R$ {{ servico.preco or '0.00' }}</td>
-                <td>{{ servico.data }}</td>
                 <td>
-                    <form method="POST" action="{{ url_for('delete_servico', servico_id=servico.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este serviço?');">
-                        <button type="submit" class="btn-icon btn-danger" title="Excluir">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </form>
+                    {% if servico.imagem %}
+                    <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px;" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                    {% else %}
+                    <span class="text-muted">Sem imagem</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ servico.nome }}</strong></td>
+                <td>{{ servico.descricao[:50] }}{% if servico.descricao|length > 50 %}...{% endif %}</td>
+                <td>{{ servico.ordem or 999 }}</td>
+                <td>
+                    {% if servico.ativo %}
+                    <span class="status-badge status-ativo"><i class="fas fa-check-circle"></i> Ativo</span>
+                    {% else %}
+                    <span class="status-badge status-inativo"><i class="fas fa-times-circle"></i> Inativo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('edit_servico', servico_id=servico.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_servico', servico_id=servico.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este serviço?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -54,4 +71,3 @@
 </div>
 {% endif %}
 {% endblock %}
-

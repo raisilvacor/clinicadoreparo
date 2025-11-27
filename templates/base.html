@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% block description %}Assistência técnica especializada para eletrodomésticos, celulares, computadores e notebooks. Reparo rápido e confiável.{% endblock %}">
     <title>{% block title %}Clínica do Reparo - Assistência Técnica{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favi.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 </head>
 <body>
     <nav class="navbar">
@@ -21,6 +24,8 @@
                 <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
                 <li><a href="{{ url_for('sobre') }}" class="nav-link">Sobre</a></li>
                 <li><a href="{{ url_for('servicos') }}" class="nav-link">Serviços</a></li>
+                <li><a href="{{ url_for('blog') }}" class="nav-link">Blog</a></li>
+                <li><a href="{{ url_for('rastrear') }}" class="nav-link"><i class="fas fa-search"></i> Rastrear</a></li>
                 <li><a href="{{ url_for('client_login') }}" class="nav-link btn-primary">Login</a></li>
                 <li><a href="{{ url_for('contato') }}" class="nav-link btn-primary">Contato</a></li>
             </ul>
@@ -54,13 +59,24 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="footer-logo">
-                    <p>Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.</p>
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="footer-logo" width="150" height="50" loading="lazy">
+                    <p>{{ footer.descricao if footer else 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.' }}</p>
                     <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-whatsapp"></i></a>
-                        <a href="#"><i class="fab fa-linkedin"></i></a>
+                        {% if footer and footer.redes_sociais.facebook %}
+                        <a href="{{ footer.redes_sociais.facebook }}" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook"></i></a>
+                        {% else %}
+                        <a href="#" class="disabled" aria-disabled="true"><i class="fab fa-facebook"></i></a>
+                        {% endif %}
+                        {% if footer and footer.redes_sociais.instagram %}
+                        <a href="{{ footer.redes_sociais.instagram }}" target="_blank" rel="noopener noreferrer"><i class="fab fa-instagram"></i></a>
+                        {% else %}
+                        <a href="#" class="disabled" aria-disabled="true"><i class="fab fa-instagram"></i></a>
+                        {% endif %}
+                        {% if footer and footer.redes_sociais.whatsapp %}
+                        <a href="{{ footer.redes_sociais.whatsapp }}" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i></a>
+                        {% else %}
+                        <a href="#" class="disabled" aria-disabled="true"><i class="fab fa-whatsapp"></i></a>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="footer-section">
@@ -69,6 +85,8 @@
                         <li><a href="{{ url_for('index') }}">Home</a></li>
                         <li><a href="{{ url_for('sobre') }}">Sobre Nós</a></li>
                         <li><a href="{{ url_for('servicos') }}">Serviços</a></li>
+                        <li><a href="{{ url_for('blog') }}">Blog</a></li>
+                        <li><a href="{{ url_for('rastrear') }}">Acompanhar Conserto</a></li>
                         <li><a href="{{ url_for('contato') }}">Contato</a></li>
                         <li><a href="{{ url_for('client_login') }}">Área do Cliente</a></li>
                     </ul>
@@ -76,30 +94,64 @@
                 <div class="footer-section">
                     <h4>Serviços</h4>
                     <ul>
-                        <li><a href="https://wa.me/5586988959957" target="_blank"><i class="fab fa-whatsapp"></i> Suporte Técnico</a></li>
+                        {% if servicos_footer %}
+                            {% for servico in servicos_footer[:5] %}
+                            <li><a href="{{ url_for('servicos') }}">{{ servico.nome }}</a></li>
+                            {% endfor %}
+                            {% if servicos_footer|length > 5 %}
+                            <li><a href="{{ url_for('servicos') }}">Ver todos os serviços...</a></li>
+                            {% endif %}
+                        {% else %}
+                            <li><a href="{{ url_for('servicos') }}">Reparo de Celulares</a></li>
+                            <li><a href="{{ url_for('servicos') }}">Eletrodomésticos</a></li>
+                            <li><a href="{{ url_for('servicos') }}">Computadores e Notebook</a></li>
+                        {% endif %}
                     </ul>
                 </div>
                 <div class="footer-section">
                     <h4>Contato</h4>
                     <ul>
+                        {% if footer and footer.contato.telefone %}
+                        <li><i class="fas fa-phone"></i> {{ footer.contato.telefone }}</li>
+                        {% else %}
                         <li><i class="fas fa-phone"></i> (11) 99999-9999</li>
+                        {% endif %}
+                        {% if footer and footer.contato.email %}
+                        <li><i class="fas fa-envelope"></i> {{ footer.contato.email }}</li>
+                        {% else %}
                         <li><i class="fas fa-envelope"></i> contato@techassist.com.br</li>
+                        {% endif %}
+                        {% if footer and footer.contato.endereco %}
+                        <li><i class="fas fa-map-marker-alt"></i> {{ footer.contato.endereco }}</li>
+                        {% else %}
                         <li><i class="fas fa-map-marker-alt"></i> São Paulo, SP</li>
+                        {% endif %}
+                        {% if footer and footer.redes_sociais.whatsapp %}
+                        <li><a href="{{ footer.redes_sociais.whatsapp }}" target="_blank"><i class="fab fa-whatsapp"></i> Suporte Técnico</a></li>
+                        {% else %}
+                        <li><a href="https://wa.me/5586988959957" target="_blank"><i class="fab fa-whatsapp"></i> Suporte Técnico</a></li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 Clínica do Reparo. Todos os direitos reservados.</p>
+                <p>{{ footer.copyright if footer and footer.copyright else '© 2026 Clínica do Reparo. Todos os direitos reservados.' }}</p>
             </div>
         </div>
     </footer>
 
     <!-- Botão Flutuante WhatsApp -->
+    {% if footer and footer.whatsapp_float %}
+    <a href="{{ footer.whatsapp_float }}" target="_blank" class="whatsapp-float" title="Fale conosco no WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+    {% else %}
     <a href="https://wa.me/5586988959957" target="_blank" class="whatsapp-float" title="Fale conosco no WhatsApp">
         <i class="fab fa-whatsapp"></i>
     </a>
+    {% endif %}
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

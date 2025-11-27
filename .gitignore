@@ -41,3 +41,11 @@ Thumbs.db
 # Data files (optional - remove if you want to track data)
 # data/*.json
 
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Production files
+*.log
+

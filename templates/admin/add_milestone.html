@@ -1,0 +1,140 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Adicionar Milestone - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-trophy"></i> Adicionar Novo Marco</h1>
+    <p>Configure um novo milestone para a seção de marcos</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('add_milestone') }}" class="admin-form">
+        <div class="form-group">
+            <label for="titulo">
+                <i class="fas fa-heading"></i>
+                Título do Marco *
+            </label>
+            <input type="text" id="titulo" name="titulo" required placeholder="Ex: Diagnóstico Preciso, Reparo Especializado">
+            <small class="form-help">Título descritivo do milestone</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="imagem">
+                <i class="fas fa-image"></i>
+                Caminho da Imagem *
+            </label>
+            <input type="file" id="imagem_upload" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" style="display: none;">
+            <label for="imagem_upload" class="btn btn-primary" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 10px;">
+                <i class="fas fa-upload"></i> Escolher Imagem do Computador
+            </label>
+            <input type="text" id="imagem" name="imagem" required placeholder="Caminho da imagem será preenchido automaticamente após o upload" readonly>
+            <small class="form-help">O caminho da imagem será preenchido automaticamente após o upload.</small>
+            <div id="upload_status" style="margin-top: 5px;"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="preview">
+                <i class="fas fa-eye"></i>
+                Preview da Imagem
+            </label>
+            <div id="image-preview" style="width: 100%; max-width: 300px; height: 300px; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8f9fa; margin-top: 0.5rem;">
+                <p style="color: #999;">Preview aparecerá aqui</p>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="ativo" name="ativo" checked>
+                <span style="margin-left: 0.5rem;">Milestone Ativo</span>
+            </label>
+            <small class="form-help">Milestones inativos não serão exibidos na seção de marcos</small>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_milestones') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Milestone
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+const inputFile = document.getElementById('imagem_upload');
+const inputImagem = document.getElementById('imagem');
+const preview = document.getElementById('image-preview');
+const uploadStatus = document.getElementById('upload_status');
+
+inputFile.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP</span>';
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+        uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Arquivo muito grande. Tamanho máximo: 5MB</span>';
+        return;
+    }
+    
+    uploadStatus.innerHTML = '<span style="color: #007bff;"><i class="fas fa-spinner fa-spin"></i> Enviando imagem...</span>';
+    
+    const formData = new FormData();
+    formData.append('imagem', file);
+    
+    fetch('{{ url_for("upload_imagem_milestone") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            inputImagem.value = data.path;
+            uploadStatus.innerHTML = '<span style="color: green;"><i class="fas fa-check-circle"></i> Imagem enviada com sucesso!</span>';
+            
+            // Atualizar preview
+            const img = document.createElement('img');
+            img.src = '/static/' + data.path;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            preview.innerHTML = '';
+            preview.appendChild(img);
+        } else {
+            uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> ' + (data.error || 'Erro ao enviar imagem') + '</span>';
+        }
+    })
+    .catch(error => {
+        uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Erro ao enviar imagem: ' + error.message + '</span>';
+    });
+});
+
+// Preview quando o campo de texto é alterado manualmente
+inputImagem.addEventListener('input', function(e) {
+    const caminho = e.target.value.trim();
+    if (caminho) {
+        const img = document.createElement('img');
+        img.src = '/static/' + caminho;
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '100%';
+        img.style.objectFit = 'contain';
+        img.onerror = function() {
+            preview.innerHTML = '<p style="color: #dc3545;">Imagem não encontrada</p>';
+        };
+        img.onload = function() {
+            preview.innerHTML = '';
+            preview.appendChild(img);
+        };
+    } else {
+        preview.innerHTML = '<p style="color: #999;">Preview aparecerá aqui</p>';
+    }
+});
+</script>
+{% endblock %}
+

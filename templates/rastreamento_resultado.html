@@ -1,0 +1,629 @@
+{% extends "base.html" %}
+
+{% block title %}Rastreamento - Ordem {{ ordem.numero_ordem }} - Clínica do Reparo{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1><i class="fas fa-clipboard-check"></i> Acompanhamento de Serviço</h1>
+        <p>Ordem de Serviço {{ ordem.numero_ordem }}</p>
+    </div>
+</section>
+
+<section class="tracking-result-section">
+    <div class="container">
+        <div class="tracking-result-wrapper">
+            <!-- Status Card -->
+            <div class="status-card">
+                <div class="status-header">
+                    <h2><i class="fas fa-info-circle"></i> Status do Reparo</h2>
+                    <span class="status-badge status-{{ ordem.status }}">{{ ordem.status | get_status_label }}</span>
+                </div>
+                <div class="status-timeline">
+                    <div class="timeline-item {% if ordem.status in ['pago', 'pronto', 'entregue'] %}completed{% elif ordem.status == 'em_andamento' %}active{% endif %}">
+                        <div class="timeline-icon">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <strong>Ordem Criada</strong>
+                            <p>{{ ordem.data }}</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item {% if ordem.status in ['pago', 'pronto', 'entregue'] %}completed{% elif ordem.status == 'em_andamento' %}active{% endif %}">
+                        <div class="timeline-icon">
+                            <i class="fas fa-wrench"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <strong>Em Andamento</strong>
+                            <p>Reparo sendo realizado</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item {% if ordem.status in ['pago', 'pronto', 'entregue'] %}completed{% endif %}">
+                        <div class="timeline-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <strong>Pronto</strong>
+                            <p>Aguardando retirada</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informações do Serviço -->
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <div class="info-content">
+                        <h3>Aparelho</h3>
+                        <p><strong>{{ ordem.tipo_aparelho }}</strong></p>
+                        <p>{{ ordem.marca }} {{ ordem.modelo }}</p>
+                        {% if ordem.numero_serie %}
+                        <p class="text-muted">Série: {{ ordem.numero_serie }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <div class="info-content">
+                        <h3>Serviço</h3>
+                        <p>{{ ordem.servico }}</p>
+                        {% if ordem.defeitos_cliente %}
+                        <p class="text-muted"><small>Defeito relatado: {{ ordem.defeitos_cliente }}</small></p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div class="info-content">
+                        <h3>Prazo Estimado</h3>
+                        <p class="prazo-text">{{ prazo_estimado }}</p>
+                        <p class="text-muted"><small>Data da ordem: {{ ordem.data }}</small></p>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="info-content">
+                        <h3>Valor Total</h3>
+                        <p class="valor-text">R$ {{ "%.2f"|format(ordem.total) }}</p>
+                        {% if ordem.custo_pecas > 0 %}
+                        <p class="text-muted"><small>Peças: R$ {{ "%.2f"|format(ordem.custo_pecas) }}</small></p>
+                        {% endif %}
+                        {% if ordem.custo_mao_obra > 0 %}
+                        <p class="text-muted"><small>Mão de obra: R$ {{ "%.2f"|format(ordem.custo_mao_obra) }}</small></p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Peças Aguardando -->
+            {% if ordem.pecas %}
+            <div class="pecas-card">
+                <h2><i class="fas fa-cog"></i> Peças e Componentes</h2>
+                <div class="pecas-list">
+                    {% for peca in ordem.pecas %}
+                    <div class="peca-item">
+                        <div class="peca-icon">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <div class="peca-info">
+                            <strong>{{ peca.nome }}</strong>
+                            <p>R$ {{ "%.2f"|format(peca.custo) }}</p>
+                        </div>
+                        <div class="peca-status">
+                            {% if ordem.status == 'aguardando_pecas' %}
+                            <span class="badge badge-warning">Aguardando</span>
+                            {% else %}
+                            <span class="badge badge-success">Disponível</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Diagnóstico Técnico -->
+            {% if ordem.diagnostico_tecnico %}
+            <div class="diagnostico-card">
+                <h2><i class="fas fa-stethoscope"></i> Diagnóstico Técnico</h2>
+                <div class="diagnostico-content">
+                    <p>{{ ordem.diagnostico_tecnico }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Informações do Cliente -->
+            {% if cliente %}
+            <div class="cliente-card">
+                <h2><i class="fas fa-user"></i> Dados do Cliente</h2>
+                <div class="cliente-info">
+                    <div class="cliente-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="cliente-details">
+                        <h3>{{ cliente.nome }}</h3>
+                        <div class="cliente-data">
+                            {% if cliente.email %}
+                            <p><i class="fas fa-envelope"></i> <strong>E-mail:</strong> {{ cliente.email }}</p>
+                            {% endif %}
+                            {% if cliente.telefone %}
+                            <p><i class="fas fa-phone"></i> <strong>Telefone:</strong> {{ cliente.telefone }}</p>
+                            {% endif %}
+                            {% if cliente.cpf %}
+                            <p><i class="fas fa-id-card"></i> <strong>CPF:</strong> {{ cliente.cpf }}</p>
+                            {% endif %}
+                            {% if cliente.endereco %}
+                            <p><i class="fas fa-map-marker-alt"></i> <strong>Endereço:</strong> {{ cliente.endereco }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Informações do Técnico -->
+            <div class="tecnico-card">
+                <h2><i class="fas fa-user-tie"></i> Informações do Técnico</h2>
+                <div class="tecnico-info">
+                    <div class="tecnico-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="tecnico-details">
+                        {% if tecnico %}
+                        <h3>{{ tecnico.nome }}</h3>
+                        <div class="tecnico-data">
+                            {% if tecnico.especialidade %}
+                            <p><i class="fas fa-wrench"></i> <strong>Especialidade:</strong> {{ tecnico.especialidade }}</p>
+                            {% endif %}
+                            {% if tecnico.telefone %}
+                            <p><i class="fas fa-phone"></i> <strong>Telefone:</strong> {{ tecnico.telefone }}</p>
+                            {% endif %}
+                            {% if tecnico.email %}
+                            <p><i class="fas fa-envelope"></i> <strong>E-mail:</strong> {{ tecnico.email }}</p>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <h3>Técnico Responsável</h3>
+                        <p><strong>Equipe Clínica do Reparo</strong></p>
+                        <p class="text-muted">Técnico especializado em {{ ordem.servico }}</p>
+                        {% endif %}
+                        <div class="tecnico-contact">
+                            <a href="{{ url_for('contato') }}" class="btn btn-secondary btn-small">
+                                <i class="fas fa-envelope"></i> Entrar em Contato
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="actions-card">
+                <a href="{{ url_for('rastrear') }}" class="btn btn-secondary">
+                    <i class="fas fa-search"></i> Rastrear Outra Ordem
+                </a>
+                <a href="{{ url_for('contato') }}" class="btn btn-primary">
+                    <i class="fas fa-phone"></i> Falar com Atendimento
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.tracking-result-section {
+    padding: 4rem 0;
+    background: var(--bg-secondary);
+    min-height: 60vh;
+}
+
+.tracking-result-wrapper {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.status-card, .info-card, .pecas-card, .diagnostico-card, .tecnico-card, .cliente-card, .actions-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+}
+
+.status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.status-header h2 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.5rem 1.5rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.status-pendente {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-em_andamento {
+    background: #cfe2ff;
+    color: #084298;
+}
+
+.status-aguardando_pecas {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-pronto, .status-pago {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.status-entregue {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.status-cancelado {
+    background: #f8d7da;
+    color: #842029;
+}
+
+.status-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 1rem;
+    align-items: start;
+    opacity: 0.5;
+}
+
+.timeline-item.active {
+    opacity: 1;
+}
+
+.timeline-item.completed {
+    opacity: 1;
+}
+
+.timeline-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 2px solid var(--border-color);
+}
+
+.timeline-item.active .timeline-icon {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.timeline-item.completed .timeline-icon {
+    background: var(--success-color);
+    color: white;
+    border-color: var(--success-color);
+}
+
+.timeline-content strong {
+    display: block;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+}
+
+.timeline-content p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.info-card {
+    display: flex;
+    gap: 1rem;
+    align-items: start;
+}
+
+.info-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.info-content h3 {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.info-content p {
+    color: var(--text-primary);
+    margin: 0.3rem 0;
+}
+
+.prazo-text {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.valor-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--success-color);
+}
+
+.text-muted {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.pecas-card h2, .diagnostico-card h2, .tecnico-card h2, .cliente-card h2 {
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cliente-info {
+    display: flex;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.cliente-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.cliente-details h3 {
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+.cliente-data {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.cliente-data p {
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cliente-data i {
+    color: var(--primary-color);
+    width: 20px;
+}
+
+.pecas-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.peca-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.peca-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.peca-info {
+    flex: 1;
+}
+
+.peca-info strong {
+    display: block;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+}
+
+.peca-info p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.badge {
+    padding: 0.3rem 0.8rem;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.badge-success {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.diagnostico-content {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.diagnostico-content p {
+    color: var(--text-primary);
+    line-height: 1.8;
+    margin: 0;
+}
+
+.tecnico-info {
+    display: flex;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.tecnico-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.tecnico-details h3 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.tecnico-details p {
+    color: var(--text-primary);
+    margin: 0.3rem 0;
+}
+
+.tecnico-data {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin: 1rem 0;
+}
+
+.tecnico-data p {
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tecnico-data i {
+    color: var(--primary-color);
+    width: 20px;
+}
+
+.tecnico-contact {
+    margin-top: 1rem;
+}
+
+.actions-card {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .status-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .tecnico-info, .cliente-info {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .cliente-data {
+        align-items: flex-start;
+    }
+    
+    .actions-card {
+        flex-direction: column;
+    }
+    
+    .actions-card .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+

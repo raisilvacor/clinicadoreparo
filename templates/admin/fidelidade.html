@@ -88,7 +88,7 @@
                     </td>
                     <td>
                         {% if cupom.ordem_id %}
-                        <a href="{{ url_for('edit_ordem_servico', cliente_id=cupom.cliente_id, ordem_id=cupom.ordem_id) }}">#{{ "%04d"|format(cupom.ordem_id) }}</a>
+                        <a href="{{ url_for('edit_ordem_servico', cliente_id=cupom.cliente_id, ordem_id=cupom.ordem_id) }}">{{ cupom.ordem_id }}</a>
                         {% else %}
                         <span class="text-muted">-</span>
                         {% endif %}
@@ -154,7 +154,7 @@ function viewCupom(cupomId) {
                 '<span class="status-badge status-pendente"><i class="fas fa-clock"></i> Disponível</span>';
             
             const ordemLink = data.ordem_id ? 
-                `<a href="/admin/clientes/${data.cliente_id}/ordens/${data.ordem_id}/edit">#${String(data.ordem_id).padStart(4, '0')}</a>` :
+                `<a href="/admin/clientes/${data.cliente_id}/ordens/${data.ordem_id}/edit">${data.ordem_id}</a>` :
                 '<span class="text-muted">-</span>';
             
             modalBody.innerHTML = `

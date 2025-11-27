@@ -1,0 +1,65 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Usuário Admin - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-edit"></i> Editar Usuário Admin</h1>
+    <p>Atualize os dados do usuário</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_usuario_admin', usuario_id=usuario.id) }}" class="admin-form">
+        <div class="form-group">
+            <label for="username">
+                <i class="fas fa-user"></i>
+                Nome de Usuário *
+            </label>
+            <input type="text" id="username" name="username" value="{{ usuario.username }}" required placeholder="Ex: joao.silva">
+            <small class="form-help">Nome de usuário usado para fazer login</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">
+                <i class="fas fa-lock"></i>
+                Nova Senha
+            </label>
+            <input type="password" id="password" name="password" placeholder="Deixe em branco para manter a senha atual">
+            <small class="form-help">Deixe em branco se não quiser alterar a senha</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="nome">
+                <i class="fas fa-id-card"></i>
+                Nome Completo
+            </label>
+            <input type="text" id="nome" name="nome" value="{{ usuario.nome or '' }}" placeholder="Ex: João Silva">
+        </div>
+        
+        <div class="form-group">
+            <label for="email">
+                <i class="fas fa-envelope"></i>
+                E-mail
+            </label>
+            <input type="email" id="email" name="email" value="{{ usuario.email or '' }}" placeholder="Ex: joao@clinicadoreparo.com">
+        </div>
+        
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="ativo" name="ativo" {% if usuario.ativo %}checked{% endif %}>
+                <span>Usuário ativo (pode fazer login)</span>
+            </label>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_usuarios') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

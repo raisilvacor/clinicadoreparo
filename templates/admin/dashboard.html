@@ -103,10 +103,10 @@
             <h3>Gerenciar Serviços</h3>
             <p>Adicionar, editar ou remover serviços</p>
         </a>
-        <a href="{{ url_for('add_servico_admin') }}" class="action-card">
-            <i class="fas fa-plus-circle"></i>
-            <h3>Adicionar Serviço</h3>
-            <p>Cadastrar um novo serviço</p>
+        <a href="{{ url_for('admin_usuarios') }}" class="action-card">
+            <i class="fas fa-users-cog"></i>
+            <h3>Usuários</h3>
+            <p>Gerenciar usuários do painel administrativo</p>
         </a>
         <a href="{{ url_for('admin_clientes') }}" class="action-card">
             <i class="fas fa-users"></i>
@@ -143,10 +143,40 @@
             <h3>Clube Clínica do Reparo</h3>
             <p>Emitir cupons de desconto</p>
         </a>
-        <a href="{{ url_for('admin_whatsapp_bot') }}" class="action-card">
-            <i class="fab fa-whatsapp"></i>
-            <h3>Robô WhatsApp</h3>
-            <p>Configurar VirTEc - Técnico Virtual</p>
+        <a href="{{ url_for('admin_tecnicos') }}" class="action-card">
+            <i class="fas fa-user-cog"></i>
+            <h3>Cadastro de Técnicos</h3>
+            <p>Gerenciar técnicos da equipe</p>
+        </a>
+        <a href="{{ url_for('admin_agendamentos') }}" class="action-card">
+            <i class="fas fa-calendar-check"></i>
+            <h3>Agendamentos</h3>
+            <p>Visualizar e gerenciar agendamentos</p>
+        </a>
+        <a href="{{ url_for('admin_blog') }}" class="action-card">
+            <i class="fas fa-blog"></i>
+            <h3>Blog</h3>
+            <p>Gerenciar artigos do blog</p>
+        </a>
+        <a href="{{ url_for('admin_slides') }}" class="action-card">
+            <i class="fas fa-images"></i>
+            <h3>Gerenciar Slides</h3>
+            <p>Gerenciar slides da página inicial</p>
+        </a>
+        <a href="{{ url_for('admin_footer') }}" class="action-card">
+            <i class="fas fa-edit"></i>
+            <h3>Gerenciar Rodapé</h3>
+            <p>Editar informações do rodapé do site</p>
+        </a>
+        <a href="{{ url_for('admin_marcas') }}" class="action-card">
+            <i class="fas fa-tags"></i>
+            <h3>Gerenciar Marcas</h3>
+            <p>Gerenciar principais marcas exibidas</p>
+        </a>
+        <a href="{{ url_for('admin_milestones') }}" class="action-card">
+            <i class="fas fa-trophy"></i>
+            <h3>Gerenciar Marcos</h3>
+            <p>Gerenciar marcos/milestones exibidos</p>
         </a>
         <a href="{{ url_for('index') }}" class="action-card" target="_blank">
             <i class="fas fa-external-link-alt"></i>

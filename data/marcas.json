@@ -1,0 +1,165 @@
+{
+  "marcas": [
+    {
+      "id": 1,
+      "nome": "Marca 1",
+      "imagem": "logos/1.png",
+      "ordem": 1,
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "nome": "Marca 2",
+      "imagem": "logos/2.png",
+      "ordem": 2,
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "nome": "Marca 3",
+      "imagem": "logos/3.png",
+      "ordem": 3,
+      "ativo": true
+    },
+    {
+      "id": 4,
+      "nome": "Marca 4",
+      "imagem": "logos/4.png",
+      "ordem": 4,
+      "ativo": true
+    },
+    {
+      "id": 5,
+      "nome": "Marca 5",
+      "imagem": "logos/5.png",
+      "ordem": 5,
+      "ativo": true
+    },
+    {
+      "id": 6,
+      "nome": "Marca 6",
+      "imagem": "logos/6.png",
+      "ordem": 6,
+      "ativo": true
+    },
+    {
+      "id": 7,
+      "nome": "Marca 7",
+      "imagem": "logos/7.png",
+      "ordem": 7,
+      "ativo": true
+    },
+    {
+      "id": 8,
+      "nome": "Marca 8",
+      "imagem": "logos/8.png",
+      "ordem": 8,
+      "ativo": true
+    },
+    {
+      "id": 9,
+      "nome": "Marca 9",
+      "imagem": "logos/9.png",
+      "ordem": 9,
+      "ativo": true
+    },
+    {
+      "id": 10,
+      "nome": "Marca 10",
+      "imagem": "logos/10.png",
+      "ordem": 10,
+      "ativo": true
+    },
+    {
+      "id": 11,
+      "nome": "Marca 11",
+      "imagem": "logos/11.png",
+      "ordem": 11,
+      "ativo": true
+    },
+    {
+      "id": 12,
+      "nome": "Marca 12",
+      "imagem": "logos/12.png",
+      "ordem": 12,
+      "ativo": true
+    },
+    {
+      "id": 13,
+      "nome": "Marca 13",
+      "imagem": "logos/13.png",
+      "ordem": 13,
+      "ativo": true
+    },
+    {
+      "id": 14,
+      "nome": "Marca 14",
+      "imagem": "logos/14.png",
+      "ordem": 14,
+      "ativo": true
+    },
+    {
+      "id": 15,
+      "nome": "Marca 15",
+      "imagem": "logos/15.png",
+      "ordem": 15,
+      "ativo": true
+    },
+    {
+      "id": 16,
+      "nome": "Marca 16",
+      "imagem": "logos/16.png",
+      "ordem": 16,
+      "ativo": true
+    },
+    {
+      "id": 17,
+      "nome": "Marca 17",
+      "imagem": "logos/17.png",
+      "ordem": 17,
+      "ativo": true
+    },
+    {
+      "id": 18,
+      "nome": "Marca 18",
+      "imagem": "logos/18.png",
+      "ordem": 18,
+      "ativo": true
+    },
+    {
+      "id": 19,
+      "nome": "Marca 19",
+      "imagem": "logos/19.png",
+      "ordem": 19,
+      "ativo": true
+    },
+    {
+      "id": 20,
+      "nome": "Marca 20",
+      "imagem": "logos/20.png",
+      "ordem": 20,
+      "ativo": true
+    },
+    {
+      "id": 21,
+      "nome": "Marca 21",
+      "imagem": "logos/21.png",
+      "ordem": 21,
+      "ativo": true
+    },
+    {
+      "id": 22,
+      "nome": "Marca 22",
+      "imagem": "logos/22.png",
+      "ordem": 22,
+      "ativo": true
+    },
+    {
+      "id": 23,
+      "nome": "Marca 23",
+      "imagem": "logos/23.png",
+      "ordem": 23,
+      "ativo": true
+    }
+  ]
+}

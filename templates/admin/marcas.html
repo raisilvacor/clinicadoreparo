@@ -1,0 +1,107 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Marcas - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-tags"></i> Gerenciar Principais Marcas</h1>
+        <p>Gerencie as marcas exibidas na seção "Principais Marcas"</p>
+    </div>
+    <a href="{{ url_for('add_marca') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Marca
+    </a>
+</div>
+
+{% if marcas %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Imagem</th>
+                <th>Nome</th>
+                <th>Caminho da Imagem</th>
+                <th>Ordem</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for marca in marcas %}
+            <tr>
+                <td>{{ marca.id }}</td>
+                <td>
+                    <div class="marca-preview">
+                        <img src="{{ url_for('static', filename=marca.imagem) }}" alt="{{ marca.nome }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                    </div>
+                </td>
+                <td><strong>{{ marca.nome }}</strong></td>
+                <td><code>{{ marca.imagem }}</code></td>
+                <td><strong>{{ marca.ordem }}</strong></td>
+                <td>
+                    {% if marca.ativo %}
+                    <span class="badge badge-success">Ativa</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Inativa</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('edit_marca', marca_id=marca.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_marca', marca_id=marca.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta marca?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-tags"></i>
+    <p>Nenhuma marca cadastrada</p>
+    <a href="{{ url_for('add_marca') }}" class="btn btn-primary">Adicionar Primeira Marca</a>
+</div>
+{% endif %}
+
+<style>
+.marca-preview {
+    width: 80px;
+    height: 80px;
+    overflow: hidden;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, #ddd);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+}
+
+.marca-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+code {
+    background: var(--bg-secondary, #f8f9fa);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.badge-secondary {
+    background: #6c757d;
+    color: white;
+}
+</style>
+{% endblock %}
+

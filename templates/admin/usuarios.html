@@ -1,0 +1,76 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Usuários Admin - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-users-cog"></i> Gerenciar Usuários Admin</h1>
+        <p>Adicione, edite ou remova usuários do painel administrativo</p>
+    </div>
+    <a href="{{ url_for('add_usuario_admin') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Usuário
+    </a>
+</div>
+
+{% if usuarios %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome de Usuário</th>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Status</th>
+                <th>Data de Criação</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for usuario in usuarios %}
+            <tr>
+                <td>{{ usuario.id }}</td>
+                <td><strong>{{ usuario.username }}</strong></td>
+                <td>{{ usuario.nome or '-' }}</td>
+                <td>{{ usuario.email or '-' }}</td>
+                <td>
+                    {% if usuario.ativo %}
+                    <span class="status-badge status-ativo"><i class="fas fa-check-circle"></i> Ativo</span>
+                    {% else %}
+                    <span class="status-badge status-inativo"><i class="fas fa-times-circle"></i> Inativo</span>
+                    {% endif %}
+                </td>
+                <td>{{ usuario.data_criacao or '-' }}</td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('edit_usuario_admin', usuario_id=usuario.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if usuario.id != session.get('admin_user_id', 0) %}
+                        <form method="POST" action="{{ url_for('delete_usuario_admin', usuario_id=usuario.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted" title="Você não pode excluir seu próprio usuário">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-users-cog"></i>
+    <p>Nenhum usuário cadastrado</p>
+    <a href="{{ url_for('add_usuario_admin') }}" class="btn btn-primary">Adicionar Primeiro Usuário</a>
+</div>
+{% endif %}
+{% endblock %}
+

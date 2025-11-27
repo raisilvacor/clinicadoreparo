@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Agendamento de Serviços - Clínica do Reparo{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1><i class="fas fa-calendar-check"></i> Agendamento de Serviços</h1>
+        <p>Escolha o melhor dia e horário para seu atendimento</p>
+    </div>
+</section>
+
+<section class="agendamento-section">
+    <div class="container">
+        <div class="agendamento-wrapper">
+            <div class="agendamento-form-card">
+                <h2><i class="fas fa-calendar-alt"></i> Solicitar Agendamento</h2>
+                <p class="form-description">Preencha os dados abaixo para solicitar um agendamento. Entraremos em contato para confirmar.</p>
+                
+                <form method="POST" action="{{ url_for('agendamento') }}" class="agendamento-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="nome">
+                                <i class="fas fa-user"></i>
+                                Nome Completo *
+                            </label>
+                            <input type="text" id="nome" name="nome" required placeholder="Seu nome completo">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="telefone">
+                                <i class="fas fa-phone"></i>
+                                Telefone/WhatsApp *
+                            </label>
+                            <input type="tel" id="telefone" name="telefone" required placeholder="(00) 00000-0000">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">
+                            <i class="fas fa-envelope"></i>
+                            E-mail
+                        </label>
+                        <input type="email" id="email" name="email" placeholder="seu@email.com">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="data_agendamento">
+                                <i class="fas fa-calendar"></i>
+                                Data do Agendamento *
+                            </label>
+                            <input type="date" id="data_agendamento" name="data_agendamento" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="hora_agendamento">
+                                <i class="fas fa-clock"></i>
+                                Horário *
+                            </label>
+                            <select id="hora_agendamento" name="hora_agendamento" required>
+                                <option value="">Selecione o horário</option>
+                                <option value="08:00">08:00</option>
+                                <option value="08:30">08:30</option>
+                                <option value="09:00">09:00</option>
+                                <option value="09:30">09:30</option>
+                                <option value="10:00">10:00</option>
+                                <option value="10:30">10:30</option>
+                                <option value="11:00">11:00</option>
+                                <option value="11:30">11:30</option>
+                                <option value="13:00">13:00</option>
+                                <option value="13:30">13:30</option>
+                                <option value="14:00">14:00</option>
+                                <option value="14:30">14:30</option>
+                                <option value="15:00">15:00</option>
+                                <option value="15:30">15:30</option>
+                                <option value="16:00">16:00</option>
+                                <option value="16:30">16:30</option>
+                                <option value="17:00">17:00</option>
+                                <option value="17:30">17:30</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="tipo_servico">
+                            <i class="fas fa-tools"></i>
+                            Tipo de Serviço *
+                        </label>
+                        <select id="tipo_servico" name="tipo_servico" required>
+                            <option value="">Selecione o serviço</option>
+                            {% for servico in servicos %}
+                            <option value="{{ servico.nome }}">{{ servico.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="observacoes">
+                            <i class="fas fa-comment"></i>
+                            Observações
+                        </label>
+                        <textarea id="observacoes" name="observacoes" rows="4" placeholder="Informações adicionais sobre o serviço necessário..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary btn-large">
+                            <i class="fas fa-check"></i> Solicitar Agendamento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.agendamento-section {
+    padding: 4rem 0;
+    background: var(--bg-secondary);
+    min-height: 60vh;
+}
+
+.agendamento-wrapper {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.agendamento-form-card {
+    background: white;
+    border-radius: 15px;
+    padding: 3rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.agendamento-form-card h2 {
+    font-size: 2rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-description {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+.agendamento-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(33, 95, 151, 0.1);
+}
+
+.form-actions {
+    margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .agendamento-form-card {
+        padding: 2rem 1.5rem;
+    }
+}
+</style>
+
+<script>
+// Definir data mínima como hoje
+document.addEventListener('DOMContentLoaded', function() {
+    const dataInput = document.getElementById('data_agendamento');
+    const hoje = new Date().toISOString().split('T')[0];
+    dataInput.setAttribute('min', hoje);
+    
+    // Máscara para telefone
+    const telefoneInput = document.getElementById('telefone');
+    telefoneInput.addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.length <= 11) {
+            if (value.length <= 10) {
+                value = value.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+            } else {
+                value = value.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+            }
+            e.target.value = value;
+        }
+    });
+});
+</script>
+{% endblock %}
+

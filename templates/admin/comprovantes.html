@@ -28,7 +28,7 @@
             <tr>
                 <td><strong>#{{ "%04d"|format(comprovante.id) }}</strong></td>
                 <td>{{ comprovante.cliente_nome }}</td>
-                <td>#{{ "%04d"|format(comprovante.numero_ordem) }}</td>
+                <td>{{ comprovante.numero_ordem }}</td>
                 <td><strong>R$ {{ "%.2f"|format(comprovante.valor_pago) }}</strong></td>
                 <td>
                     {% if comprovante.forma_pagamento == 'dinheiro' %}
@@ -120,7 +120,7 @@ function viewComprovante(comprovanteId) {
                         <h3><i class="fas fa-info-circle"></i> Informações do Comprovante</h3>
                         <p><strong>Número:</strong> #${String(data.id).padStart(4, '0')}</p>
                         <p><strong>Data:</strong> ${data.data}</p>
-                        <p><strong>Número da Ordem:</strong> #${String(data.numero_ordem).padStart(4, '0')}</p>
+                        <p><strong>Número da Ordem:</strong> ${data.numero_ordem}</p>
                     </div>
                     <div class="detail-section">
                         <h3><i class="fas fa-user"></i> Cliente</h3>

@@ -1,0 +1,13 @@
+{
+  "tecnicos": [
+    {
+      "id": 1,
+      "nome": "Raí Silva",
+      "cpf": "059.515.233-38",
+      "telefone": "(00) 00000-0000",
+      "email": "teste@teste.com",
+      "especialidade": "Celulares",
+      "data_cadastro": "2025-11-26 21:31:37"
+    }
+  ]
+}

@@ -124,7 +124,7 @@ document.getElementById('cliente_id').addEventListener('change', function() {
                 data.ordens.forEach(ordem => {
                     const option = document.createElement('option');
                     option.value = ordem.id;
-                    option.textContent = `#${String(ordem.numero_ordem).padStart(4, '0')} - ${ordem.servico} - R$ ${ordem.total.toFixed(2)}`;
+                    option.textContent = `${ordem.numero_ordem} - ${ordem.servico} - R$ ${ordem.total.toFixed(2)}`;
                     option.dataset.total = ordem.total;
                     ordemSelect.appendChild(option);
                 });

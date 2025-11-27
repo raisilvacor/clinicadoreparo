@@ -1,0 +1,64 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Técnicos - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-user-cog"></i> Cadastro de Técnicos</h1>
+        <p>Gerencie os técnicos da equipe</p>
+    </div>
+    <a href="{{ url_for('add_tecnico') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Técnico
+    </a>
+</div>
+
+{% if tecnicos %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>CPF</th>
+                <th>Telefone</th>
+                <th>E-mail</th>
+                <th>Especialidade</th>
+                <th>Data de Cadastro</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tecnico in tecnicos %}
+            <tr>
+                <td>{{ tecnico.id }}</td>
+                <td><strong>{{ tecnico.nome }}</strong></td>
+                <td>{{ tecnico.cpf }}</td>
+                <td>{{ tecnico.telefone }}</td>
+                <td>{{ tecnico.email }}</td>
+                <td><span class="badge">{{ tecnico.especialidade }}</span></td>
+                <td>{{ tecnico.data_cadastro }}</td>
+                <td>
+                    <a href="{{ url_for('edit_tecnico', tecnico_id=tecnico.id) }}" class="btn-icon" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <form method="POST" action="{{ url_for('delete_tecnico', tecnico_id=tecnico.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este técnico?');">
+                        <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-user-cog"></i>
+    <p>Nenhum técnico cadastrado</p>
+    <a href="{{ url_for('add_tecnico') }}" class="btn btn-primary">Adicionar Primeiro Técnico</a>
+</div>
+{% endif %}
+{% endblock %}
+

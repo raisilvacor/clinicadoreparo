@@ -159,7 +159,7 @@
                 
                 <div class="order-info-section">
                     <p><strong>Data:</strong> {{ ordem.data }}</p>
-                    <p><strong>Número da Ordem:</strong> #{{ "%04d"|format(ordem.numero_ordem if ordem.numero_ordem else ordem.id) }}</p>
+                    <p><strong>Número da Ordem:</strong> {{ ordem.numero_ordem if ordem.numero_ordem else ordem.id }}</p>
                 </div>
                 
                 {% if ordem.pdf_filename %}
@@ -205,7 +205,7 @@
             <div class="order-body">
                 <div class="order-info-section">
                     <h4><i class="fas fa-file-invoice"></i> Informações</h4>
-                    <p><strong>Número da Ordem:</strong> #{{ "%04d"|format(comprovante.numero_ordem) }}</p>
+                    <p><strong>Número da Ordem:</strong> {{ comprovante.numero_ordem }}</p>
                     <p><strong>Valor Total da Ordem:</strong> R$ {{ "%.2f"|format(comprovante.valor_total) }}</p>
                     <p><strong>Valor Pago:</strong> R$ {{ "%.2f"|format(comprovante.valor_pago) }}</p>
                 </div>
@@ -283,7 +283,7 @@
                     <p><strong>Desconto:</strong> {{ "%.2f"|format(cupom.desconto_percentual) }}%</p>
                     <p><strong>Status:</strong> 
                         {% if cupom.usado %}
-                            Usado na Ordem #{{ "%04d"|format(cupom.ordem_id) }}
+                            Usado na Ordem {{ cupom.ordem_id }}
                         {% else %}
                             Disponível para próxima ordem
                         {% endif %}

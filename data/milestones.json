@@ -1,0 +1,25 @@
+{
+  "milestones": [
+    {
+      "id": 1,
+      "titulo": "Diagnóstico Preciso",
+      "imagem": "img/milestone1.png",
+      "ordem": 1,
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "titulo": "Reparo Especializado",
+      "imagem": "img/milestone2.png",
+      "ordem": 2,
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "titulo": "Atendimento Rápido",
+      "imagem": "img/milestone3.png",
+      "ordem": 3,
+      "ativo": true
+    }
+  ]
+}

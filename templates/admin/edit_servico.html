@@ -1,0 +1,152 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Serviço - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-edit"></i> Editar Serviço</h1>
+    <p>Atualize os dados do serviço</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_servico', servico_id=servico.id) }}" class="admin-form">
+        <div class="form-group">
+            <label for="nome">
+                <i class="fas fa-tag"></i>
+                Nome do Serviço *
+            </label>
+            <input type="text" id="nome" name="nome" value="{{ servico.nome }}" required placeholder="Ex: Reparo de Celulares">
+        </div>
+        
+        <div class="form-group">
+            <label for="descricao">
+                <i class="fas fa-align-left"></i>
+                Descrição Curta *
+            </label>
+            <textarea id="descricao" name="descricao" rows="3" required placeholder="Descrição curta do serviço...">{{ servico.descricao }}</textarea>
+            <small class="form-help">Descrição que aparecerá abaixo do nome do serviço</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="imagem">
+                <i class="fas fa-image"></i>
+                Imagem do Serviço *
+            </label>
+            <div style="margin-bottom: 10px;">
+                <label for="imagem_upload" style="display: inline-block; cursor: pointer; padding: 10px 20px; background: #007bff; color: white; border-radius: 5px; text-align: center; transition: background 0.3s;">
+                    <i class="fas fa-upload"></i> Escolher Imagem do Computador
+                </label>
+                <input type="file" id="imagem_upload" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" style="display: none;">
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-start; margin-top: 10px;">
+                <input type="text" id="imagem" name="imagem" value="{{ servico.imagem or '' }}" required placeholder="Caminho da imagem será preenchido automaticamente após o upload" style="flex: 1;">
+            </div>
+            <small class="form-help">Clique em "Escolher Imagem do Computador" para fazer upload de uma nova imagem ou digite o caminho manualmente (imagem deve ser quadrada, ex: 500x500px)</small>
+            <div id="imagem_preview" style="margin-top: 10px;">
+                {% if servico.imagem %}
+                <img id="preview_img" src="{{ url_for('static', filename=servico.imagem) }}" alt="Preview" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 5px;" onerror="this.style.display='none'">
+                {% else %}
+                <img id="preview_img" src="" alt="Preview" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 5px; display: none;">
+                {% endif %}
+            </div>
+            <div id="upload_status" style="margin-top: 5px;"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="ordem">
+                <i class="fas fa-sort-numeric-down"></i>
+                Ordem de Exibição
+            </label>
+            <input type="number" id="ordem" name="ordem" min="1" value="{{ servico.ordem or 999 }}" placeholder="999">
+            <small class="form-help">Número menor aparece primeiro (padrão: 999)</small>
+        </div>
+        
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="ativo" name="ativo" {% if servico.ativo %}checked{% endif %}>
+                <span>Serviço ativo (exibir no site)</span>
+            </label>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_servicos') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const inputFile = document.getElementById('imagem_upload');
+    const inputImagem = document.getElementById('imagem');
+    const previewImg = document.getElementById('preview_img');
+    const uploadStatus = document.getElementById('upload_status');
+    
+    inputFile.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Validar tipo
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP</span>';
+            return;
+        }
+        
+        // Validar tamanho (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Arquivo muito grande. Tamanho máximo: 5MB</span>';
+            return;
+        }
+        
+        // Mostrar preview local
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            previewImg.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+        
+        // Upload
+        uploadStatus.innerHTML = '<span style="color: #666;"><i class="fas fa-spinner fa-spin"></i> Enviando...</span>';
+        
+        const formData = new FormData();
+        formData.append('imagem', file);
+        
+        fetch('{{ url_for("upload_servico_imagem") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                inputImagem.value = data.path;
+                uploadStatus.innerHTML = '<span style="color: green;"><i class="fas fa-check-circle"></i> Imagem enviada com sucesso!</span>';
+                previewImg.src = '/static/' + data.path;
+                previewImg.style.display = 'block';
+            } else {
+                uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> ' + (data.error || 'Erro ao enviar imagem') + '</span>';
+            }
+        })
+        .catch(error => {
+            uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Erro ao enviar imagem: ' + error.message + '</span>';
+        });
+    });
+    
+    // Preview quando digitar caminho manualmente
+    inputImagem.addEventListener('change', function() {
+        if (this.value) {
+            previewImg.src = '/static/' + this.value;
+            previewImg.style.display = 'block';
+        } else {
+            previewImg.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}
+

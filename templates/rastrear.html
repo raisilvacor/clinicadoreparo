@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Acompanhar Meu Conserto - Clínica do Reparo{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1><i class="fas fa-search"></i> Acompanhar Meu Conserto</h1>
+        <p>Digite o código da sua ordem de serviço para acompanhar o status do reparo</p>
+    </div>
+</section>
+
+<section class="tracking-section">
+    <div class="container">
+        <div class="tracking-wrapper">
+            <div class="tracking-form-card">
+                <div class="form-header">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h2>Rastrear Ordem de Serviço</h2>
+                    <p>Informe o código que você recebeu na ordem de serviço</p>
+                </div>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}">
+                                <span>{{ message }}</span>
+                                <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form method="POST" class="tracking-form">
+                    <div class="form-group">
+                        <label for="codigo">
+                            <i class="fas fa-barcode"></i>
+                            Código da Ordem de Serviço
+                        </label>
+                        <input 
+                            type="text" 
+                            id="codigo" 
+                            name="codigo" 
+                            placeholder="Ex: 12345" 
+                            required 
+                            autofocus
+                            pattern="[0-9]+"
+                            title="Digite apenas números"
+                        >
+                        <small class="form-help">
+                            <i class="fas fa-info-circle"></i>
+                            O código está localizado no topo da sua ordem de serviço (PDF)
+                        </small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-large">
+                        <i class="fas fa-search"></i>
+                        Rastrear Ordem
+                    </button>
+                </form>
+                
+                <div class="tracking-info">
+                    <h3><i class="fas fa-question-circle"></i> Não encontrou o código?</h3>
+                    <p>O código da ordem de serviço está localizado no documento PDF que você recebeu. Se não tiver o código, entre em contato conosco.</p>
+                    <a href="{{ url_for('contato') }}" class="btn btn-secondary">
+                        <i class="fas fa-envelope"></i>
+                        Entrar em Contato
+                    </a>
+                </div>
+            </div>
+            
+            <div class="tracking-features">
+                <h3>O que você pode acompanhar:</h3>
+                <ul class="features-list">
+                    <li>
+                        <i class="fas fa-check-circle"></i>
+                        <strong>Status do Reparo</strong>
+                        <p>Veja em qual etapa está o seu conserto</p>
+                    </li>
+                    <li>
+                        <i class="fas fa-cog"></i>
+                        <strong>Peças Aguardando</strong>
+                        <p>Confira quais peças estão sendo aguardadas</p>
+                    </li>
+                    <li>
+                        <i class="fas fa-calendar-alt"></i>
+                        <strong>Prazo Estimado</strong>
+                        <p>Saiba quando seu aparelho estará pronto</p>
+                    </li>
+                    <li>
+                        <i class="fas fa-dollar-sign"></i>
+                        <strong>Valor do Serviço</strong>
+                        <p>Consulte o valor total do reparo</p>
+                    </li>
+                    <li>
+                        <i class="fas fa-user-tie"></i>
+                        <strong>Informações do Técnico</strong>
+                        <p>Veja quem está realizando o serviço</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.tracking-section {
+    padding: 4rem 0;
+    background: var(--bg-secondary);
+    min-height: 60vh;
+}
+
+.tracking-wrapper {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+}
+
+.tracking-form-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2.5rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.form-header i {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.form-header h2 {
+    font-size: 1.8rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.form-header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.tracking-form {
+    margin-top: 2rem;
+}
+
+.tracking-form .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.tracking-form label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.tracking-form label i {
+    color: var(--primary-color);
+}
+
+.tracking-form input {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+
+.tracking-form input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(33, 95, 151, 0.1);
+}
+
+.form-help {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.tracking-info {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.tracking-info h3 {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.tracking-info p {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.tracking-features {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.tracking-features h3 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.features-list {
+    list-style: none;
+    padding: 0;
+}
+
+.features-list li {
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 1rem;
+    align-items: start;
+}
+
+.features-list li:last-child {
+    border-bottom: none;
+}
+
+.features-list li i {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+}
+
+.features-list li strong {
+    display: block;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+    font-size: 1.1rem;
+}
+
+.features-list li p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+@media (max-width: 968px) {
+    .tracking-wrapper {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .tracking-form-card {
+        padding: 2rem;
+    }
+}
+</style>
+{% endblock %}
+

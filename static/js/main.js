@@ -137,3 +137,130 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// Hero Slider Functionality
+(function() {
+    'use strict';
+    
+    let currentSlide = 0;
+    let slideInterval;
+    const slides = document.querySelectorAll('.slide');
+    const indicators = document.querySelectorAll('.indicator');
+    
+    if (slides.length === 0) return;
+    
+    // Aplicar background-image usando atributos data
+    document.querySelectorAll('.slide-image[data-bg-image]').forEach(function(img) {
+        const bgImage = img.getAttribute('data-bg-image');
+        if (bgImage) {
+            img.style.backgroundImage = "url('" + bgImage + "')";
+        }
+    });
+    
+    function showSlide(index) {
+        // Remove active class from all slides and indicators
+        slides.forEach(slide => {
+            slide.classList.remove('active', 'prev');
+        });
+        indicators.forEach(indicator => {
+            indicator.classList.remove('active');
+        });
+        
+        // Add active class to current slide and indicator
+        slides[index].classList.add('active');
+        if (indicators[index]) {
+            indicators[index].classList.add('active');
+        }
+        
+        currentSlide = index;
+    }
+    
+    function nextSlide() {
+        const next = (currentSlide + 1) % slides.length;
+        showSlide(next);
+    }
+    
+    function prevSlide() {
+        const prev = (currentSlide - 1 + slides.length) % slides.length;
+        showSlide(prev);
+    }
+    
+    function startAutoSlide() {
+        slideInterval = setInterval(nextSlide, 5000); // Muda slide a cada 5 segundos
+    }
+    
+    function stopAutoSlide() {
+        clearInterval(slideInterval);
+    }
+    
+    // Indicator clicks
+    indicators.forEach((indicator, index) => {
+        indicator.addEventListener('click', () => {
+            stopAutoSlide();
+            showSlide(index);
+            startAutoSlide();
+        });
+    });
+    
+    // Pause on hover
+    const sliderContainer = document.querySelector('.slider-container');
+    if (sliderContainer) {
+        sliderContainer.addEventListener('mouseenter', stopAutoSlide);
+        sliderContainer.addEventListener('mouseleave', startAutoSlide);
+    }
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') {
+            stopAutoSlide();
+            prevSlide();
+            startAutoSlide();
+        } else if (e.key === 'ArrowRight') {
+            stopAutoSlide();
+            nextSlide();
+            startAutoSlide();
+        }
+    });
+    
+    // Initialize
+    showSlide(0);
+    startAutoSlide();
+    
+    // Alinhar slide com a borda inferior da navbar
+    function alignSliderWithNavbar() {
+        const navbar = document.querySelector('.navbar');
+        const slider = document.querySelector('.hero-slider');
+        if (navbar && slider) {
+            const navbarHeight = navbar.offsetHeight;
+            slider.style.marginTop = navbarHeight + 'px';
+        }
+    }
+    
+    // Executar ao carregar e ao redimensionar
+    alignSliderWithNavbar();
+    window.addEventListener('resize', alignSliderWithNavbar);
+    window.addEventListener('load', alignSliderWithNavbar);
+})();
+
+// Image fallback handler
+(function() {
+    'use strict';
+    
+    // Função para tratar erro de carregamento de imagens
+    function handleImageError(img) {
+        const fallback = img.getAttribute('data-fallback');
+        if (fallback && img.src !== fallback) {
+            img.src = fallback;
+        }
+    }
+    
+    // Aplicar handler para todas as imagens com data-fallback
+    document.addEventListener('DOMContentLoaded', function() {
+        const images = document.querySelectorAll('img[data-fallback]');
+        images.forEach(function(img) {
+            img.addEventListener('error', function() {
+                handleImageError(this);
+            });
+        });
+    });
+})();
+

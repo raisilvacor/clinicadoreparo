@@ -1,0 +1,196 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Visualizar Cliente - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-user"></i> Detalhes do Cliente</h1>
+        <p>Informações completas do cliente</p>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+        <a href="{{ url_for('edit_cliente', cliente_id=cliente.id) }}" class="btn btn-primary">
+            <i class="fas fa-edit"></i> Editar Cliente
+        </a>
+        <a href="{{ url_for('admin_clientes') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="admin-form-card">
+    <div class="cliente-details-view">
+        <div class="detail-section">
+            <h3><i class="fas fa-user"></i> Dados Pessoais</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Nome Completo:</label>
+                    <p><strong>{{ cliente.nome }}</strong></p>
+                </div>
+                <div class="detail-item">
+                    <label>CPF:</label>
+                    <p>{{ cliente.cpf or 'Não informado' }}</p>
+                </div>
+                <div class="detail-item">
+                    <label>E-mail:</label>
+                    <p>{{ cliente.email }}</p>
+                </div>
+                <div class="detail-item">
+                    <label>Telefone:</label>
+                    <p>{{ cliente.telefone }}</p>
+                </div>
+                {% if cliente.endereco %}
+                <div class="detail-item full-width">
+                    <label>Endereço:</label>
+                    <p>{{ cliente.endereco }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h3><i class="fas fa-key"></i> Dados de Acesso</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Nome de Usuário:</label>
+                    <p><span class="badge">{{ cliente.username }}</span></p>
+                </div>
+                <div class="detail-item">
+                    <label>Data de Cadastro:</label>
+                    <p>{{ cliente.data_cadastro }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h3><i class="fas fa-file-invoice"></i> Ordens de Serviço</h3>
+            {% if cliente.ordens and cliente.ordens|length > 0 %}
+            <div class="ordens-list">
+                <p><strong>Total de Ordens:</strong> {{ cliente.ordens|length }}</p>
+                <div class="table-responsive" style="margin-top: 1rem;">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Nº Ordem</th>
+                                <th>Serviço</th>
+                                <th>Status</th>
+                                <th>Valor</th>
+                                <th>Data</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ordem in cliente.ordens %}
+                            <tr>
+                                <td><strong>{{ ordem.numero_ordem if ordem.numero_ordem else ordem.id }}</strong></td>
+                                <td>{{ ordem.servico }}</td>
+                                <td><span class="status-badge status-{{ ordem.status }}">{{ ordem.status | get_status_label }}</span></td>
+                                <td><strong>R$ {{ "%.2f"|format(ordem.total) }}</strong></td>
+                                <td>{{ ordem.data }}</td>
+                                <td>
+                                    <a href="{{ url_for('view_ordem_detalhes', cliente_id=cliente.id, ordem_id=ordem.id) }}" class="btn-icon" title="Ver">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('edit_ordem_servico', cliente_id=cliente.id, ordem_id=ordem.id) }}" class="btn-icon" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted">Nenhuma ordem de serviço cadastrada para este cliente.</p>
+            <a href="{{ url_for('add_ordem_servico') }}?cliente_id={{ cliente.id }}" class="btn btn-primary" style="margin-top: 1rem;">
+                <i class="fas fa-plus"></i> Emitir Primeira Ordem
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.cliente-details-view {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.detail-section {
+    padding: 1.5rem;
+    background: var(--bg-secondary, #f8f9fa);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color, #007bff);
+}
+
+.detail-section h3 {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.detail-item.full-width {
+    grid-column: 1 / -1;
+}
+
+.detail-item label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.detail-item p {
+    color: var(--text-primary);
+    margin: 0;
+    font-size: 1rem;
+}
+
+.ordens-list {
+    margin-top: 1rem;
+}
+
+.text-muted {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+@media (max-width: 768px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .admin-header > div:last-child {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .admin-header > div:last-child .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+

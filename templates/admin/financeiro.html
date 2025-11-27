@@ -53,7 +53,7 @@
             <tbody>
                 {% for ordem in ordens_pagas %}
                 <tr>
-                    <td><strong>#{{ "%04d"|format(ordem.numero_ordem) }}</strong></td>
+                    <td><strong>{{ ordem.numero_ordem }}</strong></td>
                     <td>{{ ordem.cliente_nome }}</td>
                     <td>{{ ordem.servico }}</td>
                     <td><strong>R$ {{ "%.2f"|format(ordem.total) }}</strong></td>
@@ -92,7 +92,7 @@
             <tbody>
                 {% for ordem in ordens_concluidas %}
                 <tr>
-                    <td><strong>#{{ "%04d"|format(ordem.numero_ordem) }}</strong></td>
+                    <td><strong>{{ ordem.numero_ordem }}</strong></td>
                     <td>{{ ordem.cliente_nome }}</td>
                     <td>{{ ordem.servico }}</td>
                     <td><strong>R$ {{ "%.2f"|format(ordem.total) }}</strong></td>

@@ -3,6 +3,35 @@
 {% block title %}Clínica do Reparo - Assistência Técnica Profissional{% endblock %}
 
 {% block content %}
+<!-- Hero Slider -->
+{% if slides %}
+<section class="hero-slider">
+    <div class="slider-container">
+        <div class="slider-wrapper">
+            {% for slide in slides %}
+            <div class="slide {% if loop.first %}active{% endif %}">
+                {% if slide.link %}
+                <a href="{{ slide.link }}" target="{{ slide.link_target or '_self' }}" class="slide-link">
+                    <div class="slide-image" data-bg-image="{{ url_for('static', filename=slide.imagem) }}"></div>
+                </a>
+                {% else %}
+                <div class="slide-image" data-bg-image="{{ url_for('static', filename=slide.imagem) }}"></div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Indicadores de navegação (pontos) -->
+        {% if slides|length > 1 %}
+        <div class="slider-indicators">
+            {% for slide in slides %}
+            <button class="indicator {% if loop.first %}active{% endif %}" data-slide="{{ loop.index0 }}" aria-label="Slide {{ loop.index }}"></button>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
 <section class="hero">
     <div class="hero-background">
         <div class="circuit-loader">
@@ -79,7 +108,7 @@
                 Seu dispositivo em boas mãos!
             </p>
             <div class="hero-buttons">
-                <a href="{{ url_for('contato') }}" class="btn btn-primary btn-large">
+                <a href="{{ url_for('agendamento') }}" class="btn btn-primary btn-large">
                     <i class="fas fa-calendar-check"></i>
                     Agendar Serviço
                 </a>
@@ -95,21 +124,19 @@
     </div>
 </section>
 
+{% if milestones %}
 <section class="milestones-section">
     <div class="container">
         <div class="milestones-grid">
+            {% for milestone in milestones %}
             <div class="milestone-image">
-                <img src="{{ url_for('static', filename='img/milestone1.png') }}" alt="Diagnóstico Preciso">
+                <img src="{{ url_for('static', filename=milestone.imagem) }}" alt="{{ milestone.titulo }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
             </div>
-            <div class="milestone-image">
-                <img src="{{ url_for('static', filename='img/milestone2.png') }}" alt="Reparo Especializado">
-            </div>
-            <div class="milestone-image">
-                <img src="{{ url_for('static', filename='img/milestone3.png') }}" alt="Atendimento Rápido">
-            </div>
+            {% endfor %}
         </div>
     </div>
 </section>
+{% endif %}
 
 <section class="services-preview">
     <div class="container">
@@ -119,45 +146,40 @@
             <p class="section-description">Oferecemos assistência técnica especializada para todos os seus aparelhos</p>
         </div>
         <div class="services-grid">
-            <div class="service-card">
-                <div class="service-icon">
-                    <i class="fas fa-mobile-alt"></i>
+            {% if servicos %}
+                {% for servico in servicos %}
+                <div class="service-card">
+                    <div class="service-image">
+                        <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                    </div>
+                    <h3>{{ servico.nome }}</h3>
+                    <p>{{ servico.descricao }}</p>
                 </div>
-                <h3>Reparo de Celulares</h3>
-                <p>Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.</p>
-                <ul class="service-features">
-                    <li><i class="fas fa-check"></i> Troca de tela</li>
-                    <li><i class="fas fa-check"></i> Troca de bateria</li>
-                    <li><i class="fas fa-check"></i> Reparo de hardware</li>
-                    <li><i class="fas fa-check"></i> Desbloqueio</li>
-                </ul>
-            </div>
-            <div class="service-card">
-                <div class="service-icon">
-                    <i class="fas fa-blender"></i>
+                {% endfor %}
+            {% else %}
+                <!-- Fallback para serviços padrão se não houver serviços cadastrados -->
+                <div class="service-card">
+                    <div class="service-image">
+                        <img src="{{ url_for('static', filename='img/servico-celular.jpg') }}" alt="Reparo de Celulares" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                    </div>
+                    <h3>Reparo de Celulares</h3>
+                    <p>Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.</p>
                 </div>
-                <h3>Eletrodomésticos</h3>
-                <p>Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.</p>
-                <ul class="service-features">
-                    <li><i class="fas fa-check"></i> Refrigeração</li>
-                    <li><i class="fas fa-check"></i> Lavagem</li>
-                    <li><i class="fas fa-check"></i> Cozinha</li>
-                    <li><i class="fas fa-check"></i> Manutenção geral</li>
-                </ul>
-            </div>
-            <div class="service-card">
-                <div class="service-icon">
-                    <i class="fas fa-laptop"></i>
+                <div class="service-card">
+                    <div class="service-image">
+                        <img src="{{ url_for('static', filename='img/servico-eletrodomestico.jpg') }}" alt="Eletrodomésticos" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                    </div>
+                    <h3>Eletrodomésticos</h3>
+                    <p>Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.</p>
                 </div>
-                <h3>Computadores e Notebook</h3>
-                <p>Reparo e manutenção de computadores, notebooks e componentes.</p>
-                <ul class="service-features">
-                    <li><i class="fas fa-check"></i> Reparo de hardware</li>
-                    <li><i class="fas fa-check"></i> Formatação e instalação</li>
-                    <li><i class="fas fa-check"></i> Troca de componentes</li>
-                    <li><i class="fas fa-check"></i> Limpeza e manutenção</li>
-                </ul>
-            </div>
+                <div class="service-card">
+                    <div class="service-image">
+                        <img src="{{ url_for('static', filename='img/servico-computador.jpg') }}" alt="Computadores e Notebook" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                    </div>
+                    <h3>Computadores e Notebook</h3>
+                    <p>Reparo e manutenção de computadores, notebooks e componentes.</p>
+                </div>
+            {% endif %}
         </div>
     </div>
 </section>
@@ -250,32 +272,249 @@
         <div class="brands-carousel-wrapper">
             <div class="brands-carousel">
                 <div class="brands-track">
-                    {% for i in range(1, 24) %}
-                    <div class="brand-item">
-                        <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}">
-                    </div>
-                    {% endfor %}
-                    <!-- Duplicar para loop infinito -->
-                    {% for i in range(1, 24) %}
-                    <div class="brand-item">
-                        <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}">
-                    </div>
-                    {% endfor %}
-                    <!-- Terceira cópia para loop infinito mais suave -->
-                    {% for i in range(1, 24) %}
-                    <div class="brand-item">
-                        <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}">
-                    </div>
-                    {% endfor %}
+                    {% if marcas %}
+                        {% for marca in marcas %}
+                        <div class="brand-item">
+                            <img src="{{ url_for('static', filename=marca.imagem) }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        </div>
+                        {% endfor %}
+                        {% for marca in marcas %}
+                        <div class="brand-item">
+                            <img src="{{ url_for('static', filename=marca.imagem) }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        </div>
+                        {% endfor %}
+                        {% for marca in marcas %}
+                        <div class="brand-item">
+                            <img src="{{ url_for('static', filename=marca.imagem) }}" alt="{{ marca.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Fallback para marcas padrão se não houver marcas cadastradas -->
+                        {% for i in range(1, 24) %}
+                        <div class="brand-item">
+                            <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}" loading="lazy">
+                        </div>
+                        {% endfor %}
+                        {% for i in range(1, 24) %}
+                        <div class="brand-item">
+                            <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}" loading="lazy">
+                        </div>
+                        {% endfor %}
+                        {% for i in range(1, 24) %}
+                        <div class="brand-item">
+                            <img src="{{ url_for('static', filename='logos/' ~ i ~ '.png') }}" alt="Marca {{ i }}" loading="lazy">
+                        </div>
+                        {% endfor %}
+                    {% endif %}
                 </div>
             </div>
         </div>
+    </div>
+</section>
+
+<section class="map-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Nossa Localização</h2>
+            <p class="section-description">Venha nos visitar ou entre em contato</p>
+        </div>
+    </div>
+    <div class="map-container">
+        {% if footer and footer.contato and footer.contato.endereco %}
+        <iframe 
+            src="https://www.google.com/maps?q={{ footer.contato.endereco|urlencode }}&output=embed" 
+            width="100%" 
+            height="450" 
+            allowfullscreen 
+            loading="lazy" 
+            referrerpolicy="no-referrer-when-downgrade"
+            title="Localização Clínica do Reparo">
+        </iframe>
+        {% else %}
+        <iframe 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3657.197353576!2d-46.633331!3d-23.55052!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce59a00!2sS%C3%A3o%20Paulo%2C%20SP!5e0!3m2!1spt-BR!2sbr!4v1234567890123!5m2!1spt-BR!2sbr" 
+            width="100%" 
+            height="450" 
+            allowfullscreen 
+            loading="lazy" 
+            referrerpolicy="no-referrer-when-downgrade"
+            title="Localização Clínica do Reparo">
+        </iframe>
+        {% endif %}
     </div>
 </section>
 {% endblock %}
 
 {% block scripts %}
 <style>
+/* Hero Slider Styles */
+.hero-slider {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    margin-top: 0; /* Será calculado dinamicamente via JavaScript */
+    z-index: 1;
+}
+
+/* Garantir que o slider não seja cortado pela navbar */
+body {
+    padding-top: 0;
+}
+
+.hero-slider + section {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+.slider-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.slider-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.8s ease-in-out, transform 0.8s ease-in-out;
+    transform: translateX(100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+.slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    z-index: 1;
+}
+
+.slide.prev {
+    transform: translateX(-100%);
+}
+
+.slide-link {
+    display: block;
+    width: 100%;
+    height: 100%;
+    text-decoration: none;
+    cursor: pointer;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+}
+
+.slide-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 0;
+    transition: transform 0.8s ease-in-out;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+}
+
+.slide-link .slide-image {
+    pointer-events: auto;
+}
+
+.slide.active .slide-image {
+    transform: scale(1);
+}
+
+.slide:not(.active) .slide-image {
+    transform: scale(1.1);
+}
+
+/* Indicadores de navegação (pontos) */
+.slider-indicators {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+}
+
+.indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid white;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0;
+    outline: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.indicator:hover {
+    transform: scale(1.2);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.indicator.active {
+    background: white;
+    width: 32px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .hero-slider {
+        height: 400px;
+    }
+    
+    .slider-indicators {
+        bottom: 20px;
+    }
+    
+    .slide-image {
+        background-size: cover;
+        background-position: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-slider {
+        height: 350px;
+    }
+    
+    .slide-image {
+        background-size: cover;
+        background-position: center;
+    }
+}
+
 .animated-button {
     position: relative;
     overflow: hidden;
@@ -509,6 +748,71 @@
     .brands-track {
         gap: 2rem;
         animation: slide-right-to-left 20s linear infinite;
+    }
+}
+
+/* Map Section */
+.map-section {
+    padding-top: 4rem;
+    padding-bottom: 0;
+    margin-bottom: 0;
+    background: var(--bg-primary);
+}
+
+.map-section .section-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.map-section .section-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.map-section .section-description {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+}
+
+.map-container {
+    width: 100%;
+    margin-top: 2rem;
+    box-shadow: var(--shadow-lg);
+    border-radius: 0;
+    overflow: hidden;
+    padding: 0;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.map-container iframe {
+    width: 100%;
+    height: 450px;
+    border: 0;
+    display: block;
+}
+
+/* Responsive Map */
+@media (max-width: 768px) {
+    .map-section {
+        padding-top: 3rem;
+        padding-bottom: 0;
+    }
+    
+    .map-section .section-title {
+        font-size: 2rem;
+    }
+    
+    .map-container iframe {
+        height: 350px;
+    }
+}
+
+@media (max-width: 480px) {
+    .map-container iframe {
+        height: 300px;
     }
 }
 </style>

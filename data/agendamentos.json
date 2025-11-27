@@ -1,0 +1,17 @@
+{
+  "agendamentos": [
+    {
+      "id": 1,
+      "nome": "Teste",
+      "telefone": "(00) 0000-0000",
+      "email": "",
+      "data_agendamento": "2025-11-28",
+      "hora_agendamento": "15:30",
+      "tipo_servico": "Reparo de Celulares",
+      "observacoes": "",
+      "status": "concluido",
+      "data_criacao": "2025-11-26 23:49:04",
+      "data_atualizacao": "2025-11-26 23:55:21"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Milestones - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-trophy"></i> Gerenciar Marcos (Milestones)</h1>
+        <p>Gerencie os marcos exibidos na seção de milestones</p>
+    </div>
+    <a href="{{ url_for('add_milestone') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Marco
+    </a>
+</div>
+
+{% if milestones %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Imagem</th>
+                <th>Título</th>
+                <th>Caminho da Imagem</th>
+                <th>Ordem</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for milestone in milestones %}
+            <tr>
+                <td>{{ milestone.id }}</td>
+                <td>
+                    <div class="milestone-preview">
+                        <img src="{{ url_for('static', filename=milestone.imagem) }}" alt="{{ milestone.titulo }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                    </div>
+                </td>
+                <td><strong>{{ milestone.titulo }}</strong></td>
+                <td><code>{{ milestone.imagem }}</code></td>
+                <td><strong>{{ milestone.ordem }}</strong></td>
+                <td>
+                    {% if milestone.ativo %}
+                    <span class="badge badge-success">Ativo</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Inativo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('edit_milestone', milestone_id=milestone.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_milestone', milestone_id=milestone.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este milestone?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-trophy"></i>
+    <p>Nenhum milestone cadastrado</p>
+    <a href="{{ url_for('add_milestone') }}" class="btn btn-primary">Adicionar Primeiro Milestone</a>
+</div>
+{% endif %}
+
+<style>
+.milestone-preview {
+    width: 100px;
+    height: 100px;
+    overflow: hidden;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, #ddd);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+}
+
+.milestone-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+code {
+    background: var(--bg-secondary, #f8f9fa);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.badge-secondary {
+    background: #6c757d;
+    color: white;
+}
+</style>
+{% endblock %}
+

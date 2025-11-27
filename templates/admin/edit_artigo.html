@@ -1,0 +1,365 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Artigo - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-edit"></i> Editar Artigo</h1>
+    <p>Atualize as informações do artigo</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_artigo', artigo_id=artigo.id) }}" class="admin-form">
+        <div class="form-group">
+            <label for="titulo">
+                <i class="fas fa-heading"></i>
+                Título do Artigo *
+            </label>
+            <input type="text" id="titulo" name="titulo" value="{{ artigo.titulo }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="subtitulo">
+                <i class="fas fa-heading"></i>
+                Subtítulo
+            </label>
+            <input type="text" id="subtitulo" name="subtitulo" value="{{ artigo.subtitulo or '' }}" placeholder="Subtítulo do artigo (opcional)">
+        </div>
+        
+        <div class="form-group">
+            <label for="slug">
+                <i class="fas fa-link"></i>
+                Slug (URL amigável)
+            </label>
+            <input type="text" id="slug" name="slug" value="{{ artigo.slug or '' }}" placeholder="Será gerado automaticamente se deixado em branco">
+            <small class="form-help">Ex: como-cuidar-da-bateria-do-seu-celular</small>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="data_publicacao">
+                    <i class="fas fa-calendar"></i>
+                    Data de Publicação *
+                </label>
+                <input type="date" id="data_publicacao" name="data_publicacao" value="{% if artigo.data_publicacao %}{{ artigo.data_publicacao[:10] }}{% elif artigo.hora_publicacao %}{{ artigo.data_publicacao.split(' ')[0] if ' ' in artigo.data_publicacao else artigo.data_publicacao[:10] }}{% else %}{{ '' }}{% endif %}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="hora_publicacao">
+                    <i class="fas fa-clock"></i>
+                    Hora de Publicação *
+                </label>
+                <input type="time" id="hora_publicacao" name="hora_publicacao" value="{% if artigo.hora_publicacao %}{{ artigo.hora_publicacao[:5] }}{% elif artigo.data_publicacao and ' ' in artigo.data_publicacao %}{{ artigo.data_publicacao.split(' ')[1][:5] }}{% else %}{{ '12:00' }}{% endif %}" required>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="categoria">
+                    <i class="fas fa-tag"></i>
+                    Categoria
+                </label>
+                <input type="text" id="categoria" name="categoria" value="{{ artigo.categoria or '' }}" placeholder="Ex: Dicas, Tutoriais, Notícias">
+            </div>
+            
+            <div class="form-group">
+                <label for="autor">
+                    <i class="fas fa-user"></i>
+                    Autor
+                </label>
+                <input type="text" id="autor" name="autor" value="{{ artigo.autor or '' }}" placeholder="Equipe Clínica do Reparo">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="resumo">
+                <i class="fas fa-align-left"></i>
+                Resumo
+            </label>
+            <textarea id="resumo" name="resumo" rows="3">{{ artigo.resumo or '' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="imagem_destaque">
+                <i class="fas fa-image"></i>
+                Imagem de Destaque
+            </label>
+            <input type="file" id="imagem_destaque_upload" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" style="display: none;">
+            <label for="imagem_destaque_upload" class="btn btn-primary" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 10px;">
+                <i class="fas fa-upload"></i> Escolher Imagem do Computador
+            </label>
+            <input type="text" id="imagem_destaque" name="imagem_destaque" value="{{ artigo.imagem_destaque or '' }}" placeholder="Caminho da imagem será preenchido automaticamente após o upload" readonly>
+            <small class="form-help">O caminho da imagem será preenchido automaticamente após o upload.</small>
+            <div id="imagem_destaque_preview" style="margin-top: 10px; {% if not artigo.imagem_destaque %}display: none;{% endif %}">
+                <img id="preview_img_destaque" src="{% if artigo.imagem_destaque %}{{ url_for('static', filename=artigo.imagem_destaque) }}{% else %}#{% endif %}" alt="Preview" style="max-width: 300px; max-height: 200px; border: 1px solid #ddd; border-radius: 5px;" onerror="this.style.display='none'">
+            </div>
+            <div id="upload_status_destaque" style="margin-top: 5px;"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="conteudo">
+                <i class="fas fa-file-alt"></i>
+                Conteúdo do Artigo *
+            </label>
+            <div id="editor-container"></div>
+            <textarea id="conteudo" name="conteudo" required style="display: none;">{{ artigo.conteudo }}</textarea>
+            <small class="form-help">Use o editor acima para formatar o texto, inserir imagens e vídeos do YouTube.</small>
+        </div>
+        
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="ativo" name="ativo" {% if artigo.ativo %}checked{% endif %}>
+                <span>Artigo ativo (publicado no blog)</span>
+            </label>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_blog') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Quill Editor - Gratuito e sem necessidade de API -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<style>
+#editor-container {
+    height: 500px;
+    margin-bottom: 50px;
+}
+.ql-container {
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+}
+.ql-youtube {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    overflow: hidden;
+    max-width: 100%;
+    margin: 1rem 0;
+}
+.ql-youtube iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+.ql-toolbar button.ql-youtube {
+    width: auto;
+    padding: 5px 10px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: white;
+    cursor: pointer;
+    margin-left: 5px;
+}
+.ql-toolbar button.ql-youtube:hover {
+    background: #f0f0f0;
+}
+</style>
+<script>
+// Gerar slug automaticamente a partir do título
+document.getElementById('titulo').addEventListener('input', function() {
+    const slugInput = document.getElementById('slug');
+    if (!slugInput.value) {
+        let slug = this.value.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        slugInput.value = slug;
+    }
+});
+
+// Inicializar Quill Editor
+var quill = new Quill('#editor-container', {
+    theme: 'snow',
+    modules: {
+        toolbar: {
+            container: [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'align': [] }],
+                ['link', 'image', 'video'],
+                ['blockquote', 'code-block'],
+                ['clean']
+            ],
+            handlers: {
+                'image': function() {
+                    var input = document.createElement('input');
+                    input.setAttribute('type', 'file');
+                    input.setAttribute('accept', 'image/*');
+                    input.click();
+                    
+                    input.onchange = function() {
+                        var file = input.files[0];
+                        if (file) {
+                            var formData = new FormData();
+                            formData.append('imagem', file);
+                            
+                            var xhr = new XMLHttpRequest();
+                            xhr.open('POST', '{{ url_for("upload_imagem_blog") }}');
+                            
+                            xhr.onload = function() {
+                                if (xhr.status === 200) {
+                                    var response = JSON.parse(xhr.responseText);
+                                    if (response.success) {
+                                        var range = quill.getSelection(true);
+                                        quill.insertEmbed(range.index, 'image', response.url, 'user');
+                                    } else {
+                                        alert('Erro ao fazer upload: ' + (response.error || 'Erro desconhecido'));
+                                    }
+                                } else {
+                                    alert('Erro ao fazer upload da imagem');
+                                }
+                            };
+                            
+                            xhr.send(formData);
+                        }
+                    };
+                }
+            }
+        }
+    },
+    placeholder: 'Escreva o conteúdo do artigo aqui...'
+});
+
+// Carregar conteúdo existente se estiver editando
+{% if artigo %}
+var conteudoExistente = document.getElementById('conteudo').value;
+if (conteudoExistente) {
+    quill.root.innerHTML = conteudoExistente;
+}
+{% endif %}
+
+// Registrar módulo personalizado para YouTube
+var BlockEmbed = Quill.import('blots/block/embed');
+
+class YouTube extends BlockEmbed {
+    static create(value) {
+        let node = super.create();
+        node.setAttribute('src', 'https://www.youtube.com/embed/' + value);
+        node.setAttribute('frameborder', '0');
+        node.setAttribute('allowfullscreen', 'true');
+        node.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+        node.style.cssText = 'position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;';
+        let iframe = document.createElement('iframe');
+        iframe.setAttribute('src', 'https://www.youtube.com/embed/' + value);
+        iframe.setAttribute('frameborder', '0');
+        iframe.setAttribute('allowfullscreen', 'true');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+        iframe.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%;';
+        node.appendChild(iframe);
+        return node;
+    }
+    
+    static value(node) {
+        return node.getAttribute('src').match(/embed\/([^?]+)/)[1];
+    }
+}
+
+YouTube.blotName = 'youtube';
+YouTube.tagName = 'div';
+YouTube.className = 'ql-youtube';
+
+Quill.register(YouTube, true);
+
+// Adicionar botão YouTube customizado na toolbar
+setTimeout(function() {
+    var youtubeButton = document.createElement('button');
+    youtubeButton.type = 'button';
+    youtubeButton.innerHTML = '📺 YouTube';
+    youtubeButton.title = 'Inserir vídeo do YouTube';
+    youtubeButton.className = 'ql-youtube';
+    youtubeButton.onclick = function() {
+        var url = prompt('Cole a URL do vídeo do YouTube:', '');
+        if (url) {
+            var videoId = '';
+            var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            var match = url.match(regExp);
+            if (match && match[2].length === 11) {
+                videoId = match[2];
+                var range = quill.getSelection(true);
+                quill.insertText(range.index, '\n', 'user');
+                quill.insertEmbed(range.index + 1, 'youtube', videoId, 'user');
+                quill.setSelection(range.index + 2);
+            } else {
+                alert('URL do YouTube inválida!');
+            }
+        }
+    };
+    var toolbar = document.querySelector('.ql-toolbar');
+    if (toolbar) {
+        toolbar.appendChild(youtubeButton);
+    }
+}, 100);
+
+// Sincronizar conteúdo do Quill com o textarea antes de enviar
+document.querySelector('form').addEventListener('submit', function(e) {
+    var content = quill.root.innerHTML;
+    document.getElementById('conteudo').value = content;
+});
+</script>
+
+<script>
+// Upload de imagem de destaque
+const inputFileDestaque = document.getElementById('imagem_destaque_upload');
+const inputImagemDestaque = document.getElementById('imagem_destaque');
+const previewDestaque = document.getElementById('imagem_destaque_preview');
+const uploadStatusDestaque = document.getElementById('upload_status_destaque');
+
+inputFileDestaque.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        uploadStatusDestaque.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP</span>';
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+        uploadStatusDestaque.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Arquivo muito grande. Tamanho máximo: 5MB</span>';
+        return;
+    }
+    
+    uploadStatusDestaque.innerHTML = '<span style="color: #007bff;"><i class="fas fa-spinner fa-spin"></i> Enviando imagem...</span>';
+    
+    const formData = new FormData();
+    formData.append('imagem', file);
+    
+    fetch('{{ url_for("upload_imagem_blog") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            inputImagemDestaque.value = data.path;
+            uploadStatusDestaque.innerHTML = '<span style="color: green;"><i class="fas fa-check-circle"></i> Imagem enviada com sucesso!</span>';
+            
+            // Atualizar preview
+            const img = document.getElementById('preview_img_destaque');
+            img.src = data.url || '/static/' + data.path;
+            previewDestaque.style.display = 'block';
+        } else {
+            uploadStatusDestaque.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> ' + (data.error || 'Erro ao enviar imagem') + '</span>';
+        }
+    })
+    .catch(error => {
+        uploadStatusDestaque.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Erro ao enviar imagem: ' + error.message + '</span>';
+    });
+});
+</script>
+{% endblock %}
+

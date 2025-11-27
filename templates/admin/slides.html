@@ -1,0 +1,118 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Slides - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-images"></i> Gerenciar Slides</h1>
+        <p>Gerencie os slides exibidos na página inicial</p>
+    </div>
+    <a href="{{ url_for('add_slide') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Slide
+    </a>
+</div>
+
+{% if slides %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Imagem</th>
+                <th>Caminho da Imagem</th>
+                <th>Link</th>
+                <th>Ordem</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for slide in slides %}
+            <tr>
+                <td>{{ slide.id }}</td>
+                <td>
+                    <div class="slide-preview">
+                        <img src="{{ url_for('static', filename=slide.imagem) }}" alt="Slide {{ slide.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                    </div>
+                </td>
+                <td><code>{{ slide.imagem }}</code></td>
+                <td>
+                    {% if slide.link %}
+                    <a href="{{ slide.link }}" target="{{ slide.link_target or '_self' }}" title="{{ slide.link }}" style="color: var(--primary-color); text-decoration: none;">
+                        <i class="fas fa-link"></i> {{ slide.link[:30] }}{% if slide.link|length > 30 %}...{% endif %}
+                    </a>
+                    <br><small class="text-muted">
+                        {% if slide.link_target == '_blank' %}
+                        <i class="fas fa-external-link-alt"></i> Nova guia
+                        {% else %}
+                        <i class="fas fa-window-maximize"></i> Mesma guia
+                        {% endif %}
+                    </small>
+                    {% else %}
+                    <span class="text-muted">Sem link</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ slide.ordem }}</strong></td>
+                <td>
+                    {% if slide.ativo %}
+                    <span class="badge badge-success">Ativo</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Inativo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('edit_slide', slide_id=slide.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_slide', slide_id=slide.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este slide?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-images"></i>
+    <p>Nenhum slide cadastrado</p>
+    <a href="{{ url_for('add_slide') }}" class="btn btn-primary">Adicionar Primeiro Slide</a>
+</div>
+{% endif %}
+
+<style>
+.slide-preview {
+    width: 100px;
+    height: 60px;
+    overflow: hidden;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, #ddd);
+}
+
+.slide-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+code {
+    background: var(--bg-secondary, #f8f9fa);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.badge-secondary {
+    background: #6c757d;
+    color: white;
+}
+</style>
+{% endblock %}
+
