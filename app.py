@@ -86,14 +86,22 @@ def allowed_file(filename):
 
 def use_database():
     """Verifica se deve usar banco de dados"""
-    if not os.environ.get('DATABASE_URL'):
+    database_url = os.environ.get('DATABASE_URL', '')
+    if not database_url:
+        print("DEBUG: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
+    
+    print(f"DEBUG: DATABASE_URL encontrado: {database_url[:20]}...")  # Mostra apenas início por segurança
+    
     try:
         # Testar se consegue conectar
         with app.app_context():
             db.session.execute(db.text('SELECT 1'))
+        print("DEBUG: Conexão com banco de dados bem-sucedida")
         return True
-    except:
+    except Exception as e:
+        print(f"DEBUG: Erro ao conectar ao banco de dados: {str(e)}")
+        print(f"DEBUG: Tipo do erro: {type(e).__name__}")
         return False
 
 def get_proximo_numero_ordem():
@@ -762,24 +770,40 @@ def admin_logout():
 @login_required
 def admin_migrar_dados():
     """Rota para executar migração de dados JSON para PostgreSQL"""
+    # Debug: Verificar variáveis de ambiente
+    database_url = os.environ.get('DATABASE_URL', '')
+    debug_info = {
+        'has_database_url': bool(database_url),
+        'database_url_preview': database_url[:30] + '...' if database_url and len(database_url) > 30 else database_url,
+        'use_database_result': use_database()
+    }
+    
     if request.method == 'GET':
         # Verificar se já existe dados no banco
         if use_database():
             try:
-                clientes_count = Cliente.query.count()
-                servicos_count = Servico.query.count()
-                return render_template('admin/migrar_dados.html', 
-                                     ja_migrado=True,
-                                     clientes_count=clientes_count,
-                                     servicos_count=servicos_count)
-            except:
-                pass
+                with app.app_context():
+                    clientes_count = Cliente.query.count()
+                    servicos_count = Servico.query.count()
+                    return render_template('admin/migrar_dados.html', 
+                                         ja_migrado=True,
+                                         clientes_count=clientes_count,
+                                         servicos_count=servicos_count,
+                                         debug_info=debug_info)
+            except Exception as e:
+                flash(f'Erro ao verificar banco de dados: {str(e)}', 'error')
+                debug_info['error'] = str(e)
         
-        return render_template('admin/migrar_dados.html', ja_migrado=False)
+        return render_template('admin/migrar_dados.html', ja_migrado=False, debug_info=debug_info)
     
     # POST - Executar migração
     if not use_database():
-        flash('Banco de dados não configurado! Configure DATABASE_URL primeiro.', 'error')
+        error_msg = 'Banco de dados não configurado! Configure DATABASE_URL primeiro.'
+        if not database_url:
+            error_msg += ' (DATABASE_URL não encontrado nas variáveis de ambiente)'
+        else:
+            error_msg += ' (DATABASE_URL encontrado, mas conexão falhou. Verifique os logs do Render.)'
+        flash(error_msg, 'error')
         return redirect(url_for('admin_migrar_dados'))
     
     try:

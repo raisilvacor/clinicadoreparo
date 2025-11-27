@@ -7,18 +7,6 @@
       "ativo": true,
       "link": "",
       "link_target": "_self"
-    },
-    {
-      "id": 2,
-      "imagem": "img/milestone2.png",
-      "ordem": 2,
-      "ativo": true
-    },
-    {
-      "id": 3,
-      "imagem": "img/milestone3.png",
-      "ordem": 3,
-      "ativo": true
     }
   ]
 }

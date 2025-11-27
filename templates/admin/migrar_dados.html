@@ -22,6 +22,69 @@
     <i class="fas fa-exclamation-triangle"></i>
     <strong>Atenção!</strong> Esta ação irá migrar todos os dados dos arquivos JSON para o banco de dados PostgreSQL.
 </div>
+
+{% if debug_info %}
+<div class="card" style="margin-top: 20px; background: #f8f9fa;">
+    <div class="card-header">
+        <h4><i class="fas fa-bug"></i> Informações de Debug</h4>
+    </div>
+    <div class="card-body">
+        <table class="table">
+            <tr>
+                <td><strong>DATABASE_URL configurado:</strong></td>
+                <td>
+                    {% if debug_info.has_database_url %}
+                        <span class="badge badge-success">Sim</span>
+                        <small style="display: block; margin-top: 5px; color: #666;">
+                            {{ debug_info.database_url_preview }}
+                        </small>
+                    {% else %}
+                        <span class="badge badge-danger">Não</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Conexão com banco:</strong></td>
+                <td>
+                    {% if debug_info.use_database_result %}
+                        <span class="badge badge-success">Conectado</span>
+                    {% else %}
+                        <span class="badge badge-danger">Falhou</span>
+                        {% if debug_info.error %}
+                            <small style="display: block; margin-top: 5px; color: #dc3545;">
+                                Erro: {{ debug_info.error }}
+                            </small>
+                        {% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+        {% if not debug_info.has_database_url %}
+        <div class="alert alert-danger" style="margin-top: 15px;">
+            <i class="fas fa-exclamation-circle"></i>
+            <strong>Como configurar:</strong>
+            <ol style="margin-top: 10px; margin-bottom: 0;">
+                <li>No Render, vá para seu serviço Web</li>
+                <li>Clique em "Environment"</li>
+                <li>Adicione a variável: <code>DATABASE_URL</code></li>
+                <li>Cole a URL do banco PostgreSQL (encontrada em Connections)</li>
+                <li>Salve e aguarde o reinício do serviço</li>
+            </ol>
+        </div>
+        {% elif not debug_info.use_database_result %}
+        <div class="alert alert-warning" style="margin-top: 15px;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Problema de conexão:</strong>
+            <ul style="margin-top: 10px; margin-bottom: 0;">
+                <li>Verifique se o banco de dados está ativo no Render</li>
+                <li>Verifique os logs do Render para ver o erro completo</li>
+                <li>Confirme que a URL está correta (formato: postgres://...)</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 {% endif %}
 
 <div class="card">
