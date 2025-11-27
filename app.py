@@ -3227,9 +3227,9 @@ def delete_slide(slide_id):
             if slide:
                 db.session.delete(slide)
                 db.session.commit()
-                    flash('Slide excluído com sucesso!', 'success')
-                else:
-                    flash('Slide não encontrado!', 'error')
+                flash('Slide excluído com sucesso!', 'success')
+            else:
+                flash('Slide não encontrado!', 'error')
         except Exception as e:
             print(f"Erro ao excluir slide do banco: {e}")
             flash('Erro ao excluir slide. Tente novamente.', 'error')
