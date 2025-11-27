@@ -1170,48 +1170,48 @@ def edit_servico(servico_id):
         try:
             servico = Servico.query.get(servico_id)
             if not servico:
-                    flash('Serviço não encontrado!', 'error')
-                    return redirect(url_for('admin_servicos'))
+                flash('Serviço não encontrado!', 'error')
+                return redirect(url_for('admin_servicos'))
+            
+            if request.method == 'POST':
+                servico.nome = request.form.get('nome')
+                servico.descricao = request.form.get('descricao')
+                imagem_nova = request.form.get('imagem', '').strip()
+                if imagem_nova:
+                    servico.imagem = imagem_nova
+                    # Extrair image_id se veio do banco
+                    if imagem_nova.startswith('/admin/servicos/imagem/'):
+                        try:
+                            servico.imagem_id = int(imagem_nova.split('/')[-1])
+                        except:
+                            pass
+                    else:
+                        servico.imagem_id = None
+                servico.ordem = int(request.form.get('ordem', '999')) if request.form.get('ordem', '999').isdigit() else 999
+                servico.ativo = request.form.get('ativo') == 'on'
                 
-                if request.method == 'POST':
-                    servico.nome = request.form.get('nome')
-                    servico.descricao = request.form.get('descricao')
-                    imagem_nova = request.form.get('imagem', '').strip()
-                    if imagem_nova:
-                        servico.imagem = imagem_nova
-                        # Extrair image_id se veio do banco
-                        if imagem_nova.startswith('/admin/servicos/imagem/'):
-                            try:
-                                servico.imagem_id = int(imagem_nova.split('/')[-1])
-                            except:
-                                pass
-                        else:
-                            servico.imagem_id = None
-                    servico.ordem = int(request.form.get('ordem', '999')) if request.form.get('ordem', '999').isdigit() else 999
-                    servico.ativo = request.form.get('ativo') == 'on'
-                    
-                    db.session.commit()
-                    flash('Serviço atualizado com sucesso!', 'success')
-                    return redirect(url_for('admin_servicos'))
-                
-                # Converter para formato compatível com template
-                if servico.imagem_id:
-                    imagem_url = f'/admin/servicos/imagem/{servico.imagem_id}'
-                elif servico.imagem:
-                    imagem_url = servico.imagem
-                else:
-                    imagem_url = ''
-                
-                servico_dict = {
-                    'id': servico.id,
-                    'nome': servico.nome,
-                    'descricao': servico.descricao,
-                    'imagem': imagem_url,
-                    'ordem': servico.ordem,
-                    'ativo': servico.ativo,
-                    'data': servico.data.strftime('%Y-%m-%d %H:%M:%S') if servico.data else ''
-                }
-                return render_template('admin/edit_servico.html', servico=servico_dict)
+                db.session.commit()
+                flash('Serviço atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_servicos'))
+            
+            # Converter para formato compatível com template
+            if servico.imagem_id:
+                imagem_url = f'/admin/servicos/imagem/{servico.imagem_id}'
+            elif servico.imagem:
+                imagem_url = servico.imagem
+            else:
+                imagem_url = ''
+            
+            servico_dict = {
+                'id': servico.id,
+                'nome': servico.nome,
+                'descricao': servico.descricao,
+                'imagem': imagem_url,
+                'ordem': servico.ordem,
+                'ativo': servico.ativo,
+                'data': servico.data.strftime('%Y-%m-%d %H:%M:%S') if servico.data else ''
+            }
+            return render_template('admin/edit_servico.html', servico=servico_dict)
         except Exception as e:
             print(f"Erro ao editar serviço no banco: {e}")
             flash('Erro ao editar serviço. Usando arquivos JSON.', 'warning')
