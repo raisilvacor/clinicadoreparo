@@ -96,25 +96,13 @@ ADMIN_USERS_FILE = 'data/admin_users.json'
 AGENDAMENTOS_FILE = 'data/agendamentos.json'
 BLOG_FILE = 'data/blog.json'
 PDFS_DIR = 'static/pdfs'
-SERVICOS_IMG_DIR = 'static/img/servicos'
-BLOG_IMG_DIR = 'static/img/blog'
-SLIDES_IMG_DIR = 'static/img/slides'
-MARCAS_IMG_DIR = 'static/img/marcas'
-MILESTONES_IMG_DIR = 'static/img/milestones'
+# NOTA: Diretórios de imagens removidos - todas as imagens são salvas no PostgreSQL
+# NÃO criar diretórios para imagens de upload - elas vão direto para o banco
+# static/ deve conter APENAS arquivos estáticos do build (CSS, JS, imagens fixas)
 
-# Criar diretórios se não existirem
+# Criar apenas diretório de PDFs (se necessário para desenvolvimento local)
 if not os.path.exists(PDFS_DIR):
     os.makedirs(PDFS_DIR)
-if not os.path.exists(SERVICOS_IMG_DIR):
-    os.makedirs(SERVICOS_IMG_DIR)
-if not os.path.exists(BLOG_IMG_DIR):
-    os.makedirs(BLOG_IMG_DIR)
-if not os.path.exists(SLIDES_IMG_DIR):
-    os.makedirs(SLIDES_IMG_DIR)
-if not os.path.exists(MARCAS_IMG_DIR):
-    os.makedirs(MARCAS_IMG_DIR)
-if not os.path.exists(MILESTONES_IMG_DIR):
-    os.makedirs(MILESTONES_IMG_DIR)
 
 # Configurações de upload
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -1017,22 +1005,11 @@ def upload_servico_imagem():
             print(f"Erro ao salvar imagem no banco: {e}")
             import traceback
             traceback.print_exc()
+            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
     
-    # Fallback: salvar no sistema de arquivos (para desenvolvimento local)
-    filename = secure_filename(file.filename)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    name, ext = os.path.splitext(filename)
-    filename = f"servico_{timestamp}{ext}"
-    
-    if os.path.exists(SERVICOS_IMG_DIR):
-        filepath = os.path.join(SERVICOS_IMG_DIR, filename)
-        file.seek(0)
-        file.save(filepath)
-        relative_path = f'img/servicos/{filename}'
-    else:
-        relative_path = f'img/placeholder.png'
-    
-    return jsonify({'success': True, 'path': relative_path})
+    # Se chegou aqui, o banco não está disponível
+    # Em produção (Render), isso NÃO deve acontecer - retornar erro
+    return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
 
 @app.route('/admin/servicos/imagem/<int:image_id>')
 def servir_imagem_servico(image_id):
@@ -4158,22 +4135,10 @@ def upload_imagem_blog():
             print(f"Erro ao salvar imagem de blog no banco: {e}")
             import traceback
             traceback.print_exc()
+            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
     
-    # Fallback: salvar no sistema de arquivos
-    filename = secure_filename(file.filename)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    name, ext = os.path.splitext(filename)
-    filename = f"{name}_{timestamp}{ext}"
-    
-    if os.path.exists(BLOG_IMG_DIR):
-        filepath = os.path.join(BLOG_IMG_DIR, filename)
-        file.seek(0)
-        file.save(filepath)
-        relative_path = f"img/blog/{filename}"
-    else:
-        relative_path = f'img/placeholder.png'
-    
-    return jsonify({'success': True, 'path': relative_path, 'url': url_for('static', filename=relative_path)})
+    # Se chegou aqui, o banco não está disponível
+    return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
 
 @app.route('/admin/blog/imagem/<int:image_id>')
 def servir_imagem_blog(image_id):
@@ -4239,22 +4204,10 @@ def upload_imagem_slide():
             print(f"Erro ao salvar imagem de slide no banco: {e}")
             import traceback
             traceback.print_exc()
+            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
     
-    # Fallback: salvar no sistema de arquivos (para desenvolvimento local)
-    filename = secure_filename(file.filename)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    name, ext = os.path.splitext(filename)
-    filename = f"slide_{timestamp}{ext}"
-    
-    if os.path.exists(SLIDES_IMG_DIR):
-        filepath = os.path.join(SLIDES_IMG_DIR, filename)
-        file.seek(0)
-        file.save(filepath)
-        relative_path = f'img/slides/{filename}'
-    else:
-        relative_path = f'img/placeholder.png'
-    
-    return jsonify({'success': True, 'path': relative_path})
+    # Se chegou aqui, o banco não está disponível
+    return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
 
 @app.route('/admin/slides/imagem/<int:image_id>')
 def servir_imagem_slide(image_id):
@@ -4320,22 +4273,10 @@ def upload_imagem_marca():
             print(f"Erro ao salvar imagem de marca no banco: {e}")
             import traceback
             traceback.print_exc()
+            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
     
-    # Fallback: salvar no sistema de arquivos
-    filename = secure_filename(file.filename)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    name, ext = os.path.splitext(filename)
-    filename = f"marca_{timestamp}{ext}"
-    
-    if os.path.exists(MARCAS_IMG_DIR):
-        filepath = os.path.join(MARCAS_IMG_DIR, filename)
-        file.seek(0)
-        file.save(filepath)
-        relative_path = f'img/marcas/{filename}'
-    else:
-        relative_path = f'img/placeholder.png'
-    
-    return jsonify({'success': True, 'path': relative_path})
+    # Se chegou aqui, o banco não está disponível
+    return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
 
 @app.route('/admin/marcas/imagem/<int:image_id>')
 def servir_imagem_marca(image_id):
@@ -4400,22 +4341,10 @@ def upload_imagem_milestone():
             print(f"Erro ao salvar imagem de milestone no banco: {e}")
             import traceback
             traceback.print_exc()
+            return jsonify({'success': False, 'error': 'Erro ao salvar imagem no banco de dados'}), 500
     
-    # Fallback: salvar no sistema de arquivos
-    filename = secure_filename(file.filename)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    name, ext = os.path.splitext(filename)
-    filename = f"milestone_{timestamp}{ext}"
-    
-    if os.path.exists(MILESTONES_IMG_DIR):
-        filepath = os.path.join(MILESTONES_IMG_DIR, filename)
-        file.seek(0)
-        file.save(filepath)
-        relative_path = f'img/milestones/{filename}'
-    else:
-        relative_path = f'img/placeholder.png'
-    
-    return jsonify({'success': True, 'path': relative_path})
+    # Se chegou aqui, o banco não está disponível
+    return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
 
 @app.route('/admin/milestones/imagem/<int:image_id>')
 def servir_imagem_milestone(image_id):
