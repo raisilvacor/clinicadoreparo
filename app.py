@@ -117,22 +117,37 @@ def use_database():
     """Verifica se deve usar banco de dados - configuração direta com Render"""
     database_url = os.environ.get('DATABASE_URL', '')
     if not database_url:
+        print("DEBUG use_database: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
     
-    # Verificar se o banco foi configurado e está funcionando
+    # Verificar se o banco foi configurado
     if not app.config.get('SQLALCHEMY_DATABASE_URI'):
+        print("DEBUG use_database: SQLALCHEMY_DATABASE_URI não configurado no app")
         return False
     
     # Verificar se o engine está disponível
     try:
         with app.app_context():
+            # Garantir que db está inicializado
             if not hasattr(db, 'engine') or db.engine is None:
-                return False
+                print("DEBUG use_database: Engine não está disponível, tentando inicializar...")
+                # Tentar forçar inicialização
+                try:
+                    db.engine = db.get_engine()
+                except:
+                    print("DEBUG use_database: Erro ao inicializar engine")
+                    return False
+            
             # Testar conexão rapidamente
             with db.engine.connect() as conn:
-                conn.execute(db.text('SELECT 1'))
+                result = conn.execute(db.text('SELECT 1'))
+                result.fetchone()
+        print("DEBUG use_database: ✅ Conexão com banco de dados OK")
         return True
-    except:
+    except Exception as e:
+        print(f"DEBUG use_database: ❌ Erro ao conectar: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def get_proximo_numero_ordem():
