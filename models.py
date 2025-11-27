@@ -32,6 +32,18 @@ class Imagem(db.Model):
     data_upload = db.Column(db.DateTime, default=datetime.now)
     referencia = db.Column(db.String(200))  # Referência (ex: 'servico_123')
 
+# ==================== PDFs ====================
+class PDFDocument(db.Model):
+    """Tabela para armazenar PDFs no banco de dados"""
+    __tablename__ = 'pdf_documents'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    dados = db.Column(db.LargeBinary, nullable=False)  # Dados binários do PDF
+    tamanho = db.Column(db.Integer)  # Tamanho em bytes
+    tipo_documento = db.Column(db.String(50))  # 'ordem_servico', 'comprovante'
+    referencia_id = db.Column(db.Integer)  # ID do documento relacionado (ordem_id, comprovante_id)
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+
 # ==================== SERVIÇOS ====================
 class Servico(db.Model):
     __tablename__ = 'servicos'
@@ -85,8 +97,12 @@ class OrdemServico(db.Model):
     total = db.Column(db.Numeric(10, 2), default=0)
     status = db.Column(db.String(50), default='pendente')
     prazo_estimado = db.Column(db.String(100))
-    pdf_filename = db.Column(db.String(200))
+    pdf_id = db.Column(db.Integer, db.ForeignKey('pdf_documents.id'))  # Referência ao PDF no banco
+    pdf_filename = db.Column(db.String(200))  # Mantido para compatibilidade/fallback
     data = db.Column(db.DateTime, default=datetime.now)
+    
+    # Relacionamento
+    pdf_document = db.relationship('PDFDocument', foreign_keys=[pdf_id], lazy=True)
 
 # ==================== COMPROVANTES ====================
 class Comprovante(db.Model):
@@ -100,8 +116,12 @@ class Comprovante(db.Model):
     valor_pago = db.Column(db.Numeric(10, 2))
     forma_pagamento = db.Column(db.String(50))
     parcelas = db.Column(db.Integer, default=1)
-    pdf_filename = db.Column(db.String(200))
+    pdf_id = db.Column(db.Integer, db.ForeignKey('pdf_documents.id'))  # Referência ao PDF no banco
+    pdf_filename = db.Column(db.String(200))  # Mantido para compatibilidade/fallback
     data = db.Column(db.DateTime, default=datetime.now)
+    
+    # Relacionamento
+    pdf_document = db.relationship('PDFDocument', foreign_keys=[pdf_id], lazy=True)
 
 # ==================== CUPONS DE FIDELIDADE ====================
 class Cupom(db.Model):

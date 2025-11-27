@@ -4,13 +4,14 @@ import json
 import os
 from functools import wraps
 from werkzeug.utils import secure_filename
+from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Artigo, Contato, Imagem
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Artigo, Contato, Imagem, PDFDocument
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -115,14 +116,9 @@ MILESTONES_FILE = 'data/milestones.json'
 ADMIN_USERS_FILE = 'data/admin_users.json'
 AGENDAMENTOS_FILE = 'data/agendamentos.json'
 BLOG_FILE = 'data/blog.json'
-PDFS_DIR = 'static/pdfs'
-# NOTA: Diretórios de imagens removidos - todas as imagens são salvas no PostgreSQL
-# NÃO criar diretórios para imagens de upload - elas vão direto para o banco
+# NOTA: NÃO criar diretórios para uploads - tudo vai direto para o banco PostgreSQL
 # static/ deve conter APENAS arquivos estáticos do build (CSS, JS, imagens fixas)
-
-# Criar apenas diretório de PDFs (se necessário para desenvolvimento local)
-if not os.path.exists(PDFS_DIR):
-    os.makedirs(PDFS_DIR)
+# PDFs e imagens são salvos diretamente no banco de dados
 
 # Configurações de upload
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -1092,6 +1088,29 @@ def servir_imagem_servico(image_id):
     # Fallback: retornar placeholder
     return redirect(url_for('static', filename='img/placeholder.png'))
 
+@app.route('/media/pdf/<int:pdf_id>')
+def servir_pdf(pdf_id):
+    """Rota para servir PDFs do banco de dados"""
+    if use_database():
+        try:
+            pdf_doc = PDFDocument.query.get(pdf_id)
+            if pdf_doc and pdf_doc.dados:
+                return Response(
+                    pdf_doc.dados,
+                    mimetype='application/pdf',
+                    headers={
+                        'Content-Disposition': f'inline; filename={pdf_doc.nome or "documento.pdf"}',
+                        'Cache-Control': 'public, max-age=31536000'  # Cache por 1 ano
+                    }
+                )
+        except Exception as e:
+            print(f"Erro ao buscar PDF: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback: retornar erro 404
+    return "PDF não encontrado", 404
+
 @app.route('/admin/servicos/add', methods=['GET', 'POST'])
 @login_required
 def add_servico_admin():
@@ -1856,14 +1875,40 @@ def delete_ordem_servico(cliente_id, ordem_id):
 
 # ==================== PDF GENERATION ====================
 
+def salvar_pdf_no_banco(pdf_data, nome, tipo_documento, referencia_id):
+    """Salva PDF no banco de dados e retorna o ID"""
+    if use_database():
+        try:
+            pdf_doc = PDFDocument(
+                nome=nome,
+                dados=pdf_data,
+                tamanho=len(pdf_data),
+                tipo_documento=tipo_documento,
+                referencia_id=referencia_id
+            )
+            db.session.add(pdf_doc)
+            db.session.commit()
+            return pdf_doc.id
+        except Exception as e:
+            print(f"Erro ao salvar PDF no banco: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                db.session.rollback()
+            except:
+                pass
+    return None
+
 def gerar_pdf_ordem(cliente, ordem):
-    """Gera PDF da ordem de serviço"""
+    """Gera PDF da ordem de serviço e salva no banco de dados"""
     # Nome do arquivo PDF
     pdf_filename = f"ordem_{cliente['id']}_{ordem['id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    pdf_path = os.path.join(PDFS_DIR, pdf_filename)
     
-    # Criar documento PDF
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    # Criar buffer em memória para o PDF
+    buffer = BytesIO()
+    
+    # Criar documento PDF em memória
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
     story = []
     
     # Estilos
@@ -2120,7 +2165,28 @@ def gerar_pdf_ordem(cliente, ordem):
     # Construir PDF
     doc.build(story)
     
-    return pdf_filename
+    # Obter dados do PDF do buffer
+    pdf_data = buffer.getvalue()
+    buffer.close()
+    
+    # Salvar no banco de dados
+    if use_database():
+        pdf_id = salvar_pdf_no_banco(
+            pdf_data=pdf_data,
+            nome=pdf_filename,
+            tipo_documento='ordem_servico',
+            referencia_id=ordem.get('id')
+        )
+        if pdf_id:
+            return {'pdf_id': pdf_id, 'pdf_filename': pdf_filename, 'url': f'/media/pdf/{pdf_id}'}
+    
+    # Fallback: salvar em arquivo (apenas para desenvolvimento local sem banco)
+    pdf_path = os.path.join('static', 'pdfs', pdf_filename)
+    os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+    with open(pdf_path, 'wb') as f:
+        f.write(pdf_data)
+    
+    return {'pdf_filename': pdf_filename, 'url': f'/static/pdfs/{pdf_filename}'}
 
 @app.route('/admin/download-pdf/<path:filename>')
 @login_required
@@ -2377,11 +2443,13 @@ def get_ordens_cliente(cliente_id):
     return jsonify({'ordens': ordens_data})
 
 def gerar_pdf_comprovante(cliente, ordem, comprovante):
-    """Gera PDF do comprovante de pagamento"""
+    """Gera PDF do comprovante de pagamento e salva no banco de dados"""
     pdf_filename = f"comprovante_{comprovante['id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    pdf_path = os.path.join(PDFS_DIR, pdf_filename)
     
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    # Criar buffer em memória para o PDF
+    buffer = BytesIO()
+    
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
     story = []
     
     styles = getSampleStyleSheet()
@@ -2542,7 +2610,29 @@ def gerar_pdf_comprovante(cliente, ordem, comprovante):
     story.append(assinatura_table)
     
     doc.build(story)
-    return pdf_filename
+    
+    # Obter dados do PDF do buffer
+    pdf_data = buffer.getvalue()
+    buffer.close()
+    
+    # Salvar no banco de dados
+    if use_database():
+        pdf_id = salvar_pdf_no_banco(
+            pdf_data=pdf_data,
+            nome=pdf_filename,
+            tipo_documento='comprovante',
+            referencia_id=comprovante.get('id')
+        )
+        if pdf_id:
+            return {'pdf_id': pdf_id, 'pdf_filename': pdf_filename, 'url': f'/media/pdf/{pdf_id}'}
+    
+    # Fallback: salvar em arquivo (apenas para desenvolvimento local sem banco)
+    pdf_path = os.path.join('static', 'pdfs', pdf_filename)
+    os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+    with open(pdf_path, 'wb') as f:
+        f.write(pdf_data)
+    
+    return {'pdf_filename': pdf_filename, 'url': f'/static/pdfs/{pdf_filename}'}
 
 @app.route('/admin/comprovantes/<int:comprovante_id>')
 @login_required
