@@ -10,9 +10,25 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from flask_sqlalchemy import SQLAlchemy
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Artigo, Contato
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
+
+# Configuração do banco de dados
+database_url = os.environ.get('DATABASE_URL', '')
+if database_url:
+    # Render usa postgres:// mas SQLAlchemy precisa postgresql://
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
+    
+    # Criar tabelas se não existirem
+    with app.app_context():
+        db.create_all()
 
 # Credenciais de admin (em produção, use hash e variáveis de ambiente)
 ADMIN_USERNAME = 'admin'
@@ -61,24 +77,40 @@ def allowed_file(filename):
 
 # ==================== FUNÇÕES AUXILIARES ====================
 
+def use_database():
+    """Verifica se deve usar banco de dados"""
+    return bool(os.environ.get('DATABASE_URL'))
+
 def get_proximo_numero_ordem():
     """Gera um número aleatório de 6 dígitos sem ser sequencial"""
     import random
     
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
     # Coletar todos os números de ordem existentes
     numeros_existentes = set()
-    for cliente in data['clients']:
-        for ordem in cliente.get('ordens', []):
-            if ordem.get('numero_ordem'):
+    
+    if use_database():
+        # Usar banco de dados
+        ordens = OrdemServico.query.all()
+        for ordem in ordens:
+            if ordem.numero_ordem:
                 try:
-                    # Converter para int, removendo # se houver
-                    num = str(ordem['numero_ordem']).replace('#', '').strip()
+                    num = str(ordem.numero_ordem).replace('#', '').strip()
                     numeros_existentes.add(int(num))
                 except:
                     pass
+    else:
+        # Usar arquivo JSON
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        for cliente in data['clients']:
+            for ordem in cliente.get('ordens', []):
+                if ordem.get('numero_ordem'):
+                    try:
+                        num = str(ordem['numero_ordem']).replace('#', '').strip()
+                        numeros_existentes.add(int(num))
+                    except:
+                        pass
     
     def eh_sequencial(numero):
         """Verifica se o número é sequencial (crescente ou decrescente)"""
@@ -650,22 +682,31 @@ def admin_login():
             flash('Login realizado com sucesso!', 'success')
             return redirect(url_for('admin_dashboard'))
         
-        # Verificar usuários no arquivo JSON
+        # Verificar usuários no banco de dados ou JSON
         try:
-            init_admin_users_file()
-            with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
-                users_data = json.load(f)
-            
-            user = next((u for u in users_data.get('users', []) if u.get('username') == username and u.get('ativo', True)), None)
-            
-            if user and user.get('password') == password:
-                session['admin_logged_in'] = True
-                session['admin_username'] = username
-                session['admin_user_id'] = user.get('id')
-                flash('Login realizado com sucesso!', 'success')
-                return redirect(url_for('admin_dashboard'))
+            if use_database():
+                user = AdminUser.query.filter_by(username=username, ativo=True).first()
+                if user and user.password == password:
+                    session['admin_logged_in'] = True
+                    session['admin_username'] = username
+                    session['admin_user_id'] = user.id
+                    flash('Login realizado com sucesso!', 'success')
+                    return redirect(url_for('admin_dashboard'))
             else:
-                flash('Usuário ou senha incorretos!', 'error')
+                init_admin_users_file()
+                with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+                    users_data = json.load(f)
+                
+                user = next((u for u in users_data.get('users', []) if u.get('username') == username and u.get('ativo', True)), None)
+                
+                if user and user.get('password') == password:
+                    session['admin_logged_in'] = True
+                    session['admin_username'] = username
+                    session['admin_user_id'] = user.get('id')
+                    flash('Login realizado com sucesso!', 'success')
+                    return redirect(url_for('admin_dashboard'))
+            
+            flash('Usuário ou senha incorretos!', 'error')
         except Exception as e:
             flash('Erro ao verificar credenciais. Tente novamente.', 'error')
     
