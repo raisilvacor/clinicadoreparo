@@ -145,8 +145,59 @@ document.head.appendChild(style);
     let slideInterval;
     const slides = document.querySelectorAll('.slide');
     const indicators = document.querySelectorAll('.indicator');
+    const heroSlider = document.querySelector('.hero-slider');
     
     if (slides.length === 0) return;
+    
+    // Função para ajustar altura do slider baseada nas imagens
+    function adjustSliderHeight() {
+        if (!heroSlider) return;
+        
+        const slideImages = document.querySelectorAll('.slide-image[data-bg-image]');
+        if (slideImages.length === 0) return;
+        
+        const sliderWidth = heroSlider.offsetWidth;
+        let maxHeight = 300; // altura mínima
+        
+        // Carregar todas as imagens para obter suas dimensões
+        const imagePromises = Array.from(slideImages).map(function(imgElement) {
+            return new Promise(function(resolve) {
+                const bgImage = imgElement.getAttribute('data-bg-image');
+                if (!bgImage) {
+                    resolve(null);
+                    return;
+                }
+                
+                // Aplicar background-image
+                imgElement.style.backgroundImage = "url('" + bgImage + "')";
+                
+                // Criar imagem temporária para obter dimensões
+                const img = new Image();
+                img.onload = function() {
+                    const naturalWidth = this.naturalWidth;
+                    const naturalHeight = this.naturalHeight;
+                    const aspectRatio = naturalHeight / naturalWidth;
+                    const calculatedHeight = sliderWidth * aspectRatio;
+                    
+                    if (calculatedHeight > maxHeight) {
+                        maxHeight = calculatedHeight;
+                    }
+                    resolve(maxHeight);
+                };
+                img.onerror = function() {
+                    resolve(null);
+                };
+                img.src = bgImage;
+            });
+        });
+        
+        // Quando todas as imagens carregarem, ajustar altura
+        Promise.all(imagePromises).then(function() {
+            if (maxHeight > 300) {
+                heroSlider.style.height = maxHeight + 'px';
+            }
+        });
+    }
     
     // Aplicar background-image usando atributos data
     document.querySelectorAll('.slide-image[data-bg-image]').forEach(function(img) {
@@ -237,8 +288,21 @@ document.head.appendChild(style);
     
     // Executar ao carregar e ao redimensionar
     alignSliderWithNavbar();
-    window.addEventListener('resize', alignSliderWithNavbar);
-    window.addEventListener('load', alignSliderWithNavbar);
+    window.addEventListener('resize', function() {
+        alignSliderWithNavbar();
+        adjustSliderHeight();
+    });
+    window.addEventListener('load', function() {
+        alignSliderWithNavbar();
+        adjustSliderHeight();
+    });
+    
+    // Ajustar altura quando as imagens carregarem
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', adjustSliderHeight);
+    } else {
+        adjustSliderHeight();
+    }
 })();
 
 // Image fallback handler

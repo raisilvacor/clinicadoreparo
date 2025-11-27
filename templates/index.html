@@ -351,12 +351,13 @@
 .hero-slider {
     position: relative;
     width: 100%;
-    height: 500px;
+    min-height: 300px;
     overflow: hidden;
     margin: 0;
     padding: 0;
     margin-top: 0; /* Será calculado dinamicamente via JavaScript */
     z-index: 1;
+    transition: height 0.3s ease;
 }
 
 /* Garantir que o slider não seja cortado pela navbar */
@@ -491,7 +492,7 @@ body {
 /* Responsive */
 @media (max-width: 768px) {
     .hero-slider {
-        height: 400px;
+        min-height: 250px;
     }
     
     .slider-indicators {
@@ -506,7 +507,7 @@ body {
 
 @media (max-width: 480px) {
     .hero-slider {
-        height: 350px;
+        min-height: 200px;
     }
     
     .slide-image {
