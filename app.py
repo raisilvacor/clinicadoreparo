@@ -1469,6 +1469,35 @@ def admin_financeiro():
 @app.route('/admin/ordens')
 @login_required
 def admin_ordens():
+    if use_database():
+        try:
+            # Buscar todas as ordens do banco
+            ordens_db = OrdemServico.query.order_by(OrdemServico.data.desc()).all()
+            todas_ordens = []
+            for ordem in ordens_db:
+                cliente = Cliente.query.get(ordem.cliente_id)
+                ordem_dict = {
+                    'id': ordem.id,
+                    'numero_ordem': ordem.numero_ordem,
+                    'cliente_id': ordem.cliente_id,
+                    'cliente_nome': cliente.nome if cliente else 'Cliente não encontrado',
+                    'servico': ordem.servico,
+                    'marca': ordem.marca,
+                    'modelo': ordem.modelo,
+                    'status': ordem.status,
+                    'total': float(ordem.total) if ordem.total else 0.00,
+                    'data': ordem.data.strftime('%Y-%m-%d %H:%M:%S') if ordem.data else '',
+                    'pdf_filename': ordem.pdf_filename if ordem.pdf_filename else None,
+                    'pdf_id': ordem.pdf_id
+                }
+                todas_ordens.append(ordem_dict)
+            return render_template('admin/ordens.html', ordens=todas_ordens)
+        except Exception as e:
+            print(f"Erro ao buscar ordens do banco: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback para JSON
     with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -1479,6 +1508,9 @@ def admin_ordens():
             ordem_completa = ordem.copy()
             ordem_completa['cliente_nome'] = cliente['nome']
             ordem_completa['cliente_id'] = cliente['id']
+            # Garantir que pdf_filename seja string, não dict
+            if isinstance(ordem_completa.get('pdf_filename'), dict):
+                ordem_completa['pdf_filename'] = ordem_completa['pdf_filename'].get('pdf_filename', '')
             todas_ordens.append(ordem_completa)
     
     # Ordenar por data (mais recente primeiro)
@@ -1610,8 +1642,14 @@ def add_ordem_servico():
             json.dump(data, f, ensure_ascii=False, indent=2)
         
         # Gerar PDF da ordem
-        pdf_filename = gerar_pdf_ordem(cliente, nova_ordem)
-        nova_ordem['pdf_filename'] = pdf_filename
+        pdf_result = gerar_pdf_ordem(cliente, nova_ordem)
+        if isinstance(pdf_result, dict):
+            # Salvar apenas o nome do arquivo, não o dicionário inteiro
+            nova_ordem['pdf_filename'] = pdf_result.get('pdf_filename', '')
+            nova_ordem['pdf_id'] = pdf_result.get('pdf_id')
+        else:
+            # Fallback para compatibilidade
+            nova_ordem['pdf_filename'] = str(pdf_result) if pdf_result else ''
         
         # Atualizar ordem com nome do PDF
         for i, o in enumerate(cliente['ordens']):
@@ -1777,14 +1815,15 @@ def edit_ordem_servico(cliente_id, ordem_id):
             json.dump(data, f, ensure_ascii=False, indent=2)
         
         # Regenerar PDF da ordem atualizada
-        if ordem.get('pdf_filename'):
-            # Deletar PDF antigo se existir
-            old_pdf = os.path.join(PDFS_DIR, ordem['pdf_filename'])
-            if os.path.exists(old_pdf):
-                os.remove(old_pdf)
-        
-        pdf_filename = gerar_pdf_ordem(cliente, ordem_atualizada)
-        ordem_atualizada['pdf_filename'] = pdf_filename
+        # Gerar novo PDF
+        pdf_result = gerar_pdf_ordem(cliente, ordem_atualizada)
+        if isinstance(pdf_result, dict):
+            # Salvar apenas o nome do arquivo, não o dicionário inteiro
+            ordem_atualizada['pdf_filename'] = pdf_result.get('pdf_filename', '')
+            ordem_atualizada['pdf_id'] = pdf_result.get('pdf_id')
+        else:
+            # Fallback para compatibilidade
+            ordem_atualizada['pdf_filename'] = str(pdf_result) if pdf_result else ''
         
         # Atualizar ordem com novo PDF
         for i, o in enumerate(cliente['ordens']):
@@ -2241,12 +2280,52 @@ def gerar_pdf_ordem(cliente, ordem):
 @login_required
 def download_pdf(filename):
     """Download do PDF da ordem (admin)"""
-    pdf_path = os.path.join(PDFS_DIR, filename)
+    # Se o filename for um dicionário (erro de serialização), tentar extrair o pdf_id
+    if filename.startswith("{'pdf_id'") or filename.startswith('{"pdf_id"'):
+        try:
+            import ast
+            # Tentar parsear como dict Python
+            pdf_info = ast.literal_eval(filename)
+            if 'pdf_id' in pdf_info:
+                return redirect(f"/media/pdf/{pdf_info['pdf_id']}")
+            elif 'url' in pdf_info:
+                return redirect(pdf_info['url'])
+        except:
+            pass
+    
+    # Se o filename contém /media/pdf/, redirecionar diretamente
+    if '/media/pdf/' in filename:
+        pdf_id = filename.split('/media/pdf/')[-1].split("'")[0].split('}')[0]
+        try:
+            return redirect(f"/media/pdf/{int(pdf_id)}")
+        except:
+            pass
+    
+    # Tentar buscar no banco de dados primeiro
+    if use_database():
+        try:
+            # Tentar encontrar ordem pelo pdf_filename
+            ordem = OrdemServico.query.filter_by(pdf_filename=filename).first()
+            if ordem and ordem.pdf_id:
+                pdf_doc = PDFDocument.query.get(ordem.pdf_id)
+                if pdf_doc and pdf_doc.dados:
+                    return Response(
+                        pdf_doc.dados,
+                        mimetype='application/pdf',
+                        headers={
+                            'Content-Disposition': f'attachment; filename={pdf_doc.nome}'
+                        }
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar PDF no banco: {e}")
+    
+    # Fallback: tentar arquivo estático (apenas para desenvolvimento local)
+    pdf_path = os.path.join('static', 'pdfs', filename)
     if os.path.exists(pdf_path):
         return send_file(pdf_path, as_attachment=True, download_name=filename)
-    else:
-        flash('Arquivo PDF não encontrado!', 'error')
-        return redirect(url_for('admin_ordens'))
+    
+    flash('Arquivo PDF não encontrado!', 'error')
+    return redirect(url_for('admin_ordens'))
 
 # ==================== CLIENT AREA ====================
 
@@ -2349,12 +2428,31 @@ def client_download_pdf(filename):
         flash('Você não tem permissão para baixar este arquivo!', 'error')
         return redirect(url_for('client_dashboard'))
     
-    pdf_path = os.path.join(PDFS_DIR, filename)
+    # Tentar buscar no banco de dados primeiro
+    if use_database():
+        try:
+            # Buscar ordem pelo pdf_filename e cliente_id
+            ordem = OrdemServico.query.filter_by(pdf_filename=filename, cliente_id=cliente_id).first()
+            if ordem and ordem.pdf_id:
+                pdf_doc = PDFDocument.query.get(ordem.pdf_id)
+                if pdf_doc and pdf_doc.dados:
+                    return Response(
+                        pdf_doc.dados,
+                        mimetype='application/pdf',
+                        headers={
+                            'Content-Disposition': f'attachment; filename={pdf_doc.nome}'
+                        }
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar PDF no banco: {e}")
+    
+    # Fallback: tentar arquivo estático (apenas para desenvolvimento local)
+    pdf_path = os.path.join('static', 'pdfs', filename)
     if os.path.exists(pdf_path):
         return send_file(pdf_path, as_attachment=True, download_name=filename)
-    else:
-        flash('Arquivo PDF não encontrado!', 'error')
-        return redirect(url_for('client_dashboard'))
+    
+    flash('Arquivo PDF não encontrado!', 'error')
+    return redirect(url_for('client_dashboard'))
 
 @app.route('/cliente/comprovantes/download/<path:filename>')
 @client_login_required
@@ -2370,18 +2468,37 @@ def client_download_comprovante_pdf(filename):
     with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
         comprovantes_data = json.load(f)
     
+    # Tentar buscar no banco de dados primeiro
+    if use_database():
+        try:
+            comprovante = Comprovante.query.filter_by(pdf_filename=filename, cliente_id=cliente_id).first()
+            if comprovante and comprovante.pdf_id:
+                pdf_doc = PDFDocument.query.get(comprovante.pdf_id)
+                if pdf_doc and pdf_doc.dados:
+                    return Response(
+                        pdf_doc.dados,
+                        mimetype='application/pdf',
+                        headers={
+                            'Content-Disposition': f'attachment; filename={pdf_doc.nome}'
+                        }
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar PDF no banco: {e}")
+    
+    # Fallback para JSON
     comprovante = next((c for c in comprovantes_data['comprovantes'] if c.get('pdf_filename') == filename and c.get('cliente_id') == cliente_id), None)
     
     if not comprovante:
         flash('Você não tem permissão para baixar este arquivo!', 'error')
         return redirect(url_for('client_dashboard'))
     
-    pdf_path = os.path.join(PDFS_DIR, filename)
+    # Tentar arquivo estático (apenas para desenvolvimento local)
+    pdf_path = os.path.join('static', 'pdfs', filename)
     if os.path.exists(pdf_path):
         return send_file(pdf_path, as_attachment=True, download_name=filename)
-    else:
-        flash('Arquivo PDF não encontrado!', 'error')
-        return redirect(url_for('client_dashboard'))
+    
+    flash('Arquivo PDF não encontrado!', 'error')
+    return redirect(url_for('client_dashboard'))
 
 # ==================== COMPROVANTES ====================
 
@@ -2450,8 +2567,13 @@ def emitir_comprovante():
         }
         
         # Gerar PDF do comprovante
-        pdf_filename = gerar_pdf_comprovante(cliente, ordem, novo_comprovante)
-        novo_comprovante['pdf_filename'] = pdf_filename
+        pdf_result = gerar_pdf_comprovante(cliente, ordem, novo_comprovante)
+        if isinstance(pdf_result, dict):
+            novo_comprovante['pdf_filename'] = pdf_result.get('pdf_filename', '')
+            novo_comprovante['pdf_id'] = pdf_result.get('pdf_id')
+        else:
+            # Fallback para compatibilidade
+            novo_comprovante['pdf_filename'] = pdf_result
         
         # Salvar comprovante
         comprovantes_data['comprovantes'].append(novo_comprovante)
@@ -2735,12 +2857,18 @@ def edit_comprovante(comprovante_id):
         
         # Deletar PDF antigo
         if comprovante.get('pdf_filename'):
-            old_pdf = os.path.join(PDFS_DIR, comprovante['pdf_filename'])
+            old_pdf = os.path.join('static', 'pdfs', comprovante['pdf_filename'])
             if os.path.exists(old_pdf):
                 os.remove(old_pdf)
         
         # Regenerar PDF
-        pdf_filename = gerar_pdf_comprovante(cliente, ordem, comprovante)
+        pdf_result = gerar_pdf_comprovante(cliente, ordem, comprovante)
+        if isinstance(pdf_result, dict):
+            comprovante['pdf_filename'] = pdf_result.get('pdf_filename', '')
+            comprovante['pdf_id'] = pdf_result.get('pdf_id')
+        else:
+            # Fallback para compatibilidade
+            comprovante['pdf_filename'] = pdf_result
         comprovante['pdf_filename'] = pdf_filename
         
         # Salvar alterações
@@ -2792,12 +2920,31 @@ def delete_comprovante(comprovante_id):
 @login_required
 def download_comprovante_pdf(filename):
     """Download do PDF do comprovante"""
-    pdf_path = os.path.join(PDFS_DIR, filename)
+    # Tentar buscar no banco de dados primeiro
+    if use_database():
+        try:
+            # Tentar encontrar comprovante pelo pdf_filename
+            comprovante = Comprovante.query.filter_by(pdf_filename=filename).first()
+            if comprovante and comprovante.pdf_id:
+                pdf_doc = PDFDocument.query.get(comprovante.pdf_id)
+                if pdf_doc and pdf_doc.dados:
+                    return Response(
+                        pdf_doc.dados,
+                        mimetype='application/pdf',
+                        headers={
+                            'Content-Disposition': f'attachment; filename={pdf_doc.nome}'
+                        }
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar PDF no banco: {e}")
+    
+    # Fallback: tentar arquivo estático (apenas para desenvolvimento local)
+    pdf_path = os.path.join('static', 'pdfs', filename)
     if os.path.exists(pdf_path):
         return send_file(pdf_path, as_attachment=True, download_name=filename)
-    else:
-        flash('Arquivo PDF não encontrado!', 'error')
-        return redirect(url_for('admin_comprovantes'))
+    
+    flash('Arquivo PDF não encontrado!', 'error')
+    return redirect(url_for('admin_comprovantes'))
 
 # ==================== PROGRAMA DE FIDELIDADE ====================
 

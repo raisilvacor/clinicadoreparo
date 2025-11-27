@@ -69,7 +69,11 @@
                     </div>
                 </td>
                 <td>
-                    {% if ordem.pdf_filename %}
+                    {% if ordem.pdf_id %}
+                    <a href="/media/pdf/{{ ordem.pdf_id }}" class="btn btn-primary btn-small" title="Baixar PDF">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                    {% elif ordem.pdf_filename %}
                     <a href="{{ url_for('download_pdf', filename=ordem.pdf_filename) }}" class="btn btn-primary btn-small" title="Baixar PDF">
                         <i class="fas fa-file-pdf"></i> PDF
                     </a>
