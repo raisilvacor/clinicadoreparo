@@ -120,42 +120,19 @@ def allowed_file(filename):
 
 def use_database():
     """Verifica se deve usar banco de dados - configuração direta com Render"""
+    # Verificar se DATABASE_URL existe nas variáveis de ambiente
     database_url = os.environ.get('DATABASE_URL', '')
     if not database_url:
-        print("DEBUG use_database: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
     
     # Verificar se o banco foi configurado no app
     if not app.config.get('SQLALCHEMY_DATABASE_URI'):
-        print("DEBUG use_database: SQLALCHEMY_DATABASE_URI não configurado no app")
         return False
     
-    # Verificar se db foi inicializado e o engine está disponível
-    try:
-        with app.app_context():
-            # Se o engine não existe, tentar criar explicitamente
-            if not hasattr(db, 'engine') or db.engine is None:
-                try:
-                    # Forçar criação do engine e atribuir explicitamente
-                    db.engine = db.get_engine()
-                    if db.engine is None:
-                        print("DEBUG use_database: Engine não pôde ser criado")
-                        return False
-                except Exception as e:
-                    print(f"DEBUG use_database: Erro ao criar engine: {type(e).__name__}: {str(e)}")
-                    return False
-            
-            # Verificar se o engine está realmente funcional com um teste simples
-            try:
-                with db.engine.connect() as conn:
-                    conn.execute(db.text('SELECT 1'))
-                return True
-            except Exception as e:
-                print(f"DEBUG use_database: Erro ao testar conexão: {type(e).__name__}: {str(e)}")
-                return False
-    except Exception as e:
-        print(f"DEBUG use_database: Erro ao verificar engine: {type(e).__name__}: {str(e)}")
-        return False
+    # Se ambos existem, assumir que o banco está configurado
+    # Não testar conexão aqui (pode ser lento e falhar temporariamente)
+    # A conexão será testada quando tentarmos usar o banco
+    return True
 
 def get_proximo_numero_ordem():
     """Gera um número aleatório de 6 dígitos sem ser sequencial"""
