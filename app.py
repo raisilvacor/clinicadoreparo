@@ -126,56 +126,25 @@ def allowed_file(filename):
 # ==================== FUNÇÕES AUXILIARES ====================
 
 def use_database():
-    """Verifica se deve usar banco de dados"""
+    """Verifica se deve usar banco de dados - configuração direta com Render"""
     database_url = os.environ.get('DATABASE_URL', '')
     if not database_url:
-        print("DEBUG: DATABASE_URL não encontrado nas variáveis de ambiente")
         return False
     
-    # Verificar se o banco foi configurado
+    # Verificar se o banco foi configurado e está funcionando
     if not app.config.get('SQLALCHEMY_DATABASE_URI'):
-        print("DEBUG: Banco de dados não foi configurado no app")
         return False
     
-    print(f"DEBUG: DATABASE_URL encontrado: {database_url[:50]}...")  # Mostra início para debug
-    
+    # Verificar se o engine está disponível
     try:
-        # Testar se consegue conectar - usar engine diretamente
         with app.app_context():
-            # Verificar se o engine está configurado
             if not hasattr(db, 'engine') or db.engine is None:
-                print("DEBUG: Engine do banco não está configurado")
                 return False
-            
-            # Testar conexão usando o engine diretamente
+            # Testar conexão rapidamente
             with db.engine.connect() as conn:
-                result = conn.execute(db.text('SELECT 1'))
-                result.fetchone()
-        print("DEBUG: ✅ Conexão com banco de dados bem-sucedida!")
+                conn.execute(db.text('SELECT 1'))
         return True
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        print(f"DEBUG: ❌ Erro ao conectar ao banco de dados:")
-        print(f"DEBUG:   Tipo: {error_type}")
-        print(f"DEBUG:   Mensagem completa: {error_msg}")
-        
-        # Log mais detalhado para erros comuns
-        if 'bind' in error_msg.lower() or 'session' in error_msg.lower():
-            print("DEBUG:   ⚠️ Problema de configuração do SQLAlchemy (banco não inicializado corretamente)")
-        elif 'psycopg2' in error_type or 'psycopg' in error_msg.lower():
-            print("DEBUG:   ⚠️ Problema com driver psycopg2")
-        elif 'connection' in error_msg.lower() or 'connect' in error_msg.lower() or 'timeout' in error_msg.lower():
-            print("DEBUG:   ⚠️ Problema de conexão de rede (verifique se o banco está ativo)")
-        elif 'authentication' in error_msg.lower() or 'password' in error_msg.lower():
-            print("DEBUG:   ⚠️ Problema de autenticação (verifique usuário/senha)")
-        elif 'database' in error_msg.lower() and ('does not exist' in error_msg.lower() or 'não existe' in error_msg.lower()):
-            print("DEBUG:   ⚠️ Banco de dados não existe")
-        elif 'could not translate host name' in error_msg.lower() or 'name resolution' in error_msg.lower():
-            print("DEBUG:   ⚠️ Problema de resolução de host (verifique a URL)")
-        elif 'ssl' in error_msg.lower():
-            print("DEBUG:   ⚠️ Problema com SSL (tentando forçar SSL)")
-        
+    except:
         return False
 
 def get_proximo_numero_ordem():
@@ -840,93 +809,8 @@ def admin_logout():
     flash('Logout realizado com sucesso!', 'success')
     return redirect(url_for('admin_login'))
 
-@app.route('/admin/migrar-dados', methods=['GET', 'POST'])
-@login_required
-def admin_migrar_dados():
-    """Rota para executar migração de dados JSON para PostgreSQL"""
-    # Debug: Verificar variáveis de ambiente
-    database_url = os.environ.get('DATABASE_URL', '')
-    debug_info = {
-        'has_database_url': bool(database_url),
-        'database_url_preview': database_url[:30] + '...' if database_url and len(database_url) > 30 else database_url,
-        'use_database_result': use_database()
-    }
-    
-    if request.method == 'GET':
-        # Verificar se já existe dados no banco
-        if use_database():
-            try:
-                with app.app_context():
-                    clientes_count = Cliente.query.count()
-                    servicos_count = Servico.query.count()
-                    return render_template('admin/migrar_dados.html', 
-                                         ja_migrado=True,
-                                         clientes_count=clientes_count,
-                                         servicos_count=servicos_count,
-                                         debug_info=debug_info)
-            except Exception as e:
-                flash(f'Erro ao verificar banco de dados: {str(e)}', 'error')
-                debug_info['error'] = str(e)
-        
-        return render_template('admin/migrar_dados.html', ja_migrado=False, debug_info=debug_info)
-    
-    # POST - Executar migração
-    if not use_database():
-        error_msg = 'Banco de dados não configurado! Configure DATABASE_URL primeiro.'
-        if not database_url:
-            error_msg += ' (DATABASE_URL não encontrado nas variáveis de ambiente)'
-        elif not app.config.get('SQLALCHEMY_DATABASE_URI'):
-            error_msg += ' (Banco não foi inicializado. Verifique os logs do Render.)'
-        else:
-            # Tentar obter o erro específico
-            try:
-                with app.app_context():
-                    if hasattr(db, 'engine') and db.engine:
-                        with db.engine.connect() as conn:
-                            conn.execute(db.text('SELECT 1'))
-            except Exception as e:
-                error_detail = str(e)
-                # Limitar tamanho da mensagem
-                if len(error_detail) > 150:
-                    error_detail = error_detail[:150] + '...'
-                error_msg += f' (Erro: {error_detail})'
-            else:
-                error_msg += ' (DATABASE_URL encontrado, mas conexão falhou. Verifique os logs do Render.)'
-        flash(error_msg, 'error')
-        return redirect(url_for('admin_migrar_dados'))
-    
-    try:
-        from migrate_to_db import (
-            migrate_clients, migrate_services, migrate_tecnicos,
-            migrate_slides, migrate_footer, migrate_marcas,
-            migrate_milestones, migrate_admin_users, migrate_agendamentos,
-            migrate_blog, migrate_comprovantes, migrate_cupons, migrate_contatos
-        )
-        
-        # Executar todas as migrações
-        with app.app_context():
-            db.create_all()
-            
-            migrate_clients()
-            migrate_services()
-            migrate_tecnicos()
-            migrate_slides()
-            migrate_footer()
-            migrate_marcas()
-            migrate_milestones()
-            migrate_admin_users()
-            migrate_agendamentos()
-            migrate_blog()
-            migrate_comprovantes()
-            migrate_cupons()
-            migrate_contatos()
-        
-        flash('✅ Migração concluída com sucesso! Todos os dados foram migrados para o PostgreSQL.', 'success')
-        return redirect(url_for('admin_dashboard'))
-    
-    except Exception as e:
-        flash(f'❌ Erro na migração: {str(e)}', 'error')
-        return redirect(url_for('admin_migrar_dados'))
+# Rota de migração removida - banco de dados agora funciona diretamente com o Render
+# Quando DATABASE_URL estiver configurado, o sistema usa o banco automaticamente
 
 @app.route('/admin')
 @login_required
