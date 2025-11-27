@@ -15,6 +15,9 @@ from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cup
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
 
+# Flag global para rastrear se o banco está disponível
+DB_AVAILABLE = False
+
 # Configuração do banco de dados (opcional)
 database_url = os.environ.get('DATABASE_URL', '')
 if database_url:
@@ -64,16 +67,6 @@ if database_url:
         # IMPORTANTE: db.init_app() deve ser chamado DEPOIS de configurar SQLALCHEMY_DATABASE_URI
         db.init_app(app)
         
-        # Garantir que o db está vinculado ao app
-        # Isso força a criação do engine
-        with app.app_context():
-            try:
-                # Forçar criação do engine
-                _ = db.get_engine()
-                print("DEBUG: Engine criado com sucesso")
-            except Exception as e:
-                print(f"DEBUG: Aviso ao criar engine: {e}")
-        
         # Criar tabelas se não existirem (apenas se conseguir conectar)
         try:
             with app.app_context():
@@ -87,18 +80,23 @@ if database_url:
                         with engine.connect() as conn:
                             conn.execute(db.text('SELECT 1'))
                         print("DEBUG: ✅ Banco de dados configurado e conectado com sucesso!")
+                        DB_AVAILABLE = True
                     else:
                         print("DEBUG: ⚠️ Engine não pôde ser criado")
+                        DB_AVAILABLE = False
                 except Exception as conn_error:
                     print(f"DEBUG: ⚠️ Aviso ao testar conexão: {type(conn_error).__name__}: {str(conn_error)}")
                     print("DEBUG: O banco está configurado, mas a conexão pode estar temporariamente indisponível.")
                     print("DEBUG: O sistema tentará usar o banco quando necessário.")
+                    DB_AVAILABLE = False
         except Exception as e:
             print(f"DEBUG: ⚠️ Erro ao inicializar banco de dados: {type(e).__name__}: {str(e)}")
             print("DEBUG: O sistema tentará usar o banco quando necessário.")
+            DB_AVAILABLE = False
     except Exception as e:
         print(f"DEBUG: Erro ao configurar banco de dados: {type(e).__name__}: {str(e)}")
         print("O sistema continuará funcionando com arquivos JSON.")
+        DB_AVAILABLE = False
 
 # Credenciais de admin (em produção, use hash e variáveis de ambiente)
 ADMIN_USERNAME = 'admin'
@@ -137,6 +135,12 @@ def allowed_file(filename):
 
 def use_database():
     """Verifica se deve usar banco de dados - configuração direta com Render"""
+    global DB_AVAILABLE
+    
+    # Se a flag indica que o banco não está disponível, retornar False imediatamente
+    if not DB_AVAILABLE:
+        return False
+    
     # Verificar se DATABASE_URL existe nas variáveis de ambiente
     database_url = os.environ.get('DATABASE_URL', '')
     if not database_url:
@@ -146,9 +150,7 @@ def use_database():
     if not app.config.get('SQLALCHEMY_DATABASE_URI'):
         return False
     
-    # Se ambos existem, assumir que o banco está configurado
-    # Não testar conexão aqui (pode ser lento e falhar temporariamente)
-    # A conexão será testada quando tentarmos usar o banco
+    # Se chegou aqui, o banco está disponível
     return True
 
 def get_proximo_numero_ordem():
@@ -160,7 +162,11 @@ def get_proximo_numero_ordem():
     
     if use_database():
         # Usar banco de dados
-        ordens = OrdemServico.query.all()
+        try:
+            ordens = OrdemServico.query.all()
+        except Exception as e:
+            print(f"Erro ao carregar ordens do banco: {e}")
+            ordens = []
         for ordem in ordens:
             if ordem.numero_ordem:
                 try:
@@ -547,7 +553,11 @@ init_slides_file()
 def index():
     # Carregar slides
     if use_database():
-        slides_db = Slide.query.filter_by(ativo=True).order_by(Slide.ordem).all()
+        try:
+            slides_db = Slide.query.filter_by(ativo=True).order_by(Slide.ordem).all()
+        except Exception as e:
+            print(f"Erro ao carregar slides do banco: {e}")
+            slides_db = []
         slides = []
         for s in slides_db:
             # Se tem imagem_id, usar rota do banco, senão usar caminho estático
@@ -575,7 +585,11 @@ def index():
     
     # Carregar dados do rodapé
     if use_database():
-        footer_obj = Footer.query.first()
+        try:
+            footer_obj = Footer.query.first()
+        except Exception as e:
+            print(f"Erro ao carregar footer do banco: {e}")
+            footer_obj = None
         if footer_obj:
             footer_data = {
                 'descricao': footer_obj.descricao,
@@ -593,7 +607,11 @@ def index():
     
     # Carregar marcas
     if use_database():
-        marcas_db = Marca.query.filter_by(ativo=True).order_by(Marca.ordem).all()
+        try:
+            marcas_db = Marca.query.filter_by(ativo=True).order_by(Marca.ordem).all()
+        except Exception as e:
+            print(f"Erro ao carregar marcas do banco: {e}")
+            marcas_db = []
         marcas = []
         for m in marcas_db:
             if m.imagem_id:
@@ -619,7 +637,11 @@ def index():
     
     # Carregar milestones
     if use_database():
-        milestones_db = Milestone.query.filter_by(ativo=True).order_by(Milestone.ordem).all()
+        try:
+            milestones_db = Milestone.query.filter_by(ativo=True).order_by(Milestone.ordem).all()
+        except Exception as e:
+            print(f"Erro ao carregar milestones do banco: {e}")
+            milestones_db = []
         milestones = []
         for m in milestones_db:
             if m.imagem_id:
@@ -645,7 +667,11 @@ def index():
     
     # Carregar serviços
     if use_database():
-        servicos_db = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
+        try:
+            servicos_db = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
+        except Exception as e:
+            print(f"Erro ao carregar serviços do banco: {e}")
+            servicos_db = []
         servicos = []
         for s in servicos_db:
             # Se tem imagem_id, usar rota do banco, senão usar caminho estático
@@ -842,7 +868,11 @@ def admin_login():
         # Verificar usuários no banco de dados ou JSON
         try:
             if use_database():
-                user = AdminUser.query.filter_by(username=username, ativo=True).first()
+                try:
+                    user = AdminUser.query.filter_by(username=username, ativo=True).first()
+                except Exception as db_err:
+                    print(f"Erro ao buscar usuário no banco: {db_err}")
+                    user = None
                 if user and user.password == password:
                     session['admin_logged_in'] = True
                     session['admin_username'] = username
@@ -926,11 +956,10 @@ def delete_contato(contato_id):
 def admin_servicos():
     if use_database():
         try:
-            with app.app_context():
-                servicos = Servico.query.order_by(Servico.ordem).all()
-                # Converter para formato compatível com template
-                servicos_list = []
-                for s in servicos:
+            servicos = Servico.query.order_by(Servico.ordem).all()
+            # Converter para formato compatível com template
+            servicos_list = []
+            for s in servicos:
                     # Determinar URL da imagem
                     if s.imagem_id:
                         imagem_url = f'/admin/servicos/imagem/{s.imagem_id}'
@@ -949,7 +978,7 @@ def admin_servicos():
                         'data': s.data.strftime('%Y-%m-%d %H:%M:%S') if s.data else ''
                     }
                     servicos_list.append(servico_dict)
-                return render_template('admin/servicos.html', servicos=servicos_list)
+            return render_template('admin/servicos.html', servicos=servicos_list)
         except Exception as e:
             print(f"Erro ao buscar serviços do banco: {e}")
             flash('Erro ao carregar serviços do banco. Usando arquivos JSON.', 'warning')
@@ -1139,9 +1168,8 @@ def add_servico_admin():
 def edit_servico(servico_id):
     if use_database():
         try:
-            with app.app_context():
-                servico = Servico.query.get(servico_id)
-                if not servico:
+            servico = Servico.query.get(servico_id)
+            if not servico:
                     flash('Serviço não encontrado!', 'error')
                     return redirect(url_for('admin_servicos'))
                 
@@ -2920,10 +2948,9 @@ def admin_slides():
     """Lista todos os slides cadastrados"""
     if use_database():
         try:
-            with app.app_context():
-                slides_db = Slide.query.order_by(Slide.ordem).all()
-                slides = []
-                for s in slides_db:
+            slides_db = Slide.query.order_by(Slide.ordem).all()
+            slides = []
+            for s in slides_db:
                     # Se tem imagem_id, usar rota do banco, senão usar caminho estático
                     if s.imagem_id:
                         imagem_url = f'/admin/slides/imagem/{s.imagem_id}'
@@ -3024,9 +3051,8 @@ def edit_slide(slide_id):
     """Edita um slide existente"""
     if use_database():
         try:
-            with app.app_context():
-                slide = Slide.query.get(slide_id)
-                if not slide:
+            slide = Slide.query.get(slide_id)
+            if not slide:
                     flash('Slide não encontrado!', 'error')
                     return redirect(url_for('admin_slides'))
                 
@@ -3107,11 +3133,10 @@ def delete_slide(slide_id):
     """Exclui um slide"""
     if use_database():
         try:
-            with app.app_context():
-                slide = Slide.query.get(slide_id)
-                if slide:
-                    db.session.delete(slide)
-                    db.session.commit()
+            slide = Slide.query.get(slide_id)
+            if slide:
+                db.session.delete(slide)
+                db.session.commit()
                     flash('Slide excluído com sucesso!', 'success')
                 else:
                     flash('Slide não encontrado!', 'error')
@@ -3175,10 +3200,9 @@ def admin_marcas():
     """Lista todas as marcas cadastradas"""
     if use_database():
         try:
-            with app.app_context():
-                marcas_db = Marca.query.order_by(Marca.ordem).all()
-                marcas = []
-                for m in marcas_db:
+            marcas_db = Marca.query.order_by(Marca.ordem).all()
+            marcas = []
+            for m in marcas_db:
                     if m.imagem_id:
                         imagem_url = f'/admin/marcas/imagem/{m.imagem_id}'
                     elif m.imagem:
@@ -3216,25 +3240,24 @@ def add_marca():
         
         if use_database():
             try:
-                with app.app_context():
-                    marca = Marca(
-                        nome=nome,
-                        ordem=int(ordem) if ordem.isdigit() else 1,
-                        ativo=ativo
-                    )
-                    
-                    if imagem_path_or_id.startswith('/admin/marcas/imagem/'):
-                        try:
-                            marca.imagem_id = int(imagem_path_or_id.split('/')[-1])
-                        except ValueError:
-                            marca.imagem = imagem_path_or_id
-                    else:
+                marca = Marca(
+                    nome=nome,
+                    ordem=int(ordem) if ordem.isdigit() else 1,
+                    ativo=ativo
+                )
+                
+                if imagem_path_or_id.startswith('/admin/marcas/imagem/'):
+                    try:
+                        marca.imagem_id = int(imagem_path_or_id.split('/')[-1])
+                    except ValueError:
                         marca.imagem = imagem_path_or_id
-                    
-                    db.session.add(marca)
-                    db.session.commit()
-                    flash('Marca cadastrada com sucesso!', 'success')
-                    return redirect(url_for('admin_marcas'))
+                else:
+                    marca.imagem = imagem_path_or_id
+                
+                db.session.add(marca)
+                db.session.commit()
+                flash('Marca cadastrada com sucesso!', 'success')
+                return redirect(url_for('admin_marcas'))
             except Exception as e:
                 print(f"Erro ao adicionar marca no banco: {e}")
                 flash('Erro ao adicionar marca. Tente novamente.', 'error')
@@ -3274,9 +3297,8 @@ def edit_marca(marca_id):
     """Edita uma marca existente"""
     if use_database():
         try:
-            with app.app_context():
-                marca = Marca.query.get(marca_id)
-                if not marca:
+            marca = Marca.query.get(marca_id)
+            if not marca:
                     flash('Marca não encontrada!', 'error')
                     return redirect(url_for('admin_marcas'))
                 
@@ -3353,11 +3375,10 @@ def delete_marca(marca_id):
     """Exclui uma marca"""
     if use_database():
         try:
-            with app.app_context():
-                marca = Marca.query.get(marca_id)
-                if marca:
-                    db.session.delete(marca)
-                    db.session.commit()
+            marca = Marca.query.get(marca_id)
+            if marca:
+                db.session.delete(marca)
+                db.session.commit()
                     flash('Marca excluída com sucesso!', 'success')
                 else:
                     flash('Marca não encontrada!', 'error')
