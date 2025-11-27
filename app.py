@@ -15,19 +15,27 @@ from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cup
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
 
-# Configuração do banco de dados
+# Configuração do banco de dados (opcional)
 database_url = os.environ.get('DATABASE_URL', '')
 if database_url:
-    # Render usa postgres:// mas SQLAlchemy precisa postgresql://
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    db.init_app(app)
-    
-    # Criar tabelas se não existirem
-    with app.app_context():
-        db.create_all()
+    try:
+        # Render usa postgres:// mas SQLAlchemy precisa postgresql://
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        db.init_app(app)
+        
+        # Criar tabelas se não existirem (apenas se conseguir conectar)
+        try:
+            with app.app_context():
+                db.create_all()
+        except Exception as e:
+            print(f"Aviso: Não foi possível conectar ao banco de dados: {e}")
+            print("O sistema continuará funcionando com arquivos JSON.")
+    except Exception as e:
+        print(f"Erro ao configurar banco de dados: {e}")
+        print("O sistema continuará funcionando com arquivos JSON.")
 
 # Credenciais de admin (em produção, use hash e variáveis de ambiente)
 ADMIN_USERNAME = 'admin'
@@ -78,7 +86,15 @@ def allowed_file(filename):
 
 def use_database():
     """Verifica se deve usar banco de dados"""
-    return bool(os.environ.get('DATABASE_URL'))
+    if not os.environ.get('DATABASE_URL'):
+        return False
+    try:
+        # Testar se consegue conectar
+        with app.app_context():
+            db.session.execute(db.text('SELECT 1'))
+        return True
+    except:
+        return False
 
 def get_proximo_numero_ordem():
     """Gera um número aleatório de 6 dígitos sem ser sequencial"""
