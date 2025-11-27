@@ -3469,9 +3469,9 @@ def delete_marca(marca_id):
             if marca:
                 db.session.delete(marca)
                 db.session.commit()
-                    flash('Marca excluída com sucesso!', 'success')
-                else:
-                    flash('Marca não encontrada!', 'error')
+                flash('Marca excluída com sucesso!', 'success')
+            else:
+                flash('Marca não encontrada!', 'error')
         except Exception as e:
             print(f"Erro ao excluir marca do banco: {e}")
             flash('Erro ao excluir marca. Tente novamente.', 'error')
