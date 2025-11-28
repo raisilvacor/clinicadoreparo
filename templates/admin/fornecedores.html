@@ -92,7 +92,14 @@
     <a href="{{ url_for('admin_fornecedores') }}" class="btn btn-secondary">Ver Todos os Fornecedores</a>
     {% else %}
     <p>Nenhum fornecedor cadastrado</p>
-    <a href="{{ url_for('add_fornecedor') }}" class="btn btn-primary">Adicionar Primeiro Fornecedor</a>
+    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <a href="{{ url_for('add_fornecedor') }}" class="btn btn-primary">Adicionar Primeiro Fornecedor</a>
+        <form method="POST" action="{{ url_for('create_fornecedores_table') }}" style="display: inline;">
+            <button type="submit" class="btn btn-secondary" onclick="return confirm('Isso criará a tabela de fornecedores no banco de dados. Continuar?');">
+                <i class="fas fa-database"></i> Criar Tabela no Banco
+            </button>
+        </form>
+    </div>
     {% endif %}
 </div>
 {% endif %}

@@ -72,7 +72,10 @@ if database_url:
         try:
             with app.app_context():
                 # Forçar criação do engine e tabelas
+                # Importar explicitamente todos os modelos para garantir que sejam registrados
+                from models import Fornecedor  # Garantir que Fornecedor está importado
                 db.create_all()
+                print("DEBUG: ✅ Tabelas criadas/verificadas no banco de dados")
                 # Testar conexão (mas não falhar se der erro temporário)
                 try:
                     # Garantir que o engine está criado
@@ -92,6 +95,8 @@ if database_url:
                     DB_AVAILABLE = False
         except Exception as e:
             print(f"DEBUG: ⚠️ Erro ao inicializar banco de dados: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             print("DEBUG: O sistema tentará usar o banco quando necessário.")
             DB_AVAILABLE = False
     except Exception as e:
@@ -4982,8 +4987,21 @@ def add_fornecedor():
                     pass
                 # Tentar criar a tabela se não existir
                 try:
+                    # Garantir que Fornecedor está importado
+                    from models import Fornecedor
+                    # Criar todas as tabelas, incluindo fornecedores
                     with app.app_context():
                         db.create_all()
+                        # Verificar se a tabela foi criada tentando uma query simples
+                        try:
+                            Fornecedor.query.limit(1).all()
+                            print("DEBUG: ✅ Tabela fornecedores existe")
+                        except Exception as table_check:
+                            print(f"DEBUG: ⚠️ Tabela fornecedores não existe ainda: {table_check}")
+                            # Tentar criar especificamente a tabela de fornecedores
+                            Fornecedor.__table__.create(db.engine, checkfirst=True)
+                            print("DEBUG: ✅ Tabela fornecedores criada")
+                    
                     # Tentar novamente
                     fornecedor = Fornecedor(
                         nome=nome,
@@ -5007,7 +5025,7 @@ def add_fornecedor():
                     error_msg = str(e2)
                     # Mensagem mais amigável
                     if 'relation' in error_msg.lower() and 'does not exist' in error_msg.lower():
-                        flash('A tabela de fornecedores não existe. Execute db.create_all() no banco de dados.', 'error')
+                        flash('A tabela de fornecedores não existe. A aplicação tentará criá-la automaticamente na próxima inicialização.', 'error')
                     elif 'duplicate key' in error_msg.lower() or 'unique constraint' in error_msg.lower():
                         flash('Já existe um fornecedor com esses dados. Verifique os campos únicos.', 'error')
                     else:
@@ -5082,6 +5100,29 @@ def delete_fornecedor(fornecedor_id):
         except Exception as e:
             print(f"Erro ao deletar fornecedor: {e}")
             flash('Erro ao excluir fornecedor.', 'error')
+    
+    return redirect(url_for('admin_fornecedores'))
+
+@app.route('/admin/fornecedores/create-table', methods=['POST'])
+@login_required
+def create_fornecedores_table():
+    """Cria a tabela de fornecedores manualmente"""
+    if use_database():
+        try:
+            from models import Fornecedor
+            with app.app_context():
+                # Criar todas as tabelas
+                db.create_all()
+                # Criar especificamente a tabela de fornecedores se não existir
+                Fornecedor.__table__.create(db.engine, checkfirst=True)
+            flash('Tabela de fornecedores criada com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao criar tabela de fornecedores: {e}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Erro ao criar tabela: {str(e)[:150]}', 'error')
+    else:
+        flash('Banco de dados não disponível.', 'error')
     
     return redirect(url_for('admin_fornecedores'))
 
