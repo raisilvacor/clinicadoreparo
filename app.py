@@ -4339,15 +4339,37 @@ def inject_footer():
 @app.context_processor
 def inject_servicos():
     """Injeta serviços ativos em todos os templates"""
-    init_data_file()
-    try:
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            services_data = json.load(f)
-        servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
-        servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
-        return {'servicos_footer': servicos}
-    except:
-        return {'servicos_footer': []}
+    servicos = []
+    
+    # Tentar carregar do banco de dados primeiro
+    if use_database():
+        try:
+            servicos_db = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
+            for s in servicos_db:
+                servicos.append({
+                    'id': s.id,
+                    'nome': s.nome,
+                    'descricao': s.descricao,
+                    'imagem': f'/admin/servicos/imagem/{s.imagem_id}' if s.imagem_id else (s.imagem or 'img/placeholder.png'),
+                    'ordem': s.ordem,
+                    'ativo': s.ativo
+                })
+        except Exception as e:
+            print(f"Erro ao carregar serviços do banco em inject_servicos: {e}")
+            servicos = []
+    
+    # Fallback para JSON se não encontrou no banco
+    if not servicos:
+        init_data_file()
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                services_data = json.load(f)
+            servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
+            servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
+        except:
+            servicos = []
+    
+    return {'servicos_footer': servicos}
 
 @app.template_filter('get_status_label')
 def get_status_label(status):
