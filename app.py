@@ -758,22 +758,71 @@ def rastrear():
         ordem_encontrada = None
         cliente_encontrado = None
         
-        try:
-            with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            # Buscar em todos os clientes
-            for cliente in data.get('clients', []):
-                for ordem in cliente.get('ordens', []):
-                    if str(ordem.get('numero_ordem', '')) == str(codigo):
-                        ordem_encontrada = ordem
-                        cliente_encontrado = cliente
+        ordem_encontrada = None
+        cliente_encontrado = None
+        
+        # Buscar no banco de dados se disponível
+        if use_database():
+            try:
+                # Buscar ordem pelo número
+                ordem_db = OrdemServico.query.filter_by(numero_ordem=str(codigo)).first()
+                if ordem_db:
+                    cliente_db = Cliente.query.get(ordem_db.cliente_id)
+                    if cliente_db:
+                        # Converter ordem do banco para formato esperado pelo template
+                        ordem_encontrada = {
+                            'id': ordem_db.id,
+                            'numero_ordem': ordem_db.numero_ordem,
+                            'servico': ordem_db.servico,
+                            'tipo_aparelho': ordem_db.tipo_aparelho,
+                            'marca': ordem_db.marca,
+                            'modelo': ordem_db.modelo,
+                            'numero_serie': ordem_db.numero_serie,
+                            'defeitos_cliente': ordem_db.defeitos_cliente,
+                            'diagnostico_tecnico': ordem_db.diagnostico_tecnico,
+                            'pecas': ordem_db.pecas or [],
+                            'custo_pecas': float(ordem_db.custo_pecas) if ordem_db.custo_pecas else 0.00,
+                            'custo_mao_obra': float(ordem_db.custo_mao_obra) if ordem_db.custo_mao_obra else 0.00,
+                            'subtotal': float(ordem_db.subtotal) if ordem_db.subtotal else 0.00,
+                            'desconto_percentual': float(ordem_db.desconto_percentual) if ordem_db.desconto_percentual else 0.00,
+                            'valor_desconto': float(ordem_db.valor_desconto) if ordem_db.valor_desconto else 0.00,
+                            'total': float(ordem_db.total) if ordem_db.total else 0.00,
+                            'status': ordem_db.status,
+                            'prazo_estimado': ordem_db.prazo_estimado,
+                            'tecnico_id': ordem_db.tecnico_id,
+                            'data': ordem_db.data.strftime('%Y-%m-%d %H:%M:%S') if ordem_db.data else ''
+                        }
+                        cliente_encontrado = {
+                            'id': cliente_db.id,
+                            'nome': cliente_db.nome,
+                            'email': cliente_db.email,
+                            'telefone': cliente_db.telefone,
+                            'cpf': cliente_db.cpf,
+                            'endereco': cliente_db.endereco
+                        }
+            except Exception as e:
+                print(f"Erro ao buscar ordem no banco: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Fallback para JSON se não encontrou no banco
+        if not ordem_encontrada:
+            try:
+                with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Buscar em todos os clientes
+                for cliente in data.get('clients', []):
+                    for ordem in cliente.get('ordens', []):
+                        if str(ordem.get('numero_ordem', '')) == str(codigo):
+                            ordem_encontrada = ordem
+                            cliente_encontrado = cliente
+                            break
+                    if ordem_encontrada:
                         break
-                if ordem_encontrada:
-                    break
-        except Exception as e:
-            flash('Erro ao buscar ordem de serviço.', 'error')
-            return render_template('rastrear.html')
+            except Exception as e:
+                flash('Erro ao buscar ordem de serviço.', 'error')
+                return render_template('rastrear.html')
         
         if not ordem_encontrada:
             flash('Ordem de serviço não encontrada. Verifique o código informado.', 'error')
@@ -784,11 +833,22 @@ def rastrear():
         tecnico_id = ordem_encontrada.get('tecnico_id')
         if tecnico_id:
             try:
-                init_tecnicos_file()
-                with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
-                    tecnicos_data = json.load(f)
-                
-                tecnico_encontrado = next((t for t in tecnicos_data.get('tecnicos', []) if t.get('id') == tecnico_id), None)
+                if use_database():
+                    tecnico_db = Tecnico.query.get(tecnico_id)
+                    if tecnico_db:
+                        tecnico_encontrado = {
+                            'id': tecnico_db.id,
+                            'nome': tecnico_db.nome,
+                            'especialidade': tecnico_db.especialidade,
+                            'telefone': tecnico_db.telefone,
+                            'email': tecnico_db.email
+                        }
+                else:
+                    init_tecnicos_file()
+                    with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
+                        tecnicos_data = json.load(f)
+                    
+                    tecnico_encontrado = next((t for t in tecnicos_data.get('tecnicos', []) if t.get('id') == tecnico_id), None)
             except Exception as e:
                 print(f"Erro ao buscar técnico: {str(e)}")
         
