@@ -13,6 +13,29 @@
     </a>
 </div>
 
+<div class="admin-section" style="margin-bottom: 2rem;">
+    <form method="GET" action="{{ url_for('admin_fornecedores') }}" style="display: flex; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <label for="busca">
+                <i class="fas fa-search"></i>
+                Pesquisar Fornecedores
+            </label>
+            <input type="text" id="busca" name="busca" value="{{ request.args.get('busca', '') }}" placeholder="Digite o nome ou tipo de serviço...">
+            <small class="form-help">Pesquise por nome do fornecedor ou tipo de serviço</small>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+            {% if request.args.get('busca') %}
+            <a href="{{ url_for('admin_fornecedores') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Limpar
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
 {% if fornecedores %}
 <div class="table-responsive">
     <table class="admin-table">
@@ -64,8 +87,13 @@
 {% else %}
 <div class="empty-state">
     <i class="fas fa-truck"></i>
+    {% if request.args.get('busca') %}
+    <p>Nenhum fornecedor encontrado para "{{ request.args.get('busca') }}"</p>
+    <a href="{{ url_for('admin_fornecedores') }}" class="btn btn-secondary">Ver Todos os Fornecedores</a>
+    {% else %}
     <p>Nenhum fornecedor cadastrado</p>
     <a href="{{ url_for('add_fornecedor') }}" class="btn btn-primary">Adicionar Primeiro Fornecedor</a>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

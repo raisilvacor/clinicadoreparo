@@ -4894,9 +4894,25 @@ def servir_imagem_milestone(image_id):
 @login_required
 def admin_fornecedores():
     """Lista todos os fornecedores cadastrados"""
+    busca = request.args.get('busca', '').strip()
+    
     if use_database():
         try:
-            fornecedores_db = Fornecedor.query.order_by(Fornecedor.nome).all()
+            query = Fornecedor.query
+            
+            # Aplicar filtro de busca se fornecido
+            if busca:
+                # Busca case-insensitive por nome ou tipo_servico
+                from sqlalchemy import or_
+                busca_pattern = f'%{busca}%'
+                query = query.filter(
+                    or_(
+                        Fornecedor.nome.ilike(busca_pattern),
+                        Fornecedor.tipo_servico.ilike(busca_pattern)
+                    )
+                )
+            
+            fornecedores_db = query.order_by(Fornecedor.nome).all()
             fornecedores = []
             for f in fornecedores_db:
                 fornecedores.append({
