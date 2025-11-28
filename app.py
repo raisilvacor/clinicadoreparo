@@ -5025,7 +5025,65 @@ def add_fornecedor():
                     error_msg = str(e2)
                     # Mensagem mais amigável
                     if 'relation' in error_msg.lower() and 'does not exist' in error_msg.lower():
-                        flash('A tabela de fornecedores não existe. A aplicação tentará criá-la automaticamente na próxima inicialização.', 'error')
+                        # Tentar criar a tabela agora mesmo
+                        try:
+                            from models import Fornecedor
+                            print("DEBUG: Tentando criar tabela fornecedores...")
+                            with app.app_context():
+                                # Primeiro, garantir que todas as tabelas estão criadas
+                                db.create_all()
+                                # Depois, criar especificamente a tabela de fornecedores
+                                try:
+                                    Fornecedor.__table__.create(db.engine, checkfirst=True)
+                                    print("DEBUG: ✅ Tabela fornecedores criada com sucesso!")
+                                except Exception as create_error:
+                                    print(f"DEBUG: Erro ao criar tabela: {create_error}")
+                                    # Tentar criar usando SQL direto se necessário
+                                    try:
+                                        from sqlalchemy import text
+                                        with db.engine.begin() as conn:
+                                            # Criar tabela manualmente se necessário
+                                            conn.execute(text("""
+                                                CREATE TABLE IF NOT EXISTS fornecedores (
+                                                    id SERIAL PRIMARY KEY,
+                                                    nome VARCHAR(200) NOT NULL,
+                                                    contato VARCHAR(200),
+                                                    telefone VARCHAR(20),
+                                                    email VARCHAR(200),
+                                                    endereco TEXT,
+                                                    cnpj VARCHAR(18),
+                                                    tipo_servico VARCHAR(200),
+                                                    observacoes TEXT,
+                                                    ativo BOOLEAN DEFAULT TRUE,
+                                                    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                                )
+                                            """))
+                                        print("DEBUG: ✅ Tabela fornecedores criada via SQL direto!")
+                                    except Exception as sql_error:
+                                        print(f"DEBUG: Erro ao criar tabela via SQL: {sql_error}")
+                                        raise
+                            
+                            # Tentar adicionar o fornecedor novamente
+                            fornecedor = Fornecedor(
+                                nome=nome,
+                                contato=contato if contato else None,
+                                telefone=telefone if telefone else None,
+                                email=email if email else None,
+                                endereco=endereco if endereco else None,
+                                cnpj=cnpj if cnpj else None,
+                                tipo_servico=tipo_servico if tipo_servico else None,
+                                observacoes=observacoes if observacoes else None,
+                                ativo=ativo
+                            )
+                            db.session.add(fornecedor)
+                            db.session.commit()
+                            flash('Tabela criada e fornecedor cadastrado com sucesso!', 'success')
+                            return redirect(url_for('admin_fornecedores'))
+                        except Exception as e3:
+                            print(f"Erro ao criar tabela e adicionar fornecedor: {e3}")
+                            import traceback
+                            traceback.print_exc()
+                            flash('Erro ao criar tabela automaticamente. Por favor, use o botão "Criar Tabela no Banco" na página de fornecedores e tente novamente.', 'error')
                     elif 'duplicate key' in error_msg.lower() or 'unique constraint' in error_msg.lower():
                         flash('Já existe um fornecedor com esses dados. Verifique os campos únicos.', 'error')
                     else:
@@ -5110,11 +5168,40 @@ def create_fornecedores_table():
     if use_database():
         try:
             from models import Fornecedor
+            from sqlalchemy import text
+            
             with app.app_context():
-                # Criar todas as tabelas
-                db.create_all()
-                # Criar especificamente a tabela de fornecedores se não existir
-                Fornecedor.__table__.create(db.engine, checkfirst=True)
+                # Primeiro, tentar criar todas as tabelas
+                try:
+                    db.create_all()
+                    # Criar especificamente a tabela de fornecedores se não existir
+                    Fornecedor.__table__.create(db.engine, checkfirst=True)
+                    print("DEBUG: ✅ Tabela fornecedores criada via SQLAlchemy")
+                except Exception as create_error:
+                    print(f"DEBUG: Erro ao criar via SQLAlchemy: {create_error}")
+                    # Fallback: criar usando SQL direto
+                    try:
+                        with db.engine.begin() as conn:
+                            conn.execute(text("""
+                                CREATE TABLE IF NOT EXISTS fornecedores (
+                                    id SERIAL PRIMARY KEY,
+                                    nome VARCHAR(200) NOT NULL,
+                                    contato VARCHAR(200),
+                                    telefone VARCHAR(20),
+                                    email VARCHAR(200),
+                                    endereco TEXT,
+                                    cnpj VARCHAR(18),
+                                    tipo_servico VARCHAR(200),
+                                    observacoes TEXT,
+                                    ativo BOOLEAN DEFAULT TRUE,
+                                    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                )
+                            """))
+                        print("DEBUG: ✅ Tabela fornecedores criada via SQL direto")
+                    except Exception as sql_error:
+                        print(f"DEBUG: Erro ao criar via SQL direto: {sql_error}")
+                        raise
+            
             flash('Tabela de fornecedores criada com sucesso!', 'success')
         except Exception as e:
             print(f"Erro ao criar tabela de fornecedores: {e}")
