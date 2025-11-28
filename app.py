@@ -4299,13 +4299,42 @@ def delete_usuario_admin(usuario_id):
 @app.context_processor
 def inject_footer():
     """Injeta dados do rodapé em todos os templates"""
-    init_footer_file()
-    try:
-        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-            footer_data = json.load(f)
-        return {'footer': footer_data}
-    except:
-        return {'footer': None}
+    footer_data = None
+    
+    # Tentar carregar do banco de dados primeiro
+    if use_database():
+        try:
+            footer_obj = Footer.query.first()
+            if footer_obj:
+                footer_data = {
+                    'descricao': footer_obj.descricao or '',
+                    'redes_sociais': footer_obj.redes_sociais or {
+                        'facebook': '',
+                        'instagram': '',
+                        'whatsapp': ''
+                    },
+                    'contato': footer_obj.contato or {
+                        'telefone': '',
+                        'email': '',
+                        'endereco': ''
+                    },
+                    'copyright': footer_obj.copyright or '',
+                    'whatsapp_float': footer_obj.whatsapp_float or ''
+                }
+        except Exception as e:
+            print(f"Erro ao carregar footer do banco em inject_footer: {e}")
+            footer_data = None
+    
+    # Fallback para JSON se não encontrou no banco
+    if footer_data is None:
+        init_footer_file()
+        try:
+            with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+                footer_data = json.load(f)
+        except:
+            footer_data = None
+    
+    return {'footer': footer_data}
 
 @app.context_processor
 def inject_servicos():
