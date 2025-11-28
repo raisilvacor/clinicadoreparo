@@ -4512,7 +4512,7 @@ def admin_blog():
     
     return render_template('admin/blog.html', artigos=artigos)
 
-@app.route('/admin/blog/add', methods=['GET', 'POST'])
+@app.route('/admin/blog/add', methods=['GET', 'POST'], endpoint='add_artigo')
 @login_required
 def add_artigo():
     """Adicionar novo artigo"""
