@@ -11,7 +11,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -4888,6 +4888,145 @@ def servir_imagem_milestone(image_id):
             print(f"Erro ao buscar imagem de milestone: {e}")
     
     return redirect(url_for('static', filename='img/placeholder.png'))
+
+# ==================== FORNECEDORES ====================
+@app.route('/admin/fornecedores')
+@login_required
+def admin_fornecedores():
+    """Lista todos os fornecedores cadastrados"""
+    if use_database():
+        try:
+            fornecedores_db = Fornecedor.query.order_by(Fornecedor.nome).all()
+            fornecedores = []
+            for f in fornecedores_db:
+                fornecedores.append({
+                    'id': f.id,
+                    'nome': f.nome,
+                    'contato': f.contato or '',
+                    'telefone': f.telefone or '',
+                    'email': f.email or '',
+                    'endereco': f.endereco or '',
+                    'cnpj': f.cnpj or '',
+                    'observacoes': f.observacoes or '',
+                    'ativo': f.ativo,
+                    'data_cadastro': f.data_cadastro.strftime('%d/%m/%Y') if f.data_cadastro else ''
+                })
+        except Exception as e:
+            print(f"Erro ao buscar fornecedores do banco: {e}")
+            fornecedores = []
+    else:
+        fornecedores = []
+    
+    return render_template('admin/fornecedores.html', fornecedores=fornecedores)
+
+@app.route('/admin/fornecedores/add', methods=['GET', 'POST'])
+@login_required
+def add_fornecedor():
+    """Adiciona um novo fornecedor"""
+    if request.method == 'POST':
+        nome = request.form.get('nome', '').strip()
+        contato = request.form.get('contato', '').strip()
+        telefone = request.form.get('telefone', '').strip()
+        email = request.form.get('email', '').strip()
+        endereco = request.form.get('endereco', '').strip()
+        cnpj = request.form.get('cnpj', '').strip()
+        observacoes = request.form.get('observacoes', '').strip()
+        ativo = request.form.get('ativo') == 'on'
+        
+        if not nome:
+            flash('Nome é obrigatório!', 'error')
+            return redirect(url_for('add_fornecedor'))
+        
+        if use_database():
+            try:
+                fornecedor = Fornecedor(
+                    nome=nome,
+                    contato=contato if contato else None,
+                    telefone=telefone if telefone else None,
+                    email=email if email else None,
+                    endereco=endereco if endereco else None,
+                    cnpj=cnpj if cnpj else None,
+                    observacoes=observacoes if observacoes else None,
+                    ativo=ativo
+                )
+                db.session.add(fornecedor)
+                db.session.commit()
+                flash('Fornecedor cadastrado com sucesso!', 'success')
+                return redirect(url_for('admin_fornecedores'))
+            except Exception as e:
+                print(f"Erro ao adicionar fornecedor no banco: {e}")
+                flash('Erro ao adicionar fornecedor. Tente novamente.', 'error')
+                return redirect(url_for('add_fornecedor'))
+        else:
+            flash('Banco de dados não disponível.', 'error')
+            return redirect(url_for('add_fornecedor'))
+    
+    return render_template('admin/add_fornecedor.html')
+
+@app.route('/admin/fornecedores/<int:fornecedor_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_fornecedor(fornecedor_id):
+    """Edita um fornecedor existente"""
+    if use_database():
+        try:
+            fornecedor = Fornecedor.query.get(fornecedor_id)
+            if not fornecedor:
+                flash('Fornecedor não encontrado!', 'error')
+                return redirect(url_for('admin_fornecedores'))
+            
+            if request.method == 'POST':
+                fornecedor.nome = request.form.get('nome', '').strip()
+                fornecedor.contato = request.form.get('contato', '').strip() or None
+                fornecedor.telefone = request.form.get('telefone', '').strip() or None
+                fornecedor.email = request.form.get('email', '').strip() or None
+                fornecedor.endereco = request.form.get('endereco', '').strip() or None
+                fornecedor.cnpj = request.form.get('cnpj', '').strip() or None
+                fornecedor.observacoes = request.form.get('observacoes', '').strip() or None
+                fornecedor.ativo = request.form.get('ativo') == 'on'
+                
+                db.session.commit()
+                flash('Fornecedor atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_fornecedores'))
+            
+            fornecedor_dict = {
+                'id': fornecedor.id,
+                'nome': fornecedor.nome,
+                'contato': fornecedor.contato or '',
+                'telefone': fornecedor.telefone or '',
+                'email': fornecedor.email or '',
+                'endereco': fornecedor.endereco or '',
+                'cnpj': fornecedor.cnpj or '',
+                'observacoes': fornecedor.observacoes or '',
+                'ativo': fornecedor.ativo,
+                'data_cadastro': fornecedor.data_cadastro.strftime('%d/%m/%Y') if fornecedor.data_cadastro else ''
+            }
+            return render_template('admin/edit_fornecedor.html', fornecedor=fornecedor_dict)
+        except Exception as e:
+            print(f"Erro ao editar fornecedor no banco: {e}")
+            flash('Erro ao editar fornecedor.', 'error')
+            return redirect(url_for('admin_fornecedores'))
+    
+    flash('Banco de dados não disponível.', 'error')
+    return redirect(url_for('admin_fornecedores'))
+
+@app.route('/admin/fornecedores/<int:fornecedor_id>/delete', methods=['POST'])
+@login_required
+def delete_fornecedor(fornecedor_id):
+    """Deleta um fornecedor"""
+    if use_database():
+        try:
+            fornecedor = Fornecedor.query.get(fornecedor_id)
+            if fornecedor:
+                db.session.delete(fornecedor)
+                db.session.commit()
+                flash('Fornecedor excluído com sucesso!', 'success')
+            else:
+                flash('Fornecedor não encontrado!', 'error')
+        except Exception as e:
+            print(f"Erro ao deletar fornecedor: {e}")
+            flash('Erro ao excluir fornecedor.', 'error')
+    
+    return redirect(url_for('admin_fornecedores'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

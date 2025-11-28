@@ -241,3 +241,17 @@ class Contato(db.Model):
     mensagem = db.Column(db.Text)
     data = db.Column(db.DateTime, default=datetime.now)
 
+# ==================== FORNECEDORES ====================
+class Fornecedor(db.Model):
+    __tablename__ = 'fornecedores'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    contato = db.Column(db.String(200))  # Nome do contato
+    telefone = db.Column(db.String(20))
+    email = db.Column(db.String(200))
+    endereco = db.Column(db.Text)
+    cnpj = db.Column(db.String(18))
+    observacoes = db.Column(db.Text)
+    ativo = db.Column(db.Boolean, default=True)
+    data_cadastro = db.Column(db.DateTime, default=datetime.now)
+

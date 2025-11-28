@@ -1,0 +1,72 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Fornecedores - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-truck"></i> Gerenciar Fornecedores</h1>
+        <p>Gerencie os fornecedores cadastrados</p>
+    </div>
+    <a href="{{ url_for('add_fornecedor') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Fornecedor
+    </a>
+</div>
+
+{% if fornecedores %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Contato</th>
+                <th>Telefone</th>
+                <th>E-mail</th>
+                <th>CNPJ</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fornecedor in fornecedores %}
+            <tr>
+                <td>{{ fornecedor.id }}</td>
+                <td><strong>{{ fornecedor.nome }}</strong></td>
+                <td>{{ fornecedor.contato or '-' }}</td>
+                <td>{{ fornecedor.telefone or '-' }}</td>
+                <td>{{ fornecedor.email or '-' }}</td>
+                <td>{{ fornecedor.cnpj or '-' }}</td>
+                <td>
+                    {% if fornecedor.ativo %}
+                    <span class="badge badge-success">Ativo</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Inativo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('edit_fornecedor', fornecedor_id=fornecedor.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_fornecedor', fornecedor_id=fornecedor.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este fornecedor?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-truck"></i>
+    <p>Nenhum fornecedor cadastrado</p>
+    <a href="{{ url_for('add_fornecedor') }}" class="btn btn-primary">Adicionar Primeiro Fornecedor</a>
+</div>
+{% endif %}
+{% endblock %}
+
