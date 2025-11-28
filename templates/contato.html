@@ -107,13 +107,9 @@
                         </label>
                         <select id="servico" name="servico" required>
                             <option value="">Selecione um serviço</option>
-                            <option value="celular">Reparo de Celular</option>
-                            <option value="geladeira">Geladeira/Freezer</option>
-                            <option value="lavadora">Máquina de Lavar</option>
-                            <option value="microondas">Micro-ondas</option>
-                            <option value="fogao">Fogão/Cooktop</option>
-                            <option value="ar-condicionado">Ar Condicionado</option>
-                            <option value="outro">Outro</option>
+                            {% for tipo in tipos_servico %}
+                            <option value="{{ tipo }}">{{ tipo }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="form-group">

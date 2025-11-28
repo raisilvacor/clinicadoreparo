@@ -30,8 +30,8 @@
             </label>
             <select id="servico" name="servico" required>
                 <option value="">Selecione um serviço</option>
-                {% for servico in servicos %}
-                <option value="{{ servico.nome }}">{{ servico.nome }}</option>
+                {% for tipo in tipos_servico %}
+                <option value="{{ tipo }}">{{ tipo }}</option>
                 {% endfor %}
             </select>
         </div>

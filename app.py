@@ -123,6 +123,19 @@ AGENDAMENTOS_FILE = 'data/agendamentos.json'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
+# Lista fixa de tipos de serviço
+TIPOS_SERVICO = [
+    'Conserto de Celulares',
+    'Conserto de Notebook',
+    'Conserto de Computador',
+    'Conserto de Video Game',
+    'Conserto de Televisor',
+    'Conserto de Microondas',
+    'Conserto de Maquina de Lavar',
+    'Conserto de Aparelhos de Som',
+    'Outros Aparelhos Eletronicos'
+]
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -4370,6 +4383,11 @@ def inject_servicos():
             servicos = []
     
     return {'servicos_footer': servicos}
+
+@app.context_processor
+def inject_tipos_servico():
+    """Injeta lista fixa de tipos de serviço em todos os templates"""
+    return {'tipos_servico': TIPOS_SERVICO}
 
 @app.template_filter('get_status_label')
 def get_status_label(status):

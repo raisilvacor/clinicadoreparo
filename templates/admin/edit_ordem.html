@@ -24,8 +24,8 @@
             </label>
             <select id="servico" name="servico" required>
                 <option value="">Selecione um serviço</option>
-                {% for servico in servicos %}
-                <option value="{{ servico.nome }}" {% if ordem.servico == servico.nome %}selected{% endif %}>{{ servico.nome }}</option>
+                {% for tipo in tipos_servico %}
+                <option value="{{ tipo }}" {% if ordem.servico == tipo %}selected{% endif %}>{{ tipo }}</option>
                 {% endfor %}
             </select>
         </div>
