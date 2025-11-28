@@ -3069,8 +3069,7 @@ def edit_comprovante(comprovante_id):
             comprovante['pdf_id'] = pdf_result.get('pdf_id')
         else:
             # Fallback para compatibilidade
-            comprovante['pdf_filename'] = pdf_result
-        comprovante['pdf_filename'] = pdf_filename
+            comprovante['pdf_filename'] = str(pdf_result) if pdf_result else ''
         
         # Salvar alterações
         with open(COMPROVANTES_FILE, 'w', encoding='utf-8') as f:
@@ -3099,13 +3098,7 @@ def delete_comprovante(comprovante_id):
     
     comprovante = next((c for c in data['comprovantes'] if c.get('id') == comprovante_id), None)
     if comprovante:
-        # Deletar PDF
-        if comprovante.get('pdf_filename'):
-            pdf_path = os.path.join(PDFS_DIR, comprovante['pdf_filename'])
-            if os.path.exists(pdf_path):
-                os.remove(pdf_path)
-        
-        # Remover comprovante
+        # Remover comprovante (PDF já está no banco de dados, não precisa deletar do filesystem)
         data['comprovantes'] = [c for c in data['comprovantes'] if c.get('id') != comprovante_id]
         
         with open(COMPROVANTES_FILE, 'w', encoding='utf-8') as f:

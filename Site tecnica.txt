@@ -3,3 +3,7 @@ python app.py
 milestone1.jpg
 milestone2.jpg
 milestone3.jpg
+
+git add -A
+git commit -m "Fix: rastrear ordem agora busca no banco de dados quando disponivel"
+git push origin main
