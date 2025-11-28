@@ -76,9 +76,7 @@ if database_url:
                 from models import Fornecedor  # Garantir que Fornecedor está importado
                 db.create_all()
                 print("DEBUG: ✅ Tabelas criadas/verificadas no banco de dados")
-                
-                # Garantir especificamente que a tabela de fornecedores existe
-                garantir_tabela_fornecedores()
+                # Nota: garantir_tabela_fornecedores() será chamada automaticamente quando necessário
                 # Testar conexão (mas não falhar se der erro temporário)
                 try:
                     # Garantir que o engine está criado
@@ -148,6 +146,28 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ==================== FUNÇÕES AUXILIARES ====================
+
+def use_database():
+    """Verifica se deve usar banco de dados - configuração direta com Render"""
+    global DB_AVAILABLE
+    
+    # Se a flag indica que o banco não está disponível, retornar False imediatamente
+    if not DB_AVAILABLE:
+        return False
+    
+    # Verificar se DATABASE_URL existe nas variáveis de ambiente
+    database_url = os.environ.get('DATABASE_URL', '')
+    if not database_url:
+        return False
+    
+    # Verificar se o banco foi configurado no app
+    try:
+        if hasattr(app, 'config') and app.config.get('SQLALCHEMY_DATABASE_URI'):
+            return True
+    except:
+        pass
+    
+    return False
 
 def garantir_tabela_fornecedores():
     """Garante que a tabela de fornecedores existe no banco de dados - SOLUÇÃO DEFINITIVA"""
@@ -245,25 +265,6 @@ def garantir_tabela_fornecedores():
         traceback.print_exc()
         return False
 
-def use_database():
-    """Verifica se deve usar banco de dados - configuração direta com Render"""
-    global DB_AVAILABLE
-    
-    # Se a flag indica que o banco não está disponível, retornar False imediatamente
-    if not DB_AVAILABLE:
-        return False
-    
-    # Verificar se DATABASE_URL existe nas variáveis de ambiente
-    database_url = os.environ.get('DATABASE_URL', '')
-    if not database_url:
-        return False
-    
-    # Verificar se o banco foi configurado no app
-    if not app.config.get('SQLALCHEMY_DATABASE_URI'):
-        return False
-    
-    # Se chegou aqui, o banco está disponível
-    return True
 
 def get_proximo_numero_ordem():
     """Gera um número aleatório de 6 dígitos sem ser sequencial"""
