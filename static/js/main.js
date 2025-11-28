@@ -157,7 +157,7 @@ document.head.appendChild(style);
         if (slideImages.length === 0) return;
         
         const sliderWidth = heroSlider.offsetWidth;
-        let maxHeight = 300; // altura mínima
+        let maxHeight = window.innerWidth <= 768 ? 250 : 300; // altura mínima (menor no mobile)
         
         // Carregar todas as imagens para obter suas dimensões
         const imagePromises = Array.from(slideImages).map(function(imgElement) {
@@ -168,44 +168,70 @@ document.head.appendChild(style);
                     return;
                 }
                 
-                // Aplicar background-image
-                imgElement.style.backgroundImage = "url('" + bgImage + "')";
+                // Verificar se há tag img dentro
+                const imgTag = imgElement.querySelector('img');
+                const imageSrc = imgTag ? imgTag.src : bgImage;
                 
                 // Criar imagem temporária para obter dimensões
                 const img = new Image();
                 img.onload = function() {
                     const naturalWidth = this.naturalWidth;
                     const naturalHeight = this.naturalHeight;
-                    const aspectRatio = naturalHeight / naturalWidth;
-                    const calculatedHeight = sliderWidth * aspectRatio;
-                    
-                    if (calculatedHeight > maxHeight) {
-                        maxHeight = calculatedHeight;
+                    if (naturalWidth > 0 && naturalHeight > 0) {
+                        const aspectRatio = naturalHeight / naturalWidth;
+                        const calculatedHeight = sliderWidth * aspectRatio;
+                        
+                        if (calculatedHeight > maxHeight) {
+                            maxHeight = calculatedHeight;
+                        }
                     }
                     resolve(maxHeight);
                 };
                 img.onerror = function() {
-                    resolve(null);
+                    // Se falhar, usar altura mínima
+                    resolve(maxHeight);
                 };
-                img.src = bgImage;
+                img.src = imageSrc;
             });
         });
         
         // Quando todas as imagens carregarem, ajustar altura
         Promise.all(imagePromises).then(function() {
-            if (maxHeight > 300) {
+            if (maxHeight > (window.innerWidth <= 768 ? 250 : 300)) {
                 heroSlider.style.height = maxHeight + 'px';
+            } else {
+                heroSlider.style.height = (window.innerWidth <= 768 ? 250 : 300) + 'px';
             }
+        }).catch(function() {
+            // Em caso de erro, usar altura mínima
+            heroSlider.style.height = (window.innerWidth <= 768 ? 250 : 300) + 'px';
         });
     }
     
-    // Aplicar background-image usando atributos data
-    document.querySelectorAll('.slide-image[data-bg-image]').forEach(function(img) {
-        const bgImage = img.getAttribute('data-bg-image');
-        if (bgImage) {
-            img.style.backgroundImage = "url('" + bgImage + "')";
-        }
-    });
+    // Aplicar background-image usando atributos data IMEDIATAMENTE
+    // Isso garante que as imagens apareçam mesmo antes do JavaScript completo carregar
+    (function applyBackgroundImages() {
+        const slideImages = document.querySelectorAll('.slide-image[data-bg-image]');
+        slideImages.forEach(function(imgElement) {
+            const bgImage = imgElement.getAttribute('data-bg-image');
+            if (bgImage) {
+                // Aplicar imediatamente
+                imgElement.style.backgroundImage = "url('" + bgImage + "')";
+                // Garantir que a tag img dentro também seja visível no mobile
+                const imgTag = imgElement.querySelector('img');
+                if (imgTag) {
+                    // No mobile, priorizar a tag img
+                    if (window.innerWidth <= 768) {
+                        imgTag.style.display = 'block';
+                        imgElement.style.backgroundImage = 'none';
+                    } else {
+                        // No desktop, usar background-image e esconder img
+                        imgTag.style.display = 'none';
+                    }
+                }
+            }
+        });
+    })();
     
     function showSlide(index) {
         // Remove active class from all slides and indicators
