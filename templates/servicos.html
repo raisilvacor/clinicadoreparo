@@ -10,185 +10,66 @@
     </div>
 </section>
 
-<section class="services-detailed">
+<section class="services-preview">
     <div class="container">
-        <div class="services-category">
-            <div class="category-header">
-                <div class="category-icon">
-                    <i class="fas fa-mobile-alt"></i>
-                </div>
-                <div>
-                    <h2>Reparo de Celulares</h2>
-                    <p>Serviços especializados para todos os modelos e marcas</p>
-                </div>
-            </div>
-            <div class="services-list">
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Troca de Tela</h4>
-                        <p>Substituição de tela quebrada com peças originais e garantia</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Troca de Bateria</h4>
-                        <p>Substituição de bateria com peças certificadas</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Reparo de Conectores</h4>
-                        <p>Reparo ou substituição de conectores de carga e fones</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Reparo de Hardware</h4>
-                        <p>Correção de problemas internos e componentes</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Desbloqueio e Formatação</h4>
-                        <p>Desbloqueio de senha, formatos e recuperação de dados</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Reparo de Câmera</h4>
-                        <p>Correção de problemas com câmeras e flash</p>
-                    </div>
-                </div>
-            </div>
+        <div class="section-header">
+            <span class="section-badge">Nossos Serviços</span>
+            <h2 class="section-title">Soluções Completas para Seus Dispositivos</h2>
+            <p class="section-description">Oferecemos assistência técnica especializada para todos os seus aparelhos</p>
         </div>
-
-        <div class="services-category">
-            <div class="category-header">
-                <div class="category-icon">
-                    <i class="fas fa-blender"></i>
-                </div>
-                <div>
-                    <h2>Eletrodomésticos</h2>
-                    <p>Assistência técnica para todos os tipos de eletrodomésticos</p>
-                </div>
-            </div>
-            <div class="services-list">
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Geladeiras e Freezers</h4>
-                        <p>Reparo de sistema de refrigeração, termostato e vedação</p>
+        <div class="services-grid">
+            {% if servicos %}
+                {% for servico in servicos %}
+                <div class="service-card">
+                    <div class="service-image">
+                        {% if servico.imagem and servico.imagem.startswith('/admin/servicos/imagem/') %}
+                            <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% elif servico.imagem %}
+                            <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="{{ servico.nome }}" loading="lazy">
+                        {% endif %}
                     </div>
+                    <h3>{{ servico.nome }}</h3>
+                    <p>{{ servico.descricao }}</p>
                 </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Máquinas de Lavar</h4>
-                        <p>Correção de problemas de centrífuga, bomba e motor</p>
+                {% endfor %}
+            {% else %}
+                <!-- Fallback para serviços padrão se não houver serviços cadastrados -->
+                <div class="service-card">
+                    <div class="service-image">
+                        <img src="{{ url_for('static', filename='img/servico-celular.jpg') }}" alt="Reparo de Celulares" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
                     </div>
+                    <h3>Reparo de Celulares</h3>
+                    <p>Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.</p>
                 </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Micro-ondas</h4>
-                        <p>Reparo de placa, magnetron e sistema de controle</p>
+                <div class="service-card">
+                    <div class="service-image">
+                        <img src="{{ url_for('static', filename='img/servico-eletrodomestico.jpg') }}" alt="Eletrodomésticos" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
                     </div>
+                    <h3>Eletrodomésticos</h3>
+                    <p>Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.</p>
                 </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Fogões e Cooktops</h4>
-                        <p>Manutenção de queimadores, válvulas e sistema elétrico</p>
+                <div class="service-card">
+                    <div class="service-image">
+                        <img src="{{ url_for('static', filename='img/servico-computador.jpg') }}" alt="Computadores e Notebook" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
                     </div>
+                    <h3>Computadores e Notebook</h3>
+                    <p>Reparo e manutenção de computadores, notebooks e componentes.</p>
                 </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Ar Condicionado</h4>
-                        <p>Limpeza, manutenção e reparo de unidades de ar condicionado</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Outros Eletrodomésticos</h4>
-                        <p>Assistência para secadoras, aspiradores, liquidificadores e mais</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="services-category">
-            <div class="category-header">
-                <div class="category-icon">
-                    <i class="fas fa-laptop"></i>
-                </div>
-                <div>
-                    <h2>Computadores e Notebook</h2>
-                    <p>Reparo e manutenção completa para computadores e notebooks</p>
-                </div>
-            </div>
-            <div class="services-list">
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Reparo de Hardware</h4>
-                        <p>Correção de problemas com placa-mãe, processador, memória RAM e outros componentes</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Formatação e Instalação</h4>
-                        <p>Formatação completa, instalação de sistema operacional e programas</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Troca de Componentes</h4>
-                        <p>Substituição de HD/SSD, memória RAM, teclado, tela e outros componentes</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Limpeza e Manutenção</h4>
-                        <p>Limpeza interna, troca de pasta térmica e manutenção preventiva</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Reparo de Tela</h4>
-                        <p>Substituição de telas quebradas de notebooks e monitores</p>
-                    </div>
-                </div>
-                <div class="service-item">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <h4>Recuperação de Dados</h4>
-                        <p>Recuperação de arquivos e dados perdidos de discos rígidos</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="services-cta">
-            <h2>Precisa de um Serviço Específico?</h2>
-            <p>Entre em contato conosco e solicite um orçamento gratuito</p>
-            <a href="{{ url_for('contato') }}" class="btn btn-primary btn-large">
-                <i class="fas fa-calendar-check"></i>
-                Solicitar Orçamento
-            </a>
+            {% endif %}
         </div>
     </div>
 </section>
-{% endblock %}
 
+<div class="services-cta">
+    <div class="container">
+        <h2>Precisa de um Serviço Específico?</h2>
+        <p>Entre em contato conosco e solicite um orçamento gratuito</p>
+        <a href="{{ url_for('contato') }}" class="btn btn-primary btn-large">
+            <i class="fas fa-calendar-check"></i>
+            Solicitar Orçamento
+        </a>
+    </div>
+</div>
+{% endblock %}

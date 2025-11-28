@@ -707,7 +707,40 @@ def servicos():
     init_footer_file()
     with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
         footer_data = json.load(f)
-    return render_template('servicos.html', footer=footer_data)
+    
+    # Carregar serviços do banco de dados ou JSON
+    if use_database():
+        try:
+            servicos_db = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
+        except Exception as e:
+            print(f"Erro ao carregar serviços do banco: {e}")
+            servicos_db = []
+        servicos = []
+        for s in servicos_db:
+            # Se tem imagem_id, usar rota do banco, senão usar caminho estático
+            if s.imagem_id:
+                imagem_url = f'/admin/servicos/imagem/{s.imagem_id}'
+            elif s.imagem:
+                imagem_url = s.imagem
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            servicos.append({
+                'id': s.id,
+                'nome': s.nome,
+                'descricao': s.descricao,
+                'imagem': imagem_url,
+                'ordem': s.ordem,
+                'ativo': s.ativo
+            })
+    else:
+        init_data_file()
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            services_data = json.load(f)
+        servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
+        servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
+    
+    return render_template('servicos.html', footer=footer_data, servicos=servicos)
 
 @app.route('/contato', methods=['GET', 'POST'])
 def contato():
