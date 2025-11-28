@@ -1512,10 +1512,7 @@ def delete_cliente(cliente_id):
 @login_required
 def admin_financeiro():
     """Página financeira com saldo e valores a receber"""
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    # Calcular saldo (ordens com status "pago")
+    # Calcular saldo (ordens com status "pago" ou com comprovante)
     saldo = 0.00
     ordens_pagas = []
     
@@ -1523,30 +1520,93 @@ def admin_financeiro():
     a_receber = 0.00
     ordens_concluidas = []
     
-    # Processar todas as ordens de todos os clientes
-    for cliente in data['clients']:
-        for ordem in cliente.get('ordens', []):
-            total_ordem = ordem.get('total', 0.00)
-            status = ordem.get('status', 'pendente')
+    # Buscar do banco de dados se disponível
+    if use_database():
+        try:
+            # Buscar todas as ordens
+            ordens_db = OrdemServico.query.all()
             
-            if status == 'pago':
-                saldo += total_ordem
-                ordens_pagas.append({
-                    'numero_ordem': ordem.get('numero_ordem', ordem.get('id', 'N/A')),
-                    'cliente_nome': cliente['nome'],
-                    'total': total_ordem,
-                    'data': ordem.get('data', ''),
-                    'servico': ordem.get('servico', '')
-                })
-            elif status == 'concluido':
-                a_receber += total_ordem
-                ordens_concluidas.append({
-                    'numero_ordem': ordem.get('numero_ordem', ordem.get('id', 'N/A')),
-                    'cliente_nome': cliente['nome'],
-                    'total': total_ordem,
-                    'data': ordem.get('data', ''),
-                    'servico': ordem.get('servico', '')
-                })
+            # Buscar todos os comprovantes para verificar quais ordens foram pagas
+            comprovantes_db = Comprovante.query.all()
+            ordens_com_comprovante = {c.ordem_id for c in comprovantes_db if c.ordem_id}
+            
+            for ordem in ordens_db:
+                cliente = Cliente.query.get(ordem.cliente_id)
+                cliente_nome = cliente.nome if cliente else 'Cliente não encontrado'
+                total_ordem = float(ordem.total) if ordem.total else 0.00
+                status = ordem.status or 'pendente'
+                
+                # Ordem está paga se tiver status "pago" ou se tiver comprovante
+                if status == 'pago' or ordem.id in ordens_com_comprovante:
+                    saldo += total_ordem
+                    ordens_pagas.append({
+                        'numero_ordem': ordem.numero_ordem or str(ordem.id),
+                        'cliente_nome': cliente_nome,
+                        'total': total_ordem,
+                        'data': ordem.data.strftime('%Y-%m-%d %H:%M:%S') if ordem.data else '',
+                        'servico': ordem.servico or ''
+                    })
+                elif status == 'concluido':
+                    a_receber += total_ordem
+                    ordens_concluidas.append({
+                        'numero_ordem': ordem.numero_ordem or str(ordem.id),
+                        'cliente_nome': cliente_nome,
+                        'total': total_ordem,
+                        'data': ordem.data.strftime('%Y-%m-%d %H:%M:%S') if ordem.data else '',
+                        'servico': ordem.servico or ''
+                    })
+        except Exception as e:
+            print(f"Erro ao buscar dados financeiros do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            # Continuar com fallback para JSON
+    
+    # Fallback para JSON
+    if not use_database() or len(ordens_pagas) == 0 and len(ordens_concluidas) == 0:
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Buscar comprovantes para verificar quais ordens foram pagas
+        comprovantes_data = {}
+        if os.path.exists(COMPROVANTES_FILE):
+            with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
+                comprovantes_json = json.load(f)
+            for comprovante in comprovantes_json.get('comprovantes', []):
+                ordem_id = comprovante.get('ordem_id')
+                cliente_id = comprovante.get('cliente_id')
+                if ordem_id and cliente_id:
+                    comprovantes_data[(cliente_id, ordem_id)] = comprovante
+        
+        # Processar todas as ordens de todos os clientes
+        for cliente in data['clients']:
+            cliente_id = cliente.get('id')
+            for ordem in cliente.get('ordens', []):
+                ordem_id = ordem.get('id')
+                total_ordem = float(ordem.get('total', 0.00)) if ordem.get('total') else 0.00
+                status = ordem.get('status', 'pendente')
+                
+                # Verificar se tem comprovante
+                tem_comprovante = (cliente_id, ordem_id) in comprovantes_data
+                
+                # Ordem está paga se tiver status "pago" ou se tiver comprovante
+                if status == 'pago' or tem_comprovante:
+                    saldo += total_ordem
+                    ordens_pagas.append({
+                        'numero_ordem': ordem.get('numero_ordem', ordem.get('id', 'N/A')),
+                        'cliente_nome': cliente['nome'],
+                        'total': total_ordem,
+                        'data': ordem.get('data', ''),
+                        'servico': ordem.get('servico', '')
+                    })
+                elif status == 'concluido':
+                    a_receber += total_ordem
+                    ordens_concluidas.append({
+                        'numero_ordem': ordem.get('numero_ordem', ordem.get('id', 'N/A')),
+                        'cliente_nome': cliente['nome'],
+                        'total': total_ordem,
+                        'data': ordem.get('data', ''),
+                        'servico': ordem.get('servico', '')
+                    })
     
     # Ordenar por data (mais recentes primeiro)
     ordens_pagas = sorted(ordens_pagas, key=lambda x: x.get('data', ''), reverse=True)
