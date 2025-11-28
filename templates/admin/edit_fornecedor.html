@@ -60,6 +60,20 @@
         </div>
         
         <div class="form-group">
+            <label for="tipo_servico">
+                <i class="fas fa-tools"></i>
+                Tipo de Serviço
+            </label>
+            <select id="tipo_servico" name="tipo_servico" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem;">
+                <option value="">Selecione um tipo de serviço</option>
+                {% for tipo in tipos_servico %}
+                <option value="{{ tipo }}" {% if fornecedor.tipo_servico == tipo %}selected{% endif %}>{{ tipo }}</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Tipo de serviço que o fornecedor oferece</small>
+        </div>
+        
+        <div class="form-group">
             <label for="endereco">
                 <i class="fas fa-map-marker-alt"></i>
                 Endereço

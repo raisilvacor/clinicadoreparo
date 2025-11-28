@@ -4907,6 +4907,7 @@ def admin_fornecedores():
                     'email': f.email or '',
                     'endereco': f.endereco or '',
                     'cnpj': f.cnpj or '',
+                    'tipo_servico': f.tipo_servico or '',
                     'observacoes': f.observacoes or '',
                     'ativo': f.ativo,
                     'data_cadastro': f.data_cadastro.strftime('%d/%m/%Y') if f.data_cadastro else ''
@@ -4930,6 +4931,7 @@ def add_fornecedor():
         email = request.form.get('email', '').strip()
         endereco = request.form.get('endereco', '').strip()
         cnpj = request.form.get('cnpj', '').strip()
+        tipo_servico = request.form.get('tipo_servico', '').strip()
         observacoes = request.form.get('observacoes', '').strip()
         ativo = request.form.get('ativo') == 'on'
         
@@ -4946,6 +4948,7 @@ def add_fornecedor():
                     email=email if email else None,
                     endereco=endereco if endereco else None,
                     cnpj=cnpj if cnpj else None,
+                    tipo_servico=tipo_servico if tipo_servico else None,
                     observacoes=observacoes if observacoes else None,
                     ativo=ativo
                 )
@@ -4981,6 +4984,7 @@ def edit_fornecedor(fornecedor_id):
                 fornecedor.email = request.form.get('email', '').strip() or None
                 fornecedor.endereco = request.form.get('endereco', '').strip() or None
                 fornecedor.cnpj = request.form.get('cnpj', '').strip() or None
+                fornecedor.tipo_servico = request.form.get('tipo_servico', '').strip() or None
                 fornecedor.observacoes = request.form.get('observacoes', '').strip() or None
                 fornecedor.ativo = request.form.get('ativo') == 'on'
                 

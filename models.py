@@ -251,6 +251,7 @@ class Fornecedor(db.Model):
     email = db.Column(db.String(200))
     endereco = db.Column(db.Text)
     cnpj = db.Column(db.String(18))
+    tipo_servico = db.Column(db.String(200))  # Tipo de serviço que o fornecedor oferece
     observacoes = db.Column(db.Text)
     ativo = db.Column(db.Boolean, default=True)
     data_cadastro = db.Column(db.DateTime, default=datetime.now)

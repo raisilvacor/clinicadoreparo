@@ -23,7 +23,7 @@
                 <th>Contato</th>
                 <th>Telefone</th>
                 <th>E-mail</th>
-                <th>CNPJ</th>
+                <th>Tipo de Serviço</th>
                 <th>Status</th>
                 <th>Ações</th>
             </tr>
@@ -36,7 +36,7 @@
                 <td>{{ fornecedor.contato or '-' }}</td>
                 <td>{{ fornecedor.telefone or '-' }}</td>
                 <td>{{ fornecedor.email or '-' }}</td>
-                <td>{{ fornecedor.cnpj or '-' }}</td>
+                <td>{{ fornecedor.tipo_servico or '-' }}</td>
                 <td>
                     {% if fornecedor.ativo %}
                     <span class="badge badge-success">Ativo</span>
