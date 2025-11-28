@@ -4529,8 +4529,26 @@ def add_artigo():
         hora_publicacao = request.form.get('hora_publicacao', '').strip()
         ativo = request.form.get('ativo') == 'on'
         
-        if not titulo or not conteudo or not data_publicacao or not hora_publicacao:
-            flash('Título, conteúdo, data e hora são obrigatórios!', 'error')
+        # Debug: imprimir valores recebidos
+        print(f"DEBUG add_artigo - titulo: {titulo}")
+        print(f"DEBUG add_artigo - conteudo length: {len(conteudo) if conteudo else 0}")
+        print(f"DEBUG add_artigo - data_publicacao: {data_publicacao}")
+        print(f"DEBUG add_artigo - hora_publicacao: {hora_publicacao}")
+        
+        if not titulo:
+            flash('Título é obrigatório!', 'error')
+            return redirect(url_for('add_artigo'))
+        
+        if not conteudo or conteudo.strip() == '' or conteudo.strip() == '<p><br></p>' or conteudo.strip() == '<p></p>':
+            flash('Conteúdo é obrigatório!', 'error')
+            return redirect(url_for('add_artigo'))
+        
+        if not data_publicacao:
+            flash('Data de publicação é obrigatória!', 'error')
+            return redirect(url_for('add_artigo'))
+        
+        if not hora_publicacao:
+            flash('Hora de publicação é obrigatória!', 'error')
             return redirect(url_for('add_artigo'))
         
         # Gerar slug se não fornecido
@@ -4548,6 +4566,13 @@ def add_artigo():
         # Salvar no banco de dados se disponível
         if use_database():
             try:
+                # Verificar se slug já existe e gerar um único
+                slug_base = slug
+                contador = 1
+                while Artigo.query.filter_by(slug=slug).first():
+                    slug = f"{slug_base}-{contador}"
+                    contador += 1
+                
                 # Extrair imagem_id se a URL começar com /admin/blog/imagem/
                 imagem_destaque_id = None
                 if imagem_destaque and imagem_destaque.startswith('/admin/blog/imagem/'):
@@ -4573,6 +4598,7 @@ def add_artigo():
                 db.session.add(novo_artigo_db)
                 db.session.commit()
                 
+                print(f"DEBUG: Artigo salvo com sucesso no banco! ID: {novo_artigo_db.id}")
                 flash('Artigo criado com sucesso!', 'success')
                 return redirect(url_for('admin_blog'))
             except Exception as e:
@@ -4583,7 +4609,7 @@ def add_artigo():
                     db.session.rollback()
                 except:
                     pass
-                flash('Erro ao salvar artigo. Tente novamente.', 'error')
+                flash(f'Erro ao salvar artigo: {str(e)}', 'error')
                 return redirect(url_for('add_artigo'))
         
         # Fallback para JSON

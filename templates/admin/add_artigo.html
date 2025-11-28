@@ -317,17 +317,46 @@ setTimeout(function() {
 var form = document.querySelector('form');
 if (form) {
     form.addEventListener('submit', function(e) {
+        // Sincronizar conteúdo do Quill com o textarea
         var content = quill.root.innerHTML;
-        document.getElementById('conteudo').value = content;
+        var conteudoField = document.getElementById('conteudo');
+        if (conteudoField) {
+            conteudoField.value = content;
+        }
         
         // Validar se há conteúdo
-        if (!content || content.trim() === '' || content.trim() === '<p><br></p>') {
+        if (!content || content.trim() === '' || content.trim() === '<p><br></p>' || content.trim() === '<p></p>') {
             e.preventDefault();
             alert('Por favor, preencha o conteúdo do artigo!');
             return false;
         }
         
-        // Se passou na validação, deixar o formulário ser enviado normalmente
+        // Validar título
+        var titulo = document.getElementById('titulo').value.trim();
+        if (!titulo) {
+            e.preventDefault();
+            alert('Por favor, preencha o título do artigo!');
+            return false;
+        }
+        
+        // Validar data
+        var data = document.getElementById('data_publicacao').value;
+        if (!data) {
+            e.preventDefault();
+            alert('Por favor, selecione a data de publicação!');
+            return false;
+        }
+        
+        // Validar hora
+        var hora = document.getElementById('hora_publicacao').value;
+        if (!hora) {
+            e.preventDefault();
+            alert('Por favor, selecione a hora de publicação!');
+            return false;
+        }
+        
+        // Se passou em todas as validações, deixar o formulário ser enviado normalmente
+        console.log('Formulário sendo enviado...');
         return true;
     });
 }
