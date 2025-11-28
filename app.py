@@ -4215,7 +4215,8 @@ def enviar_notificacao_whatsapp(mensagem):
         
         if twilio_account_sid and twilio_auth_token and twilio_whatsapp_from:
             try:
-                from twilio.rest import Client
+                # pylint: disable=import-outside-toplevel
+                from twilio.rest import Client  # type: ignore # noqa: F401
                 client = Client(twilio_account_sid, twilio_auth_token)
                 message = client.messages.create(
                     body=mensagem,
