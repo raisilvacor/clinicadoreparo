@@ -4514,8 +4514,6 @@ def admin_blog():
 
 @app.route('/admin/blog/add', methods=['GET', 'POST'])
 @login_required
-@app.route('/admin/blog/add', methods=['GET', 'POST'])
-@login_required
 def add_artigo():
     """Adicionar novo artigo"""
     if request.method == 'POST':
