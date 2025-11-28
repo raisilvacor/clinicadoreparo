@@ -156,8 +156,9 @@ document.head.appendChild(style);
         const slideImages = document.querySelectorAll('.slide-image[data-bg-image]');
         if (slideImages.length === 0) return;
         
-        const sliderWidth = heroSlider.offsetWidth;
-        let maxHeight = window.innerWidth <= 768 ? 250 : 300; // altura mínima (menor no mobile)
+        const sliderWidth = heroSlider.offsetWidth || window.innerWidth;
+        const isMobile = window.innerWidth <= 768;
+        let maxHeight = isMobile ? 250 : 300; // altura mínima (menor no mobile)
         
         // Carregar todas as imagens para obter suas dimensões
         const imagePromises = Array.from(slideImages).map(function(imgElement) {
@@ -179,7 +180,19 @@ document.head.appendChild(style);
                     const naturalHeight = this.naturalHeight;
                     if (naturalWidth > 0 && naturalHeight > 0) {
                         const aspectRatio = naturalHeight / naturalWidth;
-                        const calculatedHeight = sliderWidth * aspectRatio;
+                        let calculatedHeight;
+                        
+                        if (isMobile) {
+                            // No mobile com contain, a altura será baseada na largura da tela
+                            calculatedHeight = sliderWidth * aspectRatio;
+                            // Mas não deixar muito alto, limitar a um máximo razoável
+                            if (calculatedHeight > 400) {
+                                calculatedHeight = 400;
+                            }
+                        } else {
+                            // No desktop com cover, usar a altura calculada
+                            calculatedHeight = sliderWidth * aspectRatio;
+                        }
                         
                         if (calculatedHeight > maxHeight) {
                             maxHeight = calculatedHeight;
@@ -197,14 +210,15 @@ document.head.appendChild(style);
         
         // Quando todas as imagens carregarem, ajustar altura
         Promise.all(imagePromises).then(function() {
-            if (maxHeight > (window.innerWidth <= 768 ? 250 : 300)) {
+            const minHeight = isMobile ? 250 : 300;
+            if (maxHeight > minHeight) {
                 heroSlider.style.height = maxHeight + 'px';
             } else {
-                heroSlider.style.height = (window.innerWidth <= 768 ? 250 : 300) + 'px';
+                heroSlider.style.height = minHeight + 'px';
             }
         }).catch(function() {
             // Em caso de erro, usar altura mínima
-            heroSlider.style.height = (window.innerWidth <= 768 ? 250 : 300) + 'px';
+            heroSlider.style.height = (isMobile ? 250 : 300) + 'px';
         });
     }
     
@@ -212,24 +226,57 @@ document.head.appendChild(style);
     // Isso garante que as imagens apareçam mesmo antes do JavaScript completo carregar
     (function applyBackgroundImages() {
         const slideImages = document.querySelectorAll('.slide-image[data-bg-image]');
+        const isMobile = window.innerWidth <= 768;
+        
         slideImages.forEach(function(imgElement) {
             const bgImage = imgElement.getAttribute('data-bg-image');
             if (bgImage) {
-                // Aplicar imediatamente
-                imgElement.style.backgroundImage = "url('" + bgImage + "')";
                 // Garantir que a tag img dentro também seja visível no mobile
                 const imgTag = imgElement.querySelector('img');
                 if (imgTag) {
-                    // No mobile, priorizar a tag img
-                    if (window.innerWidth <= 768) {
+                    // No mobile, priorizar a tag img com contain
+                    if (isMobile) {
                         imgTag.style.display = 'block';
+                        imgTag.style.objectFit = 'contain';
+                        imgTag.style.objectPosition = 'center';
                         imgElement.style.backgroundImage = 'none';
+                        imgElement.style.backgroundSize = 'contain';
                     } else {
-                        // No desktop, usar background-image e esconder img
+                        // No desktop, usar background-image com cover e esconder img
                         imgTag.style.display = 'none';
+                        imgElement.style.backgroundImage = "url('" + bgImage + "')";
+                        imgElement.style.backgroundSize = 'cover';
+                    }
+                } else {
+                    // Se não houver tag img, aplicar background-image
+                    imgElement.style.backgroundImage = "url('" + bgImage + "')";
+                    if (isMobile) {
+                        imgElement.style.backgroundSize = 'contain';
+                    } else {
+                        imgElement.style.backgroundSize = 'cover';
                     }
                 }
             }
+        });
+        
+        // Reaplicar ao redimensionar
+        window.addEventListener('resize', function() {
+            const newIsMobile = window.innerWidth <= 768;
+            slideImages.forEach(function(imgElement) {
+                const imgTag = imgElement.querySelector('img');
+                if (imgTag) {
+                    if (newIsMobile) {
+                        imgTag.style.display = 'block';
+                        imgTag.style.objectFit = 'contain';
+                        imgElement.style.backgroundSize = 'contain';
+                    } else {
+                        imgTag.style.display = 'none';
+                        imgElement.style.backgroundSize = 'cover';
+                    }
+                } else {
+                    imgElement.style.backgroundSize = newIsMobile ? 'contain' : 'cover';
+                }
+            });
         });
     })();
     
