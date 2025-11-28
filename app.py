@@ -76,6 +76,9 @@ if database_url:
                 from models import Fornecedor  # Garantir que Fornecedor está importado
                 db.create_all()
                 print("DEBUG: ✅ Tabelas criadas/verificadas no banco de dados")
+                
+                # Garantir especificamente que a tabela de fornecedores existe
+                garantir_tabela_fornecedores()
                 # Testar conexão (mas não falhar se der erro temporário)
                 try:
                     # Garantir que o engine está criado
@@ -145,6 +148,102 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ==================== FUNÇÕES AUXILIARES ====================
+
+def garantir_tabela_fornecedores():
+    """Garante que a tabela de fornecedores existe no banco de dados - SOLUÇÃO DEFINITIVA"""
+    if not use_database():
+        print("DEBUG: Banco de dados não disponível")
+        return False
+    
+    try:
+        from sqlalchemy import text
+        
+        with app.app_context():
+            # Método 1: Verificar se existe usando SQL direto (mais confiável)
+            try:
+                with db.engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_schema = 'public' 
+                            AND table_name = 'fornecedores'
+                        )
+                    """))
+                    existe = result.scalar()
+                    
+                    if existe:
+                        print("DEBUG: ✅ Tabela fornecedores já existe (verificado via SQL)")
+                        return True
+            except Exception as check_error:
+                print(f"DEBUG: Erro ao verificar tabela: {check_error}")
+            
+            # Método 2: Criar tabela usando SQL direto (método mais confiável)
+            print("DEBUG: Tabela não existe. Criando via SQL direto...")
+            try:
+                with db.engine.begin() as conn:
+                    # Criar tabela diretamente
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS fornecedores (
+                            id SERIAL PRIMARY KEY,
+                            nome VARCHAR(200) NOT NULL,
+                            contato VARCHAR(200),
+                            telefone VARCHAR(20),
+                            email VARCHAR(200),
+                            endereco TEXT,
+                            cnpj VARCHAR(18),
+                            tipo_servico VARCHAR(200),
+                            observacoes TEXT,
+                            ativo BOOLEAN DEFAULT TRUE,
+                            data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    print("DEBUG: ✅ CREATE TABLE executado")
+                
+                # Verificar se foi criada
+                with db.engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_schema = 'public' 
+                            AND table_name = 'fornecedores'
+                        )
+                    """))
+                    existe = result.scalar()
+                    
+                    if existe:
+                        print("DEBUG: ✅ Tabela fornecedores criada e verificada com sucesso!")
+                        return True
+                    else:
+                        print("DEBUG: ⚠️ Tabela não foi criada mesmo após CREATE TABLE")
+                        return False
+            except Exception as sql_error:
+                print(f"DEBUG: Erro ao criar tabela via SQL: {sql_error}")
+                import traceback
+                traceback.print_exc()
+                # Tentar método alternativo: db.create_all()
+                try:
+                    db.create_all()
+                    print("DEBUG: ✅ db.create_all() executado como fallback")
+                    # Verificar novamente
+                    with db.engine.connect() as conn:
+                        result = conn.execute(text("""
+                            SELECT EXISTS (
+                                SELECT FROM information_schema.tables 
+                                WHERE table_schema = 'public' 
+                                AND table_name = 'fornecedores'
+                            )
+                        """))
+                        if result.scalar():
+                            print("DEBUG: ✅ Tabela criada via db.create_all()")
+                            return True
+                except Exception as fallback_error:
+                    print(f"DEBUG: Erro no fallback db.create_all(): {fallback_error}")
+                return False
+    except Exception as e:
+        print(f"DEBUG: Erro geral ao garantir tabela fornecedores: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 def use_database():
     """Verifica se deve usar banco de dados - configuração direta com Render"""
@@ -4901,6 +5000,10 @@ def admin_fornecedores():
     """Lista todos os fornecedores cadastrados"""
     busca = request.args.get('busca', '').strip()
     
+    # Garantir que a tabela existe antes de listar
+    if use_database():
+        garantir_tabela_fornecedores()
+    
     if use_database():
         try:
             query = Fornecedor.query
@@ -4961,6 +5064,11 @@ def add_fornecedor():
             return redirect(url_for('add_fornecedor'))
         
         if use_database():
+            # Garantir que a tabela existe antes de tentar adicionar
+            if not garantir_tabela_fornecedores():
+                flash('Não foi possível garantir que a tabela de fornecedores existe. Tente usar o botão "Criar Tabela no Banco".', 'error')
+                return redirect(url_for('add_fornecedor'))
+            
             try:
                 fornecedor = Fornecedor(
                     nome=nome,
@@ -4985,85 +5093,12 @@ def add_fornecedor():
                     db.session.rollback()
                 except:
                     pass
-                # Tentar criar a tabela se não existir
-                try:
-                    # Garantir que Fornecedor está importado
-                    from models import Fornecedor
-                    # Criar todas as tabelas, incluindo fornecedores
-                    with app.app_context():
-                        db.create_all()
-                        # Verificar se a tabela foi criada tentando uma query simples
+                
+                error_msg = str(e)
+                if 'relation' in error_msg.lower() and 'does not exist' in error_msg.lower():
+                    # Tentar criar novamente e adicionar
+                    if garantir_tabela_fornecedores():
                         try:
-                            Fornecedor.query.limit(1).all()
-                            print("DEBUG: ✅ Tabela fornecedores existe")
-                        except Exception as table_check:
-                            print(f"DEBUG: ⚠️ Tabela fornecedores não existe ainda: {table_check}")
-                            # Tentar criar especificamente a tabela de fornecedores
-                            Fornecedor.__table__.create(db.engine, checkfirst=True)
-                            print("DEBUG: ✅ Tabela fornecedores criada")
-                    
-                    # Tentar novamente
-                    fornecedor = Fornecedor(
-                        nome=nome,
-                        contato=contato if contato else None,
-                        telefone=telefone if telefone else None,
-                        email=email if email else None,
-                        endereco=endereco if endereco else None,
-                        cnpj=cnpj if cnpj else None,
-                        tipo_servico=tipo_servico if tipo_servico else None,
-                        observacoes=observacoes if observacoes else None,
-                        ativo=ativo
-                    )
-                    db.session.add(fornecedor)
-                    db.session.commit()
-                    flash('Fornecedor cadastrado com sucesso!', 'success')
-                    return redirect(url_for('admin_fornecedores'))
-                except Exception as e2:
-                    print(f"Erro ao criar tabela ou adicionar fornecedor: {e2}")
-                    import traceback
-                    traceback.print_exc()
-                    error_msg = str(e2)
-                    # Mensagem mais amigável
-                    if 'relation' in error_msg.lower() and 'does not exist' in error_msg.lower():
-                        # Tentar criar a tabela agora mesmo
-                        try:
-                            from models import Fornecedor
-                            print("DEBUG: Tentando criar tabela fornecedores...")
-                            with app.app_context():
-                                # Primeiro, garantir que todas as tabelas estão criadas
-                                db.create_all()
-                                # Depois, criar especificamente a tabela de fornecedores
-                                try:
-                                    Fornecedor.__table__.create(db.engine, checkfirst=True)
-                                    print("DEBUG: ✅ Tabela fornecedores criada com sucesso!")
-                                except Exception as create_error:
-                                    print(f"DEBUG: Erro ao criar tabela: {create_error}")
-                                    # Tentar criar usando SQL direto se necessário
-                                    try:
-                                        from sqlalchemy import text
-                                        with db.engine.begin() as conn:
-                                            # Criar tabela manualmente se necessário
-                                            conn.execute(text("""
-                                                CREATE TABLE IF NOT EXISTS fornecedores (
-                                                    id SERIAL PRIMARY KEY,
-                                                    nome VARCHAR(200) NOT NULL,
-                                                    contato VARCHAR(200),
-                                                    telefone VARCHAR(20),
-                                                    email VARCHAR(200),
-                                                    endereco TEXT,
-                                                    cnpj VARCHAR(18),
-                                                    tipo_servico VARCHAR(200),
-                                                    observacoes TEXT,
-                                                    ativo BOOLEAN DEFAULT TRUE,
-                                                    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                                                )
-                                            """))
-                                        print("DEBUG: ✅ Tabela fornecedores criada via SQL direto!")
-                                    except Exception as sql_error:
-                                        print(f"DEBUG: Erro ao criar tabela via SQL: {sql_error}")
-                                        raise
-                            
-                            # Tentar adicionar o fornecedor novamente
                             fornecedor = Fornecedor(
                                 nome=nome,
                                 contato=contato if contato else None,
@@ -5079,16 +5114,15 @@ def add_fornecedor():
                             db.session.commit()
                             flash('Tabela criada e fornecedor cadastrado com sucesso!', 'success')
                             return redirect(url_for('admin_fornecedores'))
-                        except Exception as e3:
-                            print(f"Erro ao criar tabela e adicionar fornecedor: {e3}")
-                            import traceback
-                            traceback.print_exc()
-                            flash('Erro ao criar tabela automaticamente. Por favor, use o botão "Criar Tabela no Banco" na página de fornecedores e tente novamente.', 'error')
-                    elif 'duplicate key' in error_msg.lower() or 'unique constraint' in error_msg.lower():
-                        flash('Já existe um fornecedor com esses dados. Verifique os campos únicos.', 'error')
+                        except Exception as e2:
+                            flash('Erro ao adicionar fornecedor após criar tabela. Tente novamente.', 'error')
                     else:
-                        flash(f'Erro ao adicionar fornecedor: {error_msg[:150]}', 'error')
-                    return redirect(url_for('add_fornecedor'))
+                        flash('Não foi possível criar a tabela. Use o botão "Criar Tabela no Banco" na página de fornecedores.', 'error')
+                elif 'duplicate key' in error_msg.lower() or 'unique constraint' in error_msg.lower():
+                    flash('Já existe um fornecedor com esses dados. Verifique os campos únicos.', 'error')
+                else:
+                    flash(f'Erro ao adicionar fornecedor: {error_msg[:150]}', 'error')
+                return redirect(url_for('add_fornecedor'))
         else:
             flash('Banco de dados não disponível.', 'error')
             return redirect(url_for('add_fornecedor'))
@@ -5166,114 +5200,10 @@ def delete_fornecedor(fornecedor_id):
 def create_fornecedores_table():
     """Cria a tabela de fornecedores manualmente"""
     if use_database():
-        try:
-            from models import Fornecedor
-            from sqlalchemy import text, inspect
-            
-            with app.app_context():
-                # Verificar se a tabela já existe
-                inspector = inspect(db.engine)
-                tabelas_existentes = inspector.get_table_names()
-                
-                if 'fornecedores' in tabelas_existentes:
-                    flash('A tabela de fornecedores já existe!', 'info')
-                    return redirect(url_for('admin_fornecedores'))
-                
-                print("DEBUG: Tabela fornecedores não existe. Tentando criar...")
-                
-                # Estratégia 1: Tentar criar todas as tabelas via SQLAlchemy
-                try:
-                    db.create_all()
-                    print("DEBUG: ✅ db.create_all() executado")
-                    
-                    # Verificar novamente se foi criada
-                    inspector = inspect(db.engine)
-                    if 'fornecedores' in inspector.get_table_names():
-                        flash('Tabela de fornecedores criada com sucesso via SQLAlchemy!', 'success')
-                        return redirect(url_for('admin_fornecedores'))
-                except Exception as create_error:
-                    print(f"DEBUG: Erro ao criar via db.create_all(): {create_error}")
-                    import traceback
-                    traceback.print_exc()
-                
-                # Estratégia 2: Criar especificamente a tabela de fornecedores
-                try:
-                    Fornecedor.__table__.create(db.engine, checkfirst=True)
-                    print("DEBUG: ✅ Fornecedor.__table__.create() executado")
-                    
-                    # Verificar novamente
-                    inspector = inspect(db.engine)
-                    if 'fornecedores' in inspector.get_table_names():
-                        flash('Tabela de fornecedores criada com sucesso!', 'success')
-                        return redirect(url_for('admin_fornecedores'))
-                except Exception as table_error:
-                    print(f"DEBUG: Erro ao criar via __table__.create(): {table_error}")
-                    import traceback
-                    traceback.print_exc()
-                
-                # Estratégia 3: SQL direto (fallback final)
-                try:
-                    with db.engine.begin() as conn:
-                        # Verificar se existe antes de criar
-                        result = conn.execute(text("""
-                            SELECT EXISTS (
-                                SELECT FROM information_schema.tables 
-                                WHERE table_schema = 'public' 
-                                AND table_name = 'fornecedores'
-                            )
-                        """))
-                        existe = result.scalar()
-                        
-                        if not existe:
-                            conn.execute(text("""
-                                CREATE TABLE fornecedores (
-                                    id SERIAL PRIMARY KEY,
-                                    nome VARCHAR(200) NOT NULL,
-                                    contato VARCHAR(200),
-                                    telefone VARCHAR(20),
-                                    email VARCHAR(200),
-                                    endereco TEXT,
-                                    cnpj VARCHAR(18),
-                                    tipo_servico VARCHAR(200),
-                                    observacoes TEXT,
-                                    ativo BOOLEAN DEFAULT TRUE,
-                                    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                                )
-                            """))
-                            print("DEBUG: ✅ Tabela fornecedores criada via SQL direto")
-                            
-                            # Verificar se foi criada
-                            result = conn.execute(text("""
-                                SELECT EXISTS (
-                                    SELECT FROM information_schema.tables 
-                                    WHERE table_schema = 'public' 
-                                    AND table_name = 'fornecedores'
-                                )
-                            """))
-                            if result.scalar():
-                                flash('Tabela de fornecedores criada com sucesso via SQL direto!', 'success')
-                                return redirect(url_for('admin_fornecedores'))
-                            else:
-                                raise Exception("Tabela não foi criada mesmo após executar CREATE TABLE")
-                        else:
-                            flash('A tabela de fornecedores já existe!', 'info')
-                            return redirect(url_for('admin_fornecedores'))
-                except Exception as sql_error:
-                    print(f"DEBUG: Erro ao criar via SQL direto: {sql_error}")
-                    import traceback
-                    traceback.print_exc()
-                    raise Exception(f"Falha ao criar tabela: {str(sql_error)}")
-            
-            # Se chegou aqui, nenhuma estratégia funcionou
-            flash('Não foi possível criar a tabela. Verifique os logs do servidor para mais detalhes.', 'error')
-        except Exception as e:
-            print(f"Erro ao criar tabela de fornecedores: {e}")
-            import traceback
-            traceback.print_exc()
-            error_msg = str(e)
-            if len(error_msg) > 200:
-                error_msg = error_msg[:200] + "..."
-            flash(f'Erro ao criar tabela: {error_msg}', 'error')
+        if garantir_tabela_fornecedores():
+            flash('Tabela de fornecedores criada/verificada com sucesso!', 'success')
+        else:
+            flash('Erro ao criar tabela de fornecedores. Verifique os logs do servidor.', 'error')
     else:
         flash('Banco de dados não disponível.', 'error')
     
