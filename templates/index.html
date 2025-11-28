@@ -348,7 +348,7 @@
         </div>
     </div>
     <div class="map-container">
-        {% if footer and footer.contato and footer.contato.endereco %}
+        {% if footer and footer.contato and footer.contato.endereco and footer.contato.endereco.strip() %}
         <iframe 
             src="https://www.google.com/maps?q={{ footer.contato.endereco|urlencode }}&output=embed" 
             width="100%" 

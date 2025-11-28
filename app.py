@@ -3736,22 +3736,68 @@ def delete_slide(slide_id):
 @login_required
 def admin_footer():
     """Gerencia o rodapé do site"""
-    init_footer_file()
-    
     if request.method == 'POST':
+        descricao = request.form.get('descricao', '').strip()
+        facebook = request.form.get('facebook', '').strip()
+        instagram = request.form.get('instagram', '').strip()
+        whatsapp = request.form.get('whatsapp', '').strip()
+        telefone = request.form.get('telefone', '').strip()
+        email = request.form.get('email', '').strip()
+        endereco = request.form.get('endereco', '').strip()
+        copyright_text = request.form.get('copyright', '').strip()
+        whatsapp_float = request.form.get('whatsapp_float', '').strip()
+        
+        # Salvar no banco de dados se disponível
+        if use_database():
+            try:
+                footer_obj = Footer.query.first()
+                if not footer_obj:
+                    footer_obj = Footer()
+                    db.session.add(footer_obj)
+                
+                footer_obj.descricao = descricao
+                footer_obj.redes_sociais = {
+                    'facebook': facebook,
+                    'instagram': instagram,
+                    'whatsapp': whatsapp
+                }
+                footer_obj.contato = {
+                    'telefone': telefone,
+                    'email': email,
+                    'endereco': endereco
+                }
+                footer_obj.copyright = copyright_text
+                footer_obj.whatsapp_float = whatsapp_float
+                
+                db.session.commit()
+                flash('Rodapé atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_footer'))
+            except Exception as e:
+                print(f"Erro ao salvar footer no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+                flash('Erro ao salvar rodapé. Tente novamente.', 'error')
+                return redirect(url_for('admin_footer'))
+        
+        # Fallback para JSON
+        init_footer_file()
         with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
         # Atualizar dados
-        data['descricao'] = request.form.get('descricao', '').strip()
-        data['redes_sociais']['facebook'] = request.form.get('facebook', '').strip()
-        data['redes_sociais']['instagram'] = request.form.get('instagram', '').strip()
-        data['redes_sociais']['whatsapp'] = request.form.get('whatsapp', '').strip()
-        data['contato']['telefone'] = request.form.get('telefone', '').strip()
-        data['contato']['email'] = request.form.get('email', '').strip()
-        data['contato']['endereco'] = request.form.get('endereco', '').strip()
-        data['copyright'] = request.form.get('copyright', '').strip()
-        data['whatsapp_float'] = request.form.get('whatsapp_float', '').strip()
+        data['descricao'] = descricao
+        data['redes_sociais']['facebook'] = facebook
+        data['redes_sociais']['instagram'] = instagram
+        data['redes_sociais']['whatsapp'] = whatsapp
+        data['contato']['telefone'] = telefone
+        data['contato']['email'] = email
+        data['contato']['endereco'] = endereco
+        data['copyright'] = copyright_text
+        data['whatsapp_float'] = whatsapp_float
         
         with open(FOOTER_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -3759,8 +3805,52 @@ def admin_footer():
         flash('Rodapé atualizado com sucesso!', 'success')
         return redirect(url_for('admin_footer'))
     
-    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-        footer_data = json.load(f)
+    # GET - Carregar dados
+    if use_database():
+        try:
+            footer_obj = Footer.query.first()
+            if footer_obj:
+                footer_data = {
+                    'descricao': footer_obj.descricao or '',
+                    'redes_sociais': footer_obj.redes_sociais or {
+                        'facebook': '',
+                        'instagram': '',
+                        'whatsapp': ''
+                    },
+                    'contato': footer_obj.contato or {
+                        'telefone': '',
+                        'email': '',
+                        'endereco': ''
+                    },
+                    'copyright': footer_obj.copyright or '',
+                    'whatsapp_float': footer_obj.whatsapp_float or ''
+                }
+            else:
+                # Criar footer padrão se não existir
+                footer_data = {
+                    'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+                    'redes_sociais': {
+                        'facebook': '',
+                        'instagram': '',
+                        'whatsapp': ''
+                    },
+                    'contato': {
+                        'telefone': '',
+                        'email': '',
+                        'endereco': ''
+                    },
+                    'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+                    'whatsapp_float': ''
+                }
+        except Exception as e:
+            print(f"Erro ao carregar footer do banco: {e}")
+            footer_data = None
+    
+    # Fallback para JSON
+    if not use_database() or footer_data is None:
+        init_footer_file()
+        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+            footer_data = json.load(f)
     
     return render_template('admin/footer.html', footer=footer_data)
 
