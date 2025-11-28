@@ -4974,8 +4974,45 @@ def add_fornecedor():
                 return redirect(url_for('admin_fornecedores'))
             except Exception as e:
                 print(f"Erro ao adicionar fornecedor no banco: {e}")
-                flash('Erro ao adicionar fornecedor. Tente novamente.', 'error')
-                return redirect(url_for('add_fornecedor'))
+                import traceback
+                traceback.print_exc()
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+                # Tentar criar a tabela se não existir
+                try:
+                    with app.app_context():
+                        db.create_all()
+                    # Tentar novamente
+                    fornecedor = Fornecedor(
+                        nome=nome,
+                        contato=contato if contato else None,
+                        telefone=telefone if telefone else None,
+                        email=email if email else None,
+                        endereco=endereco if endereco else None,
+                        cnpj=cnpj if cnpj else None,
+                        tipo_servico=tipo_servico if tipo_servico else None,
+                        observacoes=observacoes if observacoes else None,
+                        ativo=ativo
+                    )
+                    db.session.add(fornecedor)
+                    db.session.commit()
+                    flash('Fornecedor cadastrado com sucesso!', 'success')
+                    return redirect(url_for('admin_fornecedores'))
+                except Exception as e2:
+                    print(f"Erro ao criar tabela ou adicionar fornecedor: {e2}")
+                    import traceback
+                    traceback.print_exc()
+                    error_msg = str(e2)
+                    # Mensagem mais amigável
+                    if 'relation' in error_msg.lower() and 'does not exist' in error_msg.lower():
+                        flash('A tabela de fornecedores não existe. Execute db.create_all() no banco de dados.', 'error')
+                    elif 'duplicate key' in error_msg.lower() or 'unique constraint' in error_msg.lower():
+                        flash('Já existe um fornecedor com esses dados. Verifique os campos únicos.', 'error')
+                    else:
+                        flash(f'Erro ao adicionar fornecedor: {error_msg[:150]}', 'error')
+                    return redirect(url_for('add_fornecedor'))
         else:
             flash('Banco de dados não disponível.', 'error')
             return redirect(url_for('add_fornecedor'))
