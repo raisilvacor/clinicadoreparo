@@ -5168,22 +5168,65 @@ def create_fornecedores_table():
     if use_database():
         try:
             from models import Fornecedor
-            from sqlalchemy import text
+            from sqlalchemy import text, inspect
             
             with app.app_context():
-                # Primeiro, tentar criar todas as tabelas
+                # Verificar se a tabela já existe
+                inspector = inspect(db.engine)
+                tabelas_existentes = inspector.get_table_names()
+                
+                if 'fornecedores' in tabelas_existentes:
+                    flash('A tabela de fornecedores já existe!', 'info')
+                    return redirect(url_for('admin_fornecedores'))
+                
+                print("DEBUG: Tabela fornecedores não existe. Tentando criar...")
+                
+                # Estratégia 1: Tentar criar todas as tabelas via SQLAlchemy
                 try:
                     db.create_all()
-                    # Criar especificamente a tabela de fornecedores se não existir
-                    Fornecedor.__table__.create(db.engine, checkfirst=True)
-                    print("DEBUG: ✅ Tabela fornecedores criada via SQLAlchemy")
+                    print("DEBUG: ✅ db.create_all() executado")
+                    
+                    # Verificar novamente se foi criada
+                    inspector = inspect(db.engine)
+                    if 'fornecedores' in inspector.get_table_names():
+                        flash('Tabela de fornecedores criada com sucesso via SQLAlchemy!', 'success')
+                        return redirect(url_for('admin_fornecedores'))
                 except Exception as create_error:
-                    print(f"DEBUG: Erro ao criar via SQLAlchemy: {create_error}")
-                    # Fallback: criar usando SQL direto
-                    try:
-                        with db.engine.begin() as conn:
+                    print(f"DEBUG: Erro ao criar via db.create_all(): {create_error}")
+                    import traceback
+                    traceback.print_exc()
+                
+                # Estratégia 2: Criar especificamente a tabela de fornecedores
+                try:
+                    Fornecedor.__table__.create(db.engine, checkfirst=True)
+                    print("DEBUG: ✅ Fornecedor.__table__.create() executado")
+                    
+                    # Verificar novamente
+                    inspector = inspect(db.engine)
+                    if 'fornecedores' in inspector.get_table_names():
+                        flash('Tabela de fornecedores criada com sucesso!', 'success')
+                        return redirect(url_for('admin_fornecedores'))
+                except Exception as table_error:
+                    print(f"DEBUG: Erro ao criar via __table__.create(): {table_error}")
+                    import traceback
+                    traceback.print_exc()
+                
+                # Estratégia 3: SQL direto (fallback final)
+                try:
+                    with db.engine.begin() as conn:
+                        # Verificar se existe antes de criar
+                        result = conn.execute(text("""
+                            SELECT EXISTS (
+                                SELECT FROM information_schema.tables 
+                                WHERE table_schema = 'public' 
+                                AND table_name = 'fornecedores'
+                            )
+                        """))
+                        existe = result.scalar()
+                        
+                        if not existe:
                             conn.execute(text("""
-                                CREATE TABLE IF NOT EXISTS fornecedores (
+                                CREATE TABLE fornecedores (
                                     id SERIAL PRIMARY KEY,
                                     nome VARCHAR(200) NOT NULL,
                                     contato VARCHAR(200),
@@ -5197,17 +5240,40 @@ def create_fornecedores_table():
                                     data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                                 )
                             """))
-                        print("DEBUG: ✅ Tabela fornecedores criada via SQL direto")
-                    except Exception as sql_error:
-                        print(f"DEBUG: Erro ao criar via SQL direto: {sql_error}")
-                        raise
+                            print("DEBUG: ✅ Tabela fornecedores criada via SQL direto")
+                            
+                            # Verificar se foi criada
+                            result = conn.execute(text("""
+                                SELECT EXISTS (
+                                    SELECT FROM information_schema.tables 
+                                    WHERE table_schema = 'public' 
+                                    AND table_name = 'fornecedores'
+                                )
+                            """))
+                            if result.scalar():
+                                flash('Tabela de fornecedores criada com sucesso via SQL direto!', 'success')
+                                return redirect(url_for('admin_fornecedores'))
+                            else:
+                                raise Exception("Tabela não foi criada mesmo após executar CREATE TABLE")
+                        else:
+                            flash('A tabela de fornecedores já existe!', 'info')
+                            return redirect(url_for('admin_fornecedores'))
+                except Exception as sql_error:
+                    print(f"DEBUG: Erro ao criar via SQL direto: {sql_error}")
+                    import traceback
+                    traceback.print_exc()
+                    raise Exception(f"Falha ao criar tabela: {str(sql_error)}")
             
-            flash('Tabela de fornecedores criada com sucesso!', 'success')
+            # Se chegou aqui, nenhuma estratégia funcionou
+            flash('Não foi possível criar a tabela. Verifique os logs do servidor para mais detalhes.', 'error')
         except Exception as e:
             print(f"Erro ao criar tabela de fornecedores: {e}")
             import traceback
             traceback.print_exc()
-            flash(f'Erro ao criar tabela: {str(e)[:150]}', 'error')
+            error_msg = str(e)
+            if len(error_msg) > 200:
+                error_msg = error_msg[:200] + "..."
+            flash(f'Erro ao criar tabela: {error_msg}', 'error')
     else:
         flash('Banco de dados não disponível.', 'error')
     
