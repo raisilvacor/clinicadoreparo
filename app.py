@@ -4514,6 +4514,8 @@ def admin_blog():
 
 @app.route('/admin/blog/add', methods=['GET', 'POST'])
 @login_required
+@app.route('/admin/blog/add', methods=['GET', 'POST'])
+@login_required
 def add_artigo():
     """Adicionar novo artigo"""
     if request.method == 'POST':
@@ -4540,8 +4542,53 @@ def add_artigo():
             slug = re.sub(r'^-+|-+$', '', slug)
         
         # Combinar data e hora
-        data_hora_publicacao = f"{data_publicacao} {hora_publicacao}:00"
+        try:
+            data_hora_publicacao = datetime.strptime(f"{data_publicacao} {hora_publicacao}", '%Y-%m-%d %H:%M')
+        except:
+            data_hora_publicacao = datetime.now()
         
+        # Salvar no banco de dados se disponível
+        if use_database():
+            try:
+                # Extrair imagem_id se a URL começar com /admin/blog/imagem/
+                imagem_destaque_id = None
+                if imagem_destaque and imagem_destaque.startswith('/admin/blog/imagem/'):
+                    try:
+                        imagem_destaque_id = int(imagem_destaque.split('/')[-1])
+                    except:
+                        pass
+                
+                novo_artigo_db = Artigo(
+                    titulo=titulo,
+                    subtitulo=subtitulo if subtitulo else None,
+                    slug=slug,
+                    resumo=resumo if resumo else None,
+                    conteudo=conteudo,
+                    autor=autor or 'Equipe Clínica do Reparo',
+                    categoria=categoria or 'Geral',
+                    imagem_destaque=imagem_destaque if not imagem_destaque_id else None,
+                    imagem_destaque_id=imagem_destaque_id,
+                    ativo=ativo,
+                    data_publicacao=data_hora_publicacao,
+                    data_criacao=datetime.now()
+                )
+                db.session.add(novo_artigo_db)
+                db.session.commit()
+                
+                flash('Artigo criado com sucesso!', 'success')
+                return redirect(url_for('admin_blog'))
+            except Exception as e:
+                print(f"Erro ao salvar artigo no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+                flash('Erro ao salvar artigo. Tente novamente.', 'error')
+                return redirect(url_for('add_artigo'))
+        
+        # Fallback para JSON
         init_blog_file()
         with open(BLOG_FILE, 'r', encoding='utf-8') as f:
             blog_data = json.load(f)
@@ -4559,7 +4606,7 @@ def add_artigo():
             'categoria': categoria or 'Geral',
             'imagem_destaque': imagem_destaque,
             'ativo': ativo,
-            'data_publicacao': data_hora_publicacao,
+            'data_publicacao': data_hora_publicacao.strftime('%Y-%m-%d %H:%M:%S'),
             'hora_publicacao': hora_publicacao,
             'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }

@@ -314,20 +314,23 @@ setTimeout(function() {
 }, 100);
 
 // Sincronizar conteúdo do Quill com o textarea antes de enviar
-document.querySelector('form').addEventListener('submit', function(e) {
-    e.preventDefault(); // Prevenir envio padrão
-    var content = quill.root.innerHTML;
-    document.getElementById('conteudo').value = content;
-    
-    // Validar se há conteúdo
-    if (!content || content.trim() === '' || content.trim() === '<p><br></p>') {
-        alert('Por favor, preencha o conteúdo do artigo!');
-        return false;
-    }
-    
-    // Enviar formulário manualmente
-    this.submit();
-});
+var form = document.querySelector('form');
+if (form) {
+    form.addEventListener('submit', function(e) {
+        var content = quill.root.innerHTML;
+        document.getElementById('conteudo').value = content;
+        
+        // Validar se há conteúdo
+        if (!content || content.trim() === '' || content.trim() === '<p><br></p>') {
+            e.preventDefault();
+            alert('Por favor, preencha o conteúdo do artigo!');
+            return false;
+        }
+        
+        // Se passou na validação, deixar o formulário ser enviado normalmente
+        return true;
+    });
+}
 </script>
 
 <script>
