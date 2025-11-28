@@ -586,12 +586,20 @@ def index():
             print(f"Erro ao carregar footer do banco: {e}")
             footer_obj = None
         if footer_obj:
+            # Garantir que contato e redes_sociais sejam dicionários
+            contato = footer_obj.contato if footer_obj.contato else {}
+            if not isinstance(contato, dict):
+                contato = {}
+            redes_sociais = footer_obj.redes_sociais if footer_obj.redes_sociais else {}
+            if not isinstance(redes_sociais, dict):
+                redes_sociais = {}
+            
             footer_data = {
-                'descricao': footer_obj.descricao,
-                'redes_sociais': footer_obj.redes_sociais or {},
-                'contato': footer_obj.contato or {},
-                'copyright': footer_obj.copyright,
-                'whatsapp_float': footer_obj.whatsapp_float
+                'descricao': footer_obj.descricao or '',
+                'redes_sociais': redes_sociais,
+                'contato': contato,
+                'copyright': footer_obj.copyright or '',
+                'whatsapp_float': footer_obj.whatsapp_float or ''
             }
         else:
             footer_data = None
