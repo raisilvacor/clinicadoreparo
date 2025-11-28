@@ -114,7 +114,7 @@
         </div>
         
         <div class="form-actions">
-            <a href="{{ url_for('admin_blog') }}" class="btn btn-secondary">
+            <a href="{{ url_for('admin_blog') }}" class="btn btn-secondary" style="background-color: #6c757d; color: white; text-decoration: none;">
                 <i class="fas fa-times"></i> Cancelar
             </a>
             <button type="submit" class="btn btn-primary">
@@ -315,8 +315,18 @@ setTimeout(function() {
 
 // Sincronizar conteúdo do Quill com o textarea antes de enviar
 document.querySelector('form').addEventListener('submit', function(e) {
+    e.preventDefault(); // Prevenir envio padrão
     var content = quill.root.innerHTML;
     document.getElementById('conteudo').value = content;
+    
+    // Validar se há conteúdo
+    if (!content || content.trim() === '' || content.trim() === '<p><br></p>') {
+        alert('Por favor, preencha o conteúdo do artigo!');
+        return false;
+    }
+    
+    // Enviar formulário manualmente
+    this.submit();
 });
 </script>
 
