@@ -16,7 +16,7 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url if request else '' }}">
-    <meta property="og:title" content="{% block og_title %}{% block title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}">
     <meta property="og:description" content="{% block og_description %}Assistência técnica especializada em Barueri para eletrodomésticos, celulares, computadores e notebooks. Conserto rápido e confiável em Alphaville, Tamboré e toda região.{% endblock %}">
     <meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='img/logo.png', _external=True) }}{% endblock %}">
     <meta property="og:locale" content="pt_BR">
@@ -25,7 +25,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="{{ request.url if request else '' }}">
-    <meta name="twitter:title" content="{% block twitter_title %}{% block title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}{% endblock %}">
+    <meta name="twitter:title" content="{% block twitter_title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}">
     <meta name="twitter:description" content="{% block twitter_description %}Assistência técnica especializada em Barueri para eletrodomésticos, celulares, computadores e notebooks.{% endblock %}">
     <meta name="twitter:image" content="{% block twitter_image %}{{ url_for('static', filename='img/logo.png', _external=True) }}{% endblock %}">
     
