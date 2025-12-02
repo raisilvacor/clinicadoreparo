@@ -3,9 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="{% block description %}Assistência técnica especializada para eletrodomésticos, celulares, computadores e notebooks. Reparo rápido e confiável.{% endblock %}">
-    <title>{% block title %}Clínica do Reparo - Assistência Técnica{% endblock %}</title>
+    <meta name="description" content="{% block description %}Assistência técnica especializada em Barueri para eletrodomésticos, celulares, computadores e notebooks. Conserto rápido e confiável em Alphaville, Tamboré e toda região de Barueri.{% endblock %}">
+    <meta name="keywords" content="{% block keywords %}assistência técnica barueri, conserto de eletrônicos barueri, técnico de eletrônica barueri, manutenção de eletrodomésticos barueri, assistência técnica urgente barueri, técnico residencial barueri, reparo de equipamentos barueri, assistência técnica alphaville, assistência técnica tamboré, conserto de celular barueri, assistência técnica celular barueri, troca de tela barueri, conserto iphone barueri, conserto samsung barueri, conserto de notebook barueri, manutenção de notebook barueri, formatação de computador barueri, conserto de máquina de lavar barueri, assistência técnica lavadora barueri, conserto de microondas barueri, conserto de tv barueri, assistência técnica tv barueri, conserto videogame barueri, assistência playstation barueri, instalação ar condicionado barueri, manutenção ar condicionado barueri, técnico em eletrônica barueri, reparo de placas eletrônicas barueri, barueri centro, jardim paulista barueri, vila boa vista barueri, jardim belval, jardim mutinga{% endblock %}">
+    <meta name="author" content="Clínica do Reparo">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="Portuguese">
+    <meta name="geo.region" content="BR-SP">
+    <meta name="geo.placename" content="Barueri">
+    <meta name="geo.position" content="-23.5108;-46.8761">
+    <meta name="ICBM" content="-23.5108, -46.8761">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url if request else '' }}">
+    <meta property="og:title" content="{% block og_title %}{% block title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Assistência técnica especializada em Barueri para eletrodomésticos, celulares, computadores e notebooks. Conserto rápido e confiável em Alphaville, Tamboré e toda região.{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='img/logo.png', _external=True) }}{% endblock %}">
+    <meta property="og:locale" content="pt_BR">
+    <meta property="og:site_name" content="Clínica do Reparo">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ request.url if request else '' }}">
+    <meta name="twitter:title" content="{% block twitter_title %}{% block title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}Assistência técnica especializada em Barueri para eletrodomésticos, celulares, computadores e notebooks.{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}{{ url_for('static', filename='img/logo.png', _external=True) }}{% endblock %}">
+    
+    <title>{% block title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favi.ico') }}">
+    <link rel="canonical" href="{{ request.url if request else '' }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -13,12 +39,15 @@
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    
+    <!-- Schema.org JSON-LD -->
+    {% block schema %}{% endblock %}
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="logo-img">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Clínica do Reparo - Assistência Técnica em Barueri" class="logo-img">
             </div>
             <ul class="nav-menu">
                 <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
@@ -58,7 +87,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="footer-logo" width="150" height="50" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Clínica do Reparo - Assistência Técnica em Barueri" class="footer-logo" width="150" height="50" loading="lazy">
                     <p>{{ footer.descricao if footer else 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.' }}</p>
                     <div class="social-links">
                         {% if footer and footer.redes_sociais.facebook %}

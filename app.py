@@ -5346,6 +5346,73 @@ def create_fornecedores_table():
     
     return redirect(url_for('admin_fornecedores'))
 
+@app.route('/sitemap.xml')
+def sitemap():
+    """Gera sitemap.xml dinâmico"""
+    from flask import make_response
+    
+    base_url = request.url_root.rstrip('/')
+    
+    urls = [
+        {'loc': f'{base_url}/', 'changefreq': 'daily', 'priority': '1.0'},
+        {'loc': f'{base_url}/servicos', 'changefreq': 'weekly', 'priority': '0.9'},
+        {'loc': f'{base_url}/sobre', 'changefreq': 'monthly', 'priority': '0.8'},
+        {'loc': f'{base_url}/contato', 'changefreq': 'monthly', 'priority': '0.8'},
+        {'loc': f'{base_url}/agendamento', 'changefreq': 'weekly', 'priority': '0.8'},
+        {'loc': f'{base_url}/rastrear', 'changefreq': 'weekly', 'priority': '0.7'},
+    ]
+    
+    # Adicionar serviços dinâmicos se disponíveis
+    if use_database():
+        try:
+            servicos = Servico.query.filter_by(ativo=True).all()
+            for servico in servicos:
+                urls.append({
+                    'loc': f'{base_url}/servicos',
+                    'changefreq': 'weekly',
+                    'priority': '0.7'
+                })
+        except:
+            pass
+    
+    sitemap_xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+'''
+    
+    for url in urls:
+        sitemap_xml += f'''  <url>
+    <loc>{url['loc']}</loc>
+    <changefreq>{url['changefreq']}</changefreq>
+    <priority>{url['priority']}</priority>
+  </url>
+'''
+    
+    sitemap_xml += '</urlset>'
+    
+    response = make_response(sitemap_xml)
+    response.headers['Content-Type'] = 'application/xml'
+    return response
+
+@app.route('/robots.txt')
+def robots():
+    """Gera robots.txt"""
+    from flask import make_response
+    
+    base_url = request.url_root.rstrip('/')
+    
+    robots_txt = f'''User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /client/
+Disallow: /api/
+
+Sitemap: {base_url}/sitemap.xml
+'''
+    
+    response = make_response(robots_txt)
+    response.headers['Content-Type'] = 'text/plain'
+    return response
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'

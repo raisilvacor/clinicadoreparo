@@ -1,6 +1,89 @@
 {% extends "base.html" %}
 
-{% block title %}Clínica do Reparo - Assistência Técnica Profissional{% endblock %}
+{% block title %}Assistência Técnica Barueri - Conserto de Celulares, Notebooks e Eletrodomésticos{% endblock %}
+
+{% block description %}Assistência técnica especializada em Barueri, Alphaville e Tamboré. Conserto de celulares, notebooks, computadores, máquinas de lavar, micro-ondas, TVs e video games. Técnico certificado com atendimento rápido e garantia.{% endblock %}
+
+{% block keywords %}assistência técnica barueri, conserto de celular barueri, conserto de notebook barueri, assistência técnica alphaville, assistência técnica tamboré, conserto de máquina de lavar barueri, conserto de microondas barueri, conserto de tv barueri, conserto videogame barueri, técnico de eletrônica barueri, reparo de placas eletrônicas barueri, manutenção de notebook barueri, formatação de computador barueri, troca de tela barueri, conserto iphone barueri, conserto samsung barueri, técnico residencial barueri{% endblock %}
+
+{% block schema %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Clínica do Reparo",
+  "description": "Assistência técnica especializada em Barueri para eletrodomésticos, celulares, computadores e notebooks",
+  "url": "{{ request.url_root if request else '' }}",
+  "telephone": "{{ footer.contato.telefone if footer and footer.contato and footer.contato.telefone else '(11) 99999-9999' }}",
+  "email": "{{ footer.contato.email if footer and footer.contato and footer.contato.email else 'contato@clinicadoreparo.com.br' }}",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "{{ footer.contato.endereco if footer and footer.contato and footer.contato.endereco else 'Barueri' }}",
+    "addressLocality": "Barueri",
+    "addressRegion": "SP",
+    "postalCode": "06400-000",
+    "addressCountry": "BR"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": -23.5108,
+    "longitude": -46.8761
+  },
+  "areaServed": [
+    {
+      "@type": "City",
+      "name": "Barueri"
+    },
+    {
+      "@type": "City",
+      "name": "Alphaville"
+    },
+    {
+      "@type": "City",
+      "name": "Tamboré"
+    },
+    {
+      "@type": "City",
+      "name": "Jardim Paulista"
+    },
+    {
+      "@type": "City",
+      "name": "Vila Boa Vista"
+    }
+  ],
+  "priceRange": "$$",
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "opens": "08:00",
+    "closes": "18:00"
+  },
+  "serviceType": [
+    "Conserto de Celulares",
+    "Conserto de Notebook",
+    "Conserto de Computador",
+    "Conserto de Video Game",
+    "Conserto de Televisor",
+    "Conserto de Microondas",
+    "Conserto de Máquina de Lavar",
+    "Conserto de Aparelhos de Som",
+    "Outros Aparelhos Eletrônicos"
+  ],
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.8",
+    "reviewCount": "150"
+  }
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <!-- Hero Slider -->
@@ -14,7 +97,7 @@
                 <a href="{{ slide.link }}" target="{{ slide.link_target or '_self' }}" class="slide-link">
                     {% if slide.imagem and slide.imagem.startswith('/admin/slides/imagem/') %}
                     <div class="slide-image" data-bg-image="{{ slide.imagem }}">
-                        <img src="{{ slide.imagem }}" alt="Slide {{ loop.index }}" loading="eager">
+                        <img src="{{ slide.imagem }}" alt="Assistência Técnica em Barueri - Clínica do Reparo" loading="eager">
                     </div>
                     {% else %}
                     <div class="slide-image" data-bg-image="{{ url_for('static', filename=slide.imagem) }}">
@@ -25,7 +108,7 @@
                 {% else %}
                     {% if slide.imagem and slide.imagem.startswith('/admin/slides/imagem/') %}
                     <div class="slide-image" data-bg-image="{{ slide.imagem }}">
-                        <img src="{{ slide.imagem }}" alt="Slide {{ loop.index }}" loading="eager">
+                        <img src="{{ slide.imagem }}" alt="Assistência Técnica em Barueri - Clínica do Reparo" loading="eager">
                     </div>
                     {% else %}
                     <div class="slide-image" data-bg-image="{{ url_for('static', filename=slide.imagem) }}">
@@ -116,12 +199,12 @@
                 <span>Especialistas em Tecnologia</span>
             </div>
             <h1 class="hero-title">
-                <span class="gradient-text">Assistência Técnica</span><br>
+                <span class="gradient-text">Assistência Técnica em Barueri</span><br>
                 Especializada e Técnico Certificado
             </h1>
             <p class="hero-description">
-                Soluções rápidas, profissionais e com garantia. 
-                Seu dispositivo em boas mãos!
+                Conserto de celulares, notebooks, computadores e eletrodomésticos em Barueri, Alphaville e Tamboré. 
+                Soluções rápidas, profissionais e com garantia. Seu dispositivo em boas mãos!
             </p>
             <div class="hero-buttons">
                 <a href="{{ url_for('agendamento') }}" class="btn btn-primary btn-large">
@@ -158,8 +241,8 @@
     <div class="container">
         <div class="section-header">
             <span class="section-badge">Nossos Serviços</span>
-            <h2 class="section-title">Soluções Completas para Seus Dispositivos</h2>
-            <p class="section-description">Oferecemos assistência técnica especializada para todos os seus aparelhos</p>
+            <h2 class="section-title">Assistência Técnica Completa em Barueri</h2>
+            <p class="section-description">Oferecemos conserto especializado de celulares, notebooks, computadores, máquinas de lavar, micro-ondas, TVs e video games em Barueri, Alphaville, Tamboré e toda região</p>
         </div>
         <div class="services-grid">
             {% if servicos %}
@@ -180,24 +263,24 @@
                 <!-- Fallback para serviços padrão se não houver serviços cadastrados -->
                 <div class="service-card">
                     <div class="service-image">
-                        <img src="{{ url_for('static', filename='img/servico-celular.jpg') }}" alt="Reparo de Celulares" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        <img src="{{ url_for('static', filename='img/servico-celular.jpg') }}" alt="Conserto de Celular em Barueri - Assistência Técnica Especializada" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
                     </div>
                     <h3>Reparo de Celulares</h3>
-                    <p>Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.</p>
+                    <p>Conserto de celular em Barueri: troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.</p>
                 </div>
                 <div class="service-card">
                     <div class="service-image">
-                        <img src="{{ url_for('static', filename='img/servico-eletrodomestico.jpg') }}" alt="Eletrodomésticos" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        <img src="{{ url_for('static', filename='img/servico-eletrodomestico.jpg') }}" alt="Conserto de Eletrodomésticos em Barueri - Máquinas de Lavar e Micro-ondas" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
                     </div>
                     <h3>Eletrodomésticos</h3>
-                    <p>Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.</p>
+                    <p>Conserto de eletrodomésticos em Barueri: geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.</p>
                 </div>
                 <div class="service-card">
                     <div class="service-image">
-                        <img src="{{ url_for('static', filename='img/servico-computador.jpg') }}" alt="Computadores e Notebook" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        <img src="{{ url_for('static', filename='img/servico-computador.jpg') }}" alt="Conserto de Notebook e Computador em Barueri - Manutenção Especializada" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
                     </div>
                     <h3>Computadores e Notebook</h3>
-                    <p>Reparo e manutenção de computadores, notebooks e componentes.</p>
+                    <p>Conserto de notebook e computador em Barueri: reparo e manutenção de computadores, notebooks e componentes.</p>
                 </div>
             {% endif %}
         </div>
@@ -344,11 +427,55 @@
     </div>
 </section>
 
+<!-- SEO Content Section -->
+<section class="seo-content-section" style="padding: 4rem 0; background: var(--bg-primary);">
+    <div class="container">
+        <div class="seo-content">
+            <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--text-primary);">Assistência Técnica Especializada em Barueri e Região</h2>
+            
+            <div style="max-width: 900px; margin: 0 auto; line-height: 1.8; color: var(--text-secondary);">
+                <p style="margin-bottom: 1.5rem; font-size: 1.1rem;">
+                    A <strong>Clínica do Reparo</strong> é referência em <strong>assistência técnica em Barueri</strong>, oferecendo serviços especializados de conserto e manutenção para celulares, notebooks, computadores, eletrodomésticos e muito mais. Atendemos toda a região de Barueri, incluindo <strong>Alphaville</strong>, <strong>Tamboré</strong>, <strong>Barueri Centro</strong>, <strong>Jardim Paulista</strong>, <strong>Vila Boa Vista</strong>, <strong>Jardim Belval</strong> e <strong>Jardim Mutinga</strong>.
+                </p>
+                
+                <h3 style="font-size: 1.5rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--text-primary);">Conserto de Celulares em Barueri</h3>
+                <p style="margin-bottom: 1.5rem;">
+                    Oferecemos <strong>conserto de celular em Barueri</strong> para todas as marcas, incluindo iPhone, Samsung, Xiaomi e outras. Realizamos <strong>troca de tela barueri</strong>, troca de bateria, reparo de conectores, conserto de placa-mãe e muito mais. Nossa <strong>assistência técnica celular barueri</strong> é rápida e com garantia.
+                </p>
+                
+                <h3 style="font-size: 1.5rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--text-primary);">Conserto de Notebooks e Computadores em Barueri</h3>
+                <p style="margin-bottom: 1.5rem;">
+                    Especialistas em <strong>conserto de notebook barueri</strong> e <strong>manutenção de notebook barueri</strong>. Realizamos formatação, limpeza, troca de tela, upgrade de SSD, reparo de placa-mãe e diagnóstico completo. Também oferecemos <strong>formatação de computador barueri</strong> e reparo de componentes.
+                </p>
+                
+                <h3 style="font-size: 1.5rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--text-primary);">Conserto de Eletrodomésticos em Barueri</h3>
+                <p style="margin-bottom: 1.5rem;">
+                    Realizamos <strong>conserto de máquina de lavar barueri</strong>, <strong>assistência técnica lavadora barueri</strong>, <strong>conserto de microondas barueri</strong>, conserto de geladeira, fogão e outros eletrodomésticos. Nossos técnicos são especializados em reparo de placas eletrônicas e componentes.
+                </p>
+                
+                <h3 style="font-size: 1.5rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--text-primary);">Conserto de TVs e Video Games em Barueri</h3>
+                <p style="margin-bottom: 1.5rem;">
+                    Oferecemos <strong>conserto de tv barueri</strong> e <strong>assistência técnica tv barueri</strong> para todas as marcas. Também realizamos <strong>conserto videogame barueri</strong>, incluindo <strong>assistência playstation barueri</strong>, conserto de PS4, PS5, Xbox e outros consoles.
+                </p>
+                
+                <h3 style="font-size: 1.5rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--text-primary);">Técnico em Eletrônica e Reparo de Placas</h3>
+                <p style="margin-bottom: 1.5rem;">
+                    Somos especialistas em <strong>técnico em eletrônica barueri</strong> e <strong>reparo de placas eletrônicas barueri</strong>. Realizamos diagnóstico preciso, reparo de componentes e manutenção preventiva para garantir a durabilidade dos seus equipamentos.
+                </p>
+                
+                <p style="margin-top: 2rem; font-size: 1.1rem; font-weight: 500;">
+                    <strong>Atendimento em Barueri, Alphaville, Tamboré e toda região!</strong> Entre em contato e solicite um orçamento gratuito. Técnico certificado com anos de experiência.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section class="map-section">
     <div class="container">
         <div class="section-header">
-            <h2 class="section-title">Nossa Localização</h2>
-            <p class="section-description">Venha nos visitar ou entre em contato</p>
+            <h2 class="section-title">Nossa Localização em Barueri</h2>
+            <p class="section-description">Venha nos visitar ou entre em contato - Atendemos toda região de Barueri, Alphaville e Tamboré</p>
         </div>
     </div>
     <div class="map-container">

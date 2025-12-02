@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Serviços - Clínica do Reparo{% endblock %}
+{% block title %}Serviços de Assistência Técnica em Barueri - Conserto Especializado{% endblock %}
+
+{% block description %}Serviços completos de assistência técnica em Barueri: conserto de celulares, notebooks, computadores, máquinas de lavar, micro-ondas, TVs e video games. Atendimento em Alphaville, Tamboré e toda região.{% endblock %}
+
+{% block keywords %}serviços assistência técnica barueri, conserto celular barueri, conserto notebook barueri, conserto computador barueri, conserto máquina lavar barueri, conserto microondas barueri, conserto tv barueri, conserto videogame barueri, assistência técnica alphaville, assistência técnica tamboré{% endblock %}
 
 {% block content %}
 <section class="page-header">
     <div class="container">
-        <h1>Nossos Serviços</h1>
-        <p>Assistência técnica completa para seus dispositivos</p>
+        <h1>Serviços de Assistência Técnica em Barueri</h1>
+        <p>Conserto especializado de celulares, notebooks, computadores e eletrodomésticos em Barueri, Alphaville e Tamboré</p>
     </div>
 </section>
 
@@ -14,8 +18,8 @@
     <div class="container">
         <div class="section-header">
             <span class="section-badge">Nossos Serviços</span>
-            <h2 class="section-title">Soluções Completas para Seus Dispositivos</h2>
-            <p class="section-description">Oferecemos assistência técnica especializada para todos os seus aparelhos</p>
+            <h2 class="section-title">Assistência Técnica Completa em Barueri</h2>
+            <p class="section-description">Oferecemos conserto especializado de celulares, notebooks, computadores, máquinas de lavar, micro-ondas, TVs e video games em Barueri, Alphaville, Tamboré e toda região</p>
         </div>
         <div class="services-grid">
             {% if servicos %}
@@ -64,8 +68,8 @@
 
 <div class="services-cta">
     <div class="container">
-        <h2>Precisa de um Serviço Específico?</h2>
-        <p>Entre em contato conosco e solicite um orçamento gratuito</p>
+        <h2>Precisa de Assistência Técnica em Barueri?</h2>
+        <p>Entre em contato conosco e solicite um orçamento gratuito. Atendemos Barueri, Alphaville, Tamboré e toda região.</p>
         <a href="{{ url_for('contato') }}" class="btn btn-primary btn-large">
             <i class="fas fa-calendar-check"></i>
             Solicitar Orçamento
