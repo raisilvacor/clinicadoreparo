@@ -1874,6 +1874,13 @@ def add_ordem_servico():
         # Salvar no banco de dados se disponível
         if use_database():
             try:
+                # Garantir que as tabelas existem antes de salvar
+                with app.app_context():
+                    try:
+                        db.create_all()
+                    except Exception as create_error:
+                        print(f"DEBUG: Aviso ao criar tabelas: {create_error}")
+                
                 # Verificar se cliente existe no banco
                 cliente_db = Cliente.query.get(cliente_id)
                 
@@ -1988,7 +1995,21 @@ def add_ordem_servico():
                     db.session.rollback()
                 except:
                     pass
-                flash('Erro ao salvar ordem. Tente novamente.', 'error')
+                
+                # Verificar se o erro é relacionado à tabela não existir
+                error_str = str(e).lower()
+                if 'does not exist' in error_str or 'relation' in error_str or 'table' in error_str:
+                    # Tentar criar a tabela
+                    try:
+                        with app.app_context():
+                            db.create_all()
+                            print("DEBUG: ✅ Tabelas criadas/verificadas após erro")
+                            flash('Tabela criada. Tente adicionar a ordem novamente.', 'info')
+                    except Exception as create_error:
+                        print(f"Erro ao criar tabelas: {create_error}")
+                        flash(f'Erro: Tabela não existe. Execute db.create_all() no banco de dados. Detalhes: {str(e)[:200]}', 'error')
+                else:
+                    flash(f'Erro ao salvar ordem: {str(e)[:200]}. Tente novamente.', 'error')
                 return redirect(url_for('add_ordem_servico'))
         
         # Fallback para JSON
