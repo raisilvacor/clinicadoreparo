@@ -1999,18 +1999,133 @@ def add_ordem_servico():
                 # Verificar se o erro é relacionado à tabela não existir
                 error_str = str(e).lower()
                 if 'does not exist' in error_str or 'relation' in error_str or 'table' in error_str:
-                    # Tentar criar a tabela
+                    # Tentar criar a tabela e salvar novamente
                     try:
                         with app.app_context():
                             db.create_all()
                             print("DEBUG: ✅ Tabelas criadas/verificadas após erro")
-                            flash('Tabela criada. Tente adicionar a ordem novamente.', 'info')
+                            
+                            # Tentar salvar a ordem novamente após criar a tabela
+                            try:
+                                # Verificar se cliente existe no banco
+                                cliente_db = Cliente.query.get(cliente_id)
+                                
+                                # Se não encontrou no banco, tentar buscar no JSON e criar no banco
+                                if not cliente_db:
+                                    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+                                        data_json = json.load(f)
+                                    
+                                    cliente_json = next((c for c in data_json['clients'] if c.get('id') == cliente_id), None)
+                                    if cliente_json:
+                                        # Criar cliente no banco a partir do JSON
+                                        cliente_db = Cliente(
+                                            id=cliente_json['id'],
+                                            nome=cliente_json.get('nome', ''),
+                                            email=cliente_json.get('email', ''),
+                                            telefone=cliente_json.get('telefone', ''),
+                                            cpf=cliente_json.get('cpf', ''),
+                                            endereco=cliente_json.get('endereco', ''),
+                                            username=cliente_json.get('username', ''),
+                                            password=cliente_json.get('password', ''),
+                                            data_cadastro=datetime.strptime(cliente_json.get('data_cadastro', datetime.now().strftime('%Y-%m-%d %H:%M:%S')), '%Y-%m-%d %H:%M:%S') if cliente_json.get('data_cadastro') else datetime.now()
+                                        )
+                                        db.session.add(cliente_db)
+                                        db.session.commit()
+                                    else:
+                                        flash('Cliente não encontrado!', 'error')
+                                        return redirect(url_for('add_ordem_servico'))
+                                
+                                # Criar ordem no banco
+                                nova_ordem_db = OrdemServico(
+                                    numero_ordem=str(numero_ordem),
+                                    cliente_id=cliente_id,
+                                    tecnico_id=int(tecnico_id) if tecnico_id and tecnico_id != '' else None,
+                                    servico=servico,
+                                    tipo_aparelho=tipo_aparelho,
+                                    marca=marca,
+                                    modelo=modelo,
+                                    numero_serie=numero_serie,
+                                    defeitos_cliente=defeitos_cliente,
+                                    diagnostico_tecnico=diagnostico_tecnico,
+                                    pecas=pecas,
+                                    custo_pecas=total_pecas,
+                                    custo_mao_obra=float(custo_mao_obra) if custo_mao_obra else 0.00,
+                                    subtotal=subtotal,
+                                    desconto_percentual=desconto_percentual,
+                                    valor_desconto=valor_desconto,
+                                    cupom_id=cupom_id if cupom_usado else None,
+                                    total=total,
+                                    status=status,
+                                    prazo_estimado=prazo_estimado if prazo_estimado else None,
+                                    data=datetime.now()
+                                )
+                                db.session.add(nova_ordem_db)
+                                db.session.commit()
+                                
+                                # Atualizar cupom se usado
+                                if cupom_usado and use_database():
+                                    try:
+                                        cupom_db = Cupom.query.get(cupom_id)
+                                        if cupom_db:
+                                            cupom_db.usado = True
+                                            cupom_db.ordem_id = nova_ordem_db.id
+                                            cupom_db.data_uso = datetime.now()
+                                            db.session.commit()
+                                    except Exception as cupom_error:
+                                        print(f"Erro ao atualizar cupom: {cupom_error}")
+                                        db.session.rollback()
+                                
+                                # Gerar PDF da ordem
+                                cliente_dict = {
+                                    'id': cliente_db.id,
+                                    'nome': cliente_db.nome,
+                                    'email': cliente_db.email,
+                                    'telefone': cliente_db.telefone,
+                                    'cpf': cliente_db.cpf,
+                                    'endereco': cliente_db.endereco
+                                }
+                                ordem_dict = {
+                                    'id': nova_ordem_db.id,
+                                    'numero_ordem': nova_ordem_db.numero_ordem,
+                                    'servico': nova_ordem_db.servico,
+                                    'marca': nova_ordem_db.marca,
+                                    'modelo': nova_ordem_db.modelo,
+                                    'numero_serie': nova_ordem_db.numero_serie,
+                                    'defeitos_cliente': nova_ordem_db.defeitos_cliente,
+                                    'diagnostico_tecnico': nova_ordem_db.diagnostico_tecnico,
+                                    'pecas': nova_ordem_db.pecas or [],
+                                    'custo_pecas': float(nova_ordem_db.custo_pecas) if nova_ordem_db.custo_pecas else 0.00,
+                                    'custo_mao_obra': float(nova_ordem_db.custo_mao_obra) if nova_ordem_db.custo_mao_obra else 0.00,
+                                    'subtotal': float(nova_ordem_db.subtotal) if nova_ordem_db.subtotal else 0.00,
+                                    'desconto_percentual': float(nova_ordem_db.desconto_percentual) if nova_ordem_db.desconto_percentual else 0.00,
+                                    'valor_desconto': float(nova_ordem_db.valor_desconto) if nova_ordem_db.valor_desconto else 0.00,
+                                    'total': float(nova_ordem_db.total) if nova_ordem_db.total else 0.00,
+                                    'status': nova_ordem_db.status,
+                                    'prazo_estimado': nova_ordem_db.prazo_estimado,
+                                    'data': nova_ordem_db.data.strftime('%Y-%m-%d %H:%M:%S') if nova_ordem_db.data else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                }
+                                
+                                pdf_result = gerar_pdf_ordem(cliente_dict, ordem_dict)
+                                if isinstance(pdf_result, dict):
+                                    nova_ordem_db.pdf_filename = pdf_result.get('pdf_filename', '')
+                                    nova_ordem_db.pdf_id = pdf_result.get('pdf_id')
+                                    db.session.commit()
+                                
+                                flash('Ordem de serviço emitida com sucesso!', 'success')
+                                return redirect(url_for('admin_ordens'))
+                            except Exception as retry_error:
+                                print(f"Erro ao salvar ordem após criar tabela: {retry_error}")
+                                import traceback
+                                traceback.print_exc()
+                                flash(f'Erro ao salvar ordem após criar tabela: {str(retry_error)[:200]}. Tente novamente.', 'error')
+                                return redirect(url_for('add_ordem_servico'))
                     except Exception as create_error:
                         print(f"Erro ao criar tabelas: {create_error}")
                         flash(f'Erro: Tabela não existe. Execute db.create_all() no banco de dados. Detalhes: {str(e)[:200]}', 'error')
+                        return redirect(url_for('add_ordem_servico'))
                 else:
                     flash(f'Erro ao salvar ordem: {str(e)[:200]}. Tente novamente.', 'error')
-                return redirect(url_for('add_ordem_servico'))
+                    return redirect(url_for('add_ordem_servico'))
         
         # Fallback para JSON
         with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
