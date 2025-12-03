@@ -1253,18 +1253,26 @@ def checkout():
                 db.session.add(pedido)
                 db.session.flush()  # Para obter o ID do pedido
                 
-                # Criar itens do pedido - salvar dados históricos
+                # Criar itens do pedido - salvar dados históricos se as colunas existirem
                 for item in itens_pedido:
                     produto = item['produto']
-                    item_pedido = ItemPedido(
-                        pedido_id=pedido.id,
-                        produto_id=produto.id,
-                        quantidade=item['quantidade'],
-                        preco_unitario=item['preco'],
-                        subtotal=item['subtotal'],
-                        produto_nome=produto.nome,  # Salvar nome para histórico
-                        produto_sku=produto.sku if produto.sku else None  # Salvar SKU para histórico
-                    )
+                    
+                    # Verificar se as colunas de histórico existem no modelo
+                    item_data = {
+                        'pedido_id': pedido.id,
+                        'produto_id': produto.id,
+                        'quantidade': item['quantidade'],
+                        'preco_unitario': item['preco'],
+                        'subtotal': item['subtotal']
+                    }
+                    
+                    # Adicionar dados históricos apenas se as colunas existirem
+                    if hasattr(ItemPedido, 'produto_nome'):
+                        item_data['produto_nome'] = produto.nome
+                    if hasattr(ItemPedido, 'produto_sku'):
+                        item_data['produto_sku'] = produto.sku if produto.sku else None
+                    
+                    item_pedido = ItemPedido(**item_data)
                     db.session.add(item_pedido)
                     
                     # Atualizar estoque
@@ -6089,10 +6097,20 @@ def admin_edit_produto(produto_id):
     categorias = Categoria.query.order_by(Categoria.nome).all()
     return render_template('admin/edit_produto.html', produto=produto, categorias=categorias)
 
+def verificar_coluna_existe(tabela, coluna):
+    """Verifica se uma coluna existe na tabela"""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        colunas = [col['name'] for col in inspector.get_columns(tabela)]
+        return coluna in colunas
+    except:
+        return False
+
 @app.route('/admin/loja/produtos/<int:produto_id>/delete', methods=['POST'])
 @login_required
 def admin_delete_produto(produto_id):
-    """Excluir produto - salva dados históricos antes de excluir"""
+    """Excluir produto - salva dados históricos antes de excluir (se colunas existirem)"""
     if not use_database():
         flash('Banco de dados não disponível.', 'error')
         return redirect(url_for('admin_produtos'))
@@ -6100,29 +6118,59 @@ def admin_delete_produto(produto_id):
     try:
         produto = Produto.query.get_or_404(produto_id)
         
-        # Verificar se há itens de pedido associados
-        itens_pedido = ItemPedido.query.filter_by(produto_id=produto_id).all()
-        itens_pedido_count = len(itens_pedido)
+        # Verificar se colunas de histórico existem
+        tem_coluna_nome = verificar_coluna_existe('itens_pedido', 'produto_nome')
+        tem_coluna_sku = verificar_coluna_existe('itens_pedido', 'produto_sku')
         
-        if itens_pedido_count > 0:
-            # Salvar dados históricos nos itens de pedido antes de excluir o produto
-            for item in itens_pedido:
-                if not item.produto_nome:
-                    item.produto_nome = produto.nome
-                if not item.produto_sku and produto.sku:
-                    item.produto_sku = produto.sku
+        # Verificar se há itens de pedido associados usando query direta
+        try:
+            from sqlalchemy import text
+            result = db.session.execute(
+                text("SELECT COUNT(*) FROM itens_pedido WHERE produto_id = :produto_id"),
+                {'produto_id': produto_id}
+            )
+            itens_pedido_count = result.scalar() or 0
             
-            db.session.commit()  # Salvar dados históricos
+            if itens_pedido_count > 0 and (tem_coluna_nome or tem_coluna_sku):
+                # Atualizar dados históricos usando SQL direto
+                updates = []
+                params = {'produto_id': produto_id}
+                
+                if tem_coluna_nome:
+                    updates.append("produto_nome = :produto_nome")
+                    params['produto_nome'] = produto.nome
+                
+                if tem_coluna_sku and produto.sku:
+                    updates.append("produto_sku = :produto_sku")
+                    params['produto_sku'] = produto.sku
+                
+                if updates:
+                    sql = f"UPDATE itens_pedido SET {', '.join(updates)} WHERE produto_id = :produto_id AND (produto_nome IS NULL OR produto_sku IS NULL)"
+                    db.session.execute(text(sql), params)
+                    db.session.commit()
+        except Exception as e:
+            print(f"Erro ao atualizar dados históricos: {e}")
+            db.session.rollback()
+            # Continuar mesmo se falhar
         
-        # Excluir o produto
-        # Com ondelete='SET NULL', os produto_id dos itens serão definidos como NULL automaticamente
-        db.session.delete(produto)
-        db.session.commit()
-        
-        if itens_pedido_count > 0:
-            flash(f'Produto excluído com sucesso! {itens_pedido_count} item(ns) de pedido(s) mantido(s) com dados históricos.', 'success')
-        else:
-            flash('Produto excluído com sucesso!', 'success')
+        # Verificar constraint de foreign key antes de excluir
+        # Se produto_id não permite NULL, precisamos verificar se há itens
+        try:
+            # Tentar excluir o produto
+            db.session.delete(produto)
+            db.session.commit()
+            
+            if itens_pedido_count > 0:
+                flash(f'Produto excluído com sucesso! {itens_pedido_count} item(ns) de pedido(s) mantido(s).', 'success')
+            else:
+                flash('Produto excluído com sucesso!', 'success')
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'foreign key' in error_str or 'constraint' in error_str:
+                # Se ainda não permite NULL, avisar para executar migração
+                flash('Não é possível excluir este produto. Execute a migração do banco de dados primeiro (veja arquivo migrate_produtos_delete.sql). Ou desative o produto em vez de excluí-lo.', 'error')
+            else:
+                raise
     except Exception as e:
         db.session.rollback()
         print(f"Erro ao excluir produto: {e}")
@@ -6319,12 +6367,21 @@ def admin_pedido_detalhes(pedido_id):
                 imagem_url = ''
             
             # Usar nome do produto do histórico se produto foi excluído
-            produto_nome = item.produto_nome if item.produto_nome else (item.produto.nome if item.produto else 'Produto removido')
+            # Verificar se as colunas de histórico existem
+            if hasattr(item, 'produto_nome') and item.produto_nome:
+                produto_nome = item.produto_nome
+            else:
+                produto_nome = item.produto.nome if item.produto else 'Produto removido'
+            
+            if hasattr(item, 'produto_sku') and item.produto_sku:
+                produto_sku = item.produto_sku
+            else:
+                produto_sku = item.produto.sku if item.produto else ''
             
             itens_list.append({
                 'id': item.id,
                 'produto_nome': produto_nome,
-                'produto_sku': item.produto_sku or (item.produto.sku if item.produto else ''),
+                'produto_sku': produto_sku,
                 'produto_imagem': imagem_url,
                 'quantidade': item.quantidade,
                 'preco_unitario': float(item.preco_unitario),
