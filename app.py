@@ -1306,7 +1306,9 @@ def checkout():
                     )
                     db.session.add(item_pedido)
                 
-                db.session.commit()
+                # Fazer flush para obter IDs, mas não commitar ainda
+                # Só commitar após criar preferência no Mercado Pago com sucesso
+                db.session.flush()
                 
                 # Criar preferência de pagamento no Mercado Pago
                 try:
@@ -1383,9 +1385,9 @@ def checkout():
                             init_point = response_data.get("init_point") or response_data.get("sandbox_init_point")
                             
                             if preference_id and init_point:
-                                # Salvar preference_id no pedido e fazer commit
+                                # Salvar preference_id no pedido e fazer commit de tudo
                                 pedido.mercado_pago_preference_id = preference_id
-                                db.session.commit()
+                                db.session.commit()  # Commit final: pedido + itens + preference_id
                                 
                                 # Salvar dados do pedido na sessão para login após pagamento
                                 session['pedido_pendente_id'] = pedido.id
