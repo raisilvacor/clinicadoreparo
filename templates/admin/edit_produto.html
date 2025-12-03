@@ -1,0 +1,129 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Produto - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-edit"></i> Editar Produto</h1>
+    <p>Atualize os dados do produto</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('admin_edit_produto', produto_id=produto.id) }}" enctype="multipart/form-data" class="admin-form">
+        <div class="form-group">
+            <label for="nome">Nome do Produto *</label>
+            <input type="text" id="nome" name="nome" value="{{ produto.nome }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="slug">Slug (URL) *</label>
+            <input type="text" id="slug" name="slug" value="{{ produto.slug }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="categoria_id">Categoria</label>
+            <select id="categoria_id" name="categoria_id">
+                <option value="">Sem categoria</option>
+                {% for cat in categorias %}
+                <option value="{{ cat.id }}" {% if produto.categoria_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="preco">Preço *</label>
+                <input type="number" id="preco" name="preco" step="0.01" min="0" value="{{ produto.preco }}" required>
+            </div>
+            <div class="form-group">
+                <label for="preco_promocional">Preço Promocional</label>
+                <input type="number" id="preco_promocional" name="preco_promocional" step="0.01" min="0" value="{{ produto.preco_promocional or '' }}" placeholder="0.00">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="estoque">Estoque *</label>
+                <input type="number" id="estoque" name="estoque" min="0" value="{{ produto.estoque }}" required>
+            </div>
+            <div class="form-group">
+                <label for="sku">SKU</label>
+                <input type="text" id="sku" name="sku" value="{{ produto.sku or '' }}" placeholder="Código do produto">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="marca">Marca</label>
+                <input type="text" id="marca" name="marca" value="{{ produto.marca or '' }}" placeholder="Ex: Apple, Samsung">
+            </div>
+            <div class="form-group">
+                <label for="modelo">Modelo</label>
+                <input type="text" id="modelo" name="modelo" value="{{ produto.modelo or '' }}" placeholder="Ex: iPhone 12">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="peso">Peso (kg)</label>
+                <input type="number" id="peso" name="peso" step="0.01" min="0" value="{{ produto.peso or '' }}" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="dimensoes">Dimensões</label>
+                <input type="text" id="dimensoes" name="dimensoes" value="{{ produto.dimensoes or '' }}" placeholder="Ex: 10x20x5 cm">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="descricao">Descrição Curta</label>
+            <textarea id="descricao" name="descricao" rows="3">{{ produto.descricao or '' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="descricao_completa">Descrição Completa</label>
+            <textarea id="descricao_completa" name="descricao_completa" rows="6">{{ produto.descricao_completa or '' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="imagem">Nova Imagem do Produto</label>
+            {% if produto.imagem_id %}
+            <div style="margin-bottom: 10px;">
+                <img src="/admin/produtos/imagem/{{ produto.imagem_id }}" alt="{{ produto.nome }}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 5px;">
+                <p style="margin-top: 5px; color: #666; font-size: 0.9rem;">Imagem atual</p>
+            </div>
+            {% endif %}
+            <input type="file" id="imagem" name="imagem" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+            <small class="form-help">Deixe em branco para manter a imagem atual. Formatos aceitos: PNG, JPG, JPEG, GIF, WEBP (máx. 5MB)</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="ordem">Ordem de Exibição</label>
+            <input type="number" id="ordem" name="ordem" min="1" value="{{ produto.ordem or 1 }}">
+        </div>
+        
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="ativo" name="ativo" {% if produto.ativo %}checked{% endif %}>
+                <span>Produto ativo (exibir na loja)</span>
+            </label>
+        </div>
+        
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="destaque" name="destaque" {% if produto.destaque %}checked{% endif %}>
+                <span>Produto em destaque (aparecer na página inicial)</span>
+            </label>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_produtos') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

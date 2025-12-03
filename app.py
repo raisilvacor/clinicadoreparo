@@ -5813,6 +5813,517 @@ def create_fornecedores_table():
     
     return redirect(url_for('admin_fornecedores'))
 
+# ==================== FUNÇÕES AUXILIARES ====================
+
+def slugify(text):
+    """Converte texto para slug (URL-friendly)"""
+    import re
+    import unicodedata
+    
+    # Normalizar e remover acentos
+    text = unicodedata.normalize('NFKD', str(text))
+    text = text.encode('ascii', 'ignore').decode('ascii')
+    
+    # Converter para minúsculas e substituir espaços por hífens
+    text = text.lower()
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[-\s]+', '-', text)
+    text = text.strip('-')
+    
+    return text
+
+def salvar_imagem_banco(file):
+    """Salva imagem no banco de dados e retorna objeto Imagem"""
+    if not file or not file.filename:
+        return None
+    
+    if not allowed_file(file.filename):
+        return None
+    
+    # Verificar tamanho
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        return None
+    
+    # Ler dados
+    file_data = file.read()
+    
+    # Determinar tipo MIME
+    ext = os.path.splitext(file.filename)[1].lower()
+    mime_types = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    }
+    imagem_tipo = mime_types.get(ext, 'image/jpeg')
+    
+    try:
+        imagem = Imagem(
+            nome=secure_filename(file.filename),
+            dados=file_data,
+            tipo_mime=imagem_tipo,
+            tamanho=file_size,
+            referencia=f'produto_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        )
+        db.session.add(imagem)
+        db.session.commit()
+        return imagem
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao salvar imagem: {e}")
+        return None
+
+# ==================== ADMIN - LOJA ====================
+
+@app.route('/admin/loja/produtos')
+@login_required
+def admin_produtos():
+    """Lista todos os produtos"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        produtos = Produto.query.order_by(Produto.ordem, Produto.nome).all()
+        categorias = Categoria.query.order_by(Categoria.nome).all()
+        
+        produtos_list = []
+        for p in produtos:
+            if p.imagem_id:
+                imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
+            elif p.imagem:
+                imagem_url = p.imagem
+            else:
+                imagem_url = ''
+            
+            produtos_list.append({
+                'id': p.id,
+                'nome': p.nome,
+                'slug': p.slug,
+                'descricao': p.descricao,
+                'preco': float(p.preco),
+                'preco_promocional': float(p.preco_promocional) if p.preco_promocional else None,
+                'estoque': p.estoque,
+                'imagem': imagem_url,
+                'categoria_id': p.categoria_id,
+                'categoria_nome': p.categoria.nome if p.categoria else None,
+                'marca': p.marca,
+                'modelo': p.modelo,
+                'sku': p.sku,
+                'ativo': p.ativo,
+                'destaque': p.destaque,
+                'ordem': p.ordem
+            })
+        
+        return render_template('admin/produtos.html', produtos=produtos_list, categorias=categorias)
+    except Exception as e:
+        print(f"Erro ao buscar produtos: {e}")
+        flash('Erro ao carregar produtos.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/loja/produtos/add', methods=['GET', 'POST'])
+@login_required
+def admin_add_produto():
+    """Adicionar novo produto"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_produtos'))
+    
+    if request.method == 'POST':
+        try:
+            nome = request.form.get('nome')
+            slug = request.form.get('slug') or slugify(nome)
+            descricao = request.form.get('descricao', '')
+            descricao_completa = request.form.get('descricao_completa', '')
+            categoria_id = request.form.get('categoria_id', type=int) or None
+            preco = float(request.form.get('preco', 0))
+            preco_promocional = request.form.get('preco_promocional')
+            preco_promocional = float(preco_promocional) if preco_promocional else None
+            estoque = int(request.form.get('estoque', 0))
+            sku = request.form.get('sku', '')
+            marca = request.form.get('marca', '')
+            modelo = request.form.get('modelo', '')
+            peso = request.form.get('peso')
+            peso = float(peso) if peso else None
+            dimensoes = request.form.get('dimensoes', '')
+            ativo = request.form.get('ativo') == 'on'
+            destaque = request.form.get('destaque') == 'on'
+            ordem = int(request.form.get('ordem', 1))
+            
+            # Verificar se slug já existe
+            produto_existente = Produto.query.filter_by(slug=slug).first()
+            if produto_existente:
+                flash('Já existe um produto com este slug. Use um slug diferente.', 'error')
+                categorias = Categoria.query.order_by(Categoria.nome).all()
+                return render_template('admin/add_produto.html', categorias=categorias)
+            
+            produto = Produto(
+                nome=nome,
+                slug=slug,
+                descricao=descricao,
+                descricao_completa=descricao_completa,
+                categoria_id=categoria_id,
+                preco=preco,
+                preco_promocional=preco_promocional,
+                estoque=estoque,
+                sku=sku,
+                marca=marca,
+                modelo=modelo,
+                peso=peso,
+                dimensoes=dimensoes,
+                ativo=ativo,
+                destaque=destaque,
+                ordem=ordem
+            )
+            
+            # Upload de imagem
+            if 'imagem' in request.files:
+                file = request.files['imagem']
+                if file and file.filename:
+                    imagem = salvar_imagem_banco(file)
+                    if imagem:
+                        produto.imagem_id = imagem.id
+            
+            db.session.add(produto)
+            db.session.commit()
+            
+            flash('Produto adicionado com sucesso!', 'success')
+            return redirect(url_for('admin_produtos'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao adicionar produto: {e}")
+            flash(f'Erro ao adicionar produto: {str(e)}', 'error')
+    
+    categorias = Categoria.query.order_by(Categoria.nome).all()
+    return render_template('admin/add_produto.html', categorias=categorias)
+
+@app.route('/admin/loja/produtos/<int:produto_id>/edit', methods=['GET', 'POST'])
+@login_required
+def admin_edit_produto(produto_id):
+    """Editar produto"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_produtos'))
+    
+    produto = Produto.query.get_or_404(produto_id)
+    
+    if request.method == 'POST':
+        try:
+            produto.nome = request.form.get('nome')
+            slug = request.form.get('slug') or slugify(produto.nome)
+            # Verificar se slug mudou e se já existe
+            if slug != produto.slug:
+                produto_existente = Produto.query.filter_by(slug=slug).first()
+                if produto_existente and produto_existente.id != produto.id:
+                    flash('Já existe um produto com este slug. Use um slug diferente.', 'error')
+                    categorias = Categoria.query.order_by(Categoria.nome).all()
+                    return render_template('admin/edit_produto.html', produto=produto, categorias=categorias)
+                produto.slug = slug
+            
+            produto.descricao = request.form.get('descricao', '')
+            produto.descricao_completa = request.form.get('descricao_completa', '')
+            produto.categoria_id = request.form.get('categoria_id', type=int) or None
+            produto.preco = float(request.form.get('preco', 0))
+            preco_promocional = request.form.get('preco_promocional')
+            produto.preco_promocional = float(preco_promocional) if preco_promocional else None
+            produto.estoque = int(request.form.get('estoque', 0))
+            produto.sku = request.form.get('sku', '')
+            produto.marca = request.form.get('marca', '')
+            produto.modelo = request.form.get('modelo', '')
+            peso = request.form.get('peso')
+            produto.peso = float(peso) if peso else None
+            produto.dimensoes = request.form.get('dimensoes', '')
+            produto.ativo = request.form.get('ativo') == 'on'
+            produto.destaque = request.form.get('destaque') == 'on'
+            produto.ordem = int(request.form.get('ordem', 1))
+            
+            # Upload de nova imagem
+            if 'imagem' in request.files:
+                file = request.files['imagem']
+                if file and file.filename:
+                    imagem = salvar_imagem_banco(file)
+                    if imagem:
+                        produto.imagem_id = imagem.id
+            
+            db.session.commit()
+            flash('Produto atualizado com sucesso!', 'success')
+            return redirect(url_for('admin_produtos'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao editar produto: {e}")
+            flash(f'Erro ao editar produto: {str(e)}', 'error')
+    
+    categorias = Categoria.query.order_by(Categoria.nome).all()
+    return render_template('admin/edit_produto.html', produto=produto, categorias=categorias)
+
+@app.route('/admin/loja/produtos/<int:produto_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_produto(produto_id):
+    """Excluir produto"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_produtos'))
+    
+    try:
+        produto = Produto.query.get_or_404(produto_id)
+        db.session.delete(produto)
+        db.session.commit()
+        flash('Produto excluído com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao excluir produto: {e}")
+        flash('Erro ao excluir produto.', 'error')
+    
+    return redirect(url_for('admin_produtos'))
+
+@app.route('/admin/produtos/imagem/<int:imagem_id>')
+def produto_imagem(imagem_id):
+    """Retorna imagem do produto"""
+    if not use_database():
+        return '', 404
+    
+    try:
+        imagem = Imagem.query.get_or_404(imagem_id)
+        return send_file(
+            BytesIO(imagem.dados),
+            mimetype=imagem.tipo_mime,
+            download_name=imagem.nome or 'imagem.jpg'
+        )
+    except:
+        return '', 404
+
+@app.route('/admin/loja/categorias')
+@login_required
+def admin_categorias():
+    """Lista todas as categorias"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        categorias = Categoria.query.order_by(Categoria.nome).all()
+        return render_template('admin/categorias.html', categorias=categorias)
+    except Exception as e:
+        print(f"Erro ao buscar categorias: {e}")
+        flash('Erro ao carregar categorias.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/loja/categorias/add', methods=['GET', 'POST'])
+@login_required
+def admin_add_categoria():
+    """Adicionar nova categoria"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_categorias'))
+    
+    if request.method == 'POST':
+        try:
+            nome = request.form.get('nome')
+            slug = request.form.get('slug') or slugify(nome)
+            descricao = request.form.get('descricao', '')
+            ativo = request.form.get('ativo') == 'on'
+            ordem = int(request.form.get('ordem', 1))
+            
+            # Verificar se slug já existe
+            categoria_existente = Categoria.query.filter_by(slug=slug).first()
+            if categoria_existente:
+                flash('Já existe uma categoria com este slug.', 'error')
+                return render_template('admin/add_categoria.html')
+            
+            categoria = Categoria(
+                nome=nome,
+                slug=slug,
+                descricao=descricao,
+                ativo=ativo,
+                ordem=ordem
+            )
+            
+            db.session.add(categoria)
+            db.session.commit()
+            
+            flash('Categoria adicionada com sucesso!', 'success')
+            return redirect(url_for('admin_categorias'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao adicionar categoria: {e}")
+            flash(f'Erro ao adicionar categoria: {str(e)}', 'error')
+    
+    return render_template('admin/add_categoria.html')
+
+@app.route('/admin/loja/categorias/<int:categoria_id>/edit', methods=['GET', 'POST'])
+@login_required
+def admin_edit_categoria(categoria_id):
+    """Editar categoria"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_categorias'))
+    
+    categoria = Categoria.query.get_or_404(categoria_id)
+    
+    if request.method == 'POST':
+        try:
+            categoria.nome = request.form.get('nome')
+            slug = request.form.get('slug') or slugify(categoria.nome)
+            if slug != categoria.slug:
+                categoria_existente = Categoria.query.filter_by(slug=slug).first()
+                if categoria_existente and categoria_existente.id != categoria.id:
+                    flash('Já existe uma categoria com este slug.', 'error')
+                    return render_template('admin/edit_categoria.html', categoria=categoria)
+                categoria.slug = slug
+            
+            categoria.descricao = request.form.get('descricao', '')
+            categoria.ativo = request.form.get('ativo') == 'on'
+            categoria.ordem = int(request.form.get('ordem', 1))
+            
+            db.session.commit()
+            flash('Categoria atualizada com sucesso!', 'success')
+            return redirect(url_for('admin_categorias'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao editar categoria: {e}")
+            flash(f'Erro ao editar categoria: {str(e)}', 'error')
+    
+    return render_template('admin/edit_categoria.html', categoria=categoria)
+
+@app.route('/admin/loja/categorias/<int:categoria_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_categoria(categoria_id):
+    """Excluir categoria"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_categorias'))
+    
+    try:
+        categoria = Categoria.query.get_or_404(categoria_id)
+        # Verificar se há produtos usando esta categoria
+        produtos_count = Produto.query.filter_by(categoria_id=categoria_id).count()
+        if produtos_count > 0:
+            flash(f'Não é possível excluir esta categoria. Ela possui {produtos_count} produto(s) associado(s).', 'error')
+            return redirect(url_for('admin_categorias'))
+        
+        db.session.delete(categoria)
+        db.session.commit()
+        flash('Categoria excluída com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao excluir categoria: {e}")
+        flash('Erro ao excluir categoria.', 'error')
+    
+    return redirect(url_for('admin_categorias'))
+
+@app.route('/admin/loja/pedidos')
+@login_required
+def admin_pedidos():
+    """Lista todos os pedidos"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        pedidos = Pedido.query.order_by(Pedido.data_pedido.desc()).all()
+        pedidos_list = []
+        for p in pedidos:
+            pedidos_list.append({
+                'id': p.id,
+                'numero': p.numero,
+                'nome': p.nome,
+                'email': p.email,
+                'telefone': p.telefone,
+                'status': p.status,
+                'total': float(p.total),
+                'data_pedido': p.data_pedido.strftime('%d/%m/%Y %H:%M') if p.data_pedido else '',
+                'itens_count': len(p.itens)
+            })
+        return render_template('admin/pedidos.html', pedidos=pedidos_list)
+    except Exception as e:
+        print(f"Erro ao buscar pedidos: {e}")
+        flash('Erro ao carregar pedidos.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/loja/pedidos/<int:pedido_id>')
+@login_required
+def admin_pedido_detalhes(pedido_id):
+    """Detalhes de um pedido"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_pedidos'))
+    
+    try:
+        pedido = Pedido.query.get_or_404(pedido_id)
+        
+        itens_list = []
+        for item in pedido.itens:
+            if item.produto:
+                if item.produto.imagem_id:
+                    imagem_url = f'/admin/produtos/imagem/{item.produto.imagem_id}'
+                elif item.produto.imagem:
+                    imagem_url = item.produto.imagem
+                else:
+                    imagem_url = ''
+            else:
+                imagem_url = ''
+            
+            itens_list.append({
+                'id': item.id,
+                'produto_nome': item.produto.nome if item.produto else 'Produto removido',
+                'produto_imagem': imagem_url,
+                'quantidade': item.quantidade,
+                'preco_unitario': float(item.preco_unitario),
+                'subtotal': float(item.subtotal)
+            })
+        
+        pedido_dict = {
+            'id': pedido.id,
+            'numero': pedido.numero,
+            'nome': pedido.nome,
+            'email': pedido.email,
+            'telefone': pedido.telefone,
+            'cpf': pedido.cpf,
+            'endereco': pedido.endereco,
+            'cep': pedido.cep,
+            'cidade': pedido.cidade,
+            'estado': pedido.estado,
+            'status': pedido.status,
+            'total': float(pedido.total),
+            'data_pedido': pedido.data_pedido.strftime('%d/%m/%Y %H:%M') if pedido.data_pedido else '',
+            'itens': itens_list
+        }
+        
+        return render_template('admin/pedido_detalhes.html', pedido=pedido_dict)
+    except Exception as e:
+        print(f"Erro ao buscar pedido: {e}")
+        flash('Erro ao carregar pedido.', 'error')
+        return redirect(url_for('admin_pedidos'))
+
+@app.route('/admin/loja/pedidos/<int:pedido_id>/status', methods=['POST'])
+@login_required
+def admin_atualizar_status_pedido(pedido_id):
+    """Atualizar status do pedido"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_pedidos'))
+    
+    try:
+        pedido = Pedido.query.get_or_404(pedido_id)
+        novo_status = request.form.get('status')
+        
+        if novo_status in ['pendente', 'processando', 'enviado', 'entregue', 'cancelado']:
+            pedido.status = novo_status
+            db.session.commit()
+            flash('Status do pedido atualizado com sucesso!', 'success')
+        else:
+            flash('Status inválido.', 'error')
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao atualizar status: {e}")
+        flash('Erro ao atualizar status do pedido.', 'error')
+    
+    return redirect(url_for('admin_pedido_detalhes', pedido_id=pedido_id))
+
 @app.route('/sitemap.xml')
 def sitemap():
     """Gera sitemap.xml dinâmico"""
