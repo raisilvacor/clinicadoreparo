@@ -47,12 +47,12 @@
                         </a>
                         <a href="{{ url_for('edit_cliente', cliente_id=cliente.id) }}" class="btn-icon" title="Editar">
                             <i class="fas fa-edit"></i>
-                        </a>
-                        <form method="POST" action="{{ url_for('delete_cliente', cliente_id=cliente.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este cliente?');">
-                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
+                    </a>
+                    <form method="POST" action="{{ url_for('delete_cliente', cliente_id=cliente.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este cliente?');">
+                        <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
                     </div>
                 </td>
             </tr>

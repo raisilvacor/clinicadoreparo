@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Carrinho de Compras - Loja Clínica do Reparo{% endblock %}
+
+{% block description %}Revise seus produtos e finalize sua compra na Clínica do Reparo.{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>Carrinho de Compras</h1>
+        <p>Revise seus produtos e finalize sua compra</p>
+    </div>
+</section>
+
+<section class="carrinho-section" style="padding: 4rem 0;">
+    <div class="container">
+        {% if produtos %}
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            <div class="carrinho-itens" style="background: white; border-radius: 10px; padding: 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h2 style="margin-bottom: 2rem; font-size: 1.5rem;">Seus Produtos</h2>
+                
+                {% for produto in produtos %}
+                <div class="carrinho-item" style="display: flex; gap: 1.5rem; padding: 1.5rem 0; border-bottom: 1px solid #eee;" data-produto-id="{{ produto.id }}">
+                    <div class="item-imagem" style="width: 120px; height: 120px; overflow: hidden; border-radius: 5px; background: #f5f5f5; flex-shrink: 0;">
+                        <img src="{{ url_for('static', filename=produto.imagem) if not produto.imagem.startswith('/admin/') else produto.imagem }}" 
+                             alt="{{ produto.nome }}" 
+                             style="width: 100%; height: 100%; object-fit: cover;"
+                             onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                    </div>
+                    
+                    <div class="item-info" style="flex: 1;">
+                        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem;">
+                            <a href="{{ url_for('produto_detalhes', slug=produto.slug) }}" style="color: var(--text-primary); text-decoration: none;">{{ produto.nome }}</a>
+                        </h3>
+                        <p style="color: var(--text-secondary); margin: 0.5rem 0; font-size: 1.1rem; font-weight: bold; color: var(--primary-color);">
+                            R$ {{ "%.2f"|format(produto.preco) }}
+                        </p>
+                        
+                        <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 0.9rem; color: var(--text-secondary);">Quantidade:</span>
+                                <input type="number" 
+                                       value="{{ produto.quantidade }}" 
+                                       min="1" 
+                                       max="{{ produto.estoque }}"
+                                       onchange="atualizarQuantidade({{ produto.id }}, this.value)"
+                                       style="width: 80px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 5px; text-align: center;">
+                            </label>
+                            <button onclick="removerItem({{ produto.id }})" 
+                                    style="padding: 0.5rem 1rem; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                <i class="fas fa-trash"></i> Remover
+                            </button>
+                        </div>
+                        
+                        <p style="margin-top: 1rem; font-size: 1.1rem; font-weight: bold;">
+                            Subtotal: <span class="item-subtotal">R$ {{ "%.2f"|format(produto.subtotal) }}</span>
+                        </p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="carrinho-resumo" style="background: white; border-radius: 10px; padding: 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); height: fit-content;">
+                <h2 style="margin-bottom: 1.5rem; font-size: 1.5rem;">Resumo do Pedido</h2>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                        <span style="color: var(--text-secondary);">Subtotal:</span>
+                        <span id="subtotal" style="font-weight: bold;">R$ {{ "%.2f"|format(total) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                        <span style="color: var(--text-secondary);">Frete:</span>
+                        <span style="font-weight: bold;">A calcular</span>
+                    </div>
+                    <div style="border-top: 2px solid #eee; padding-top: 1rem; margin-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="font-size: 1.2rem; font-weight: bold;">Total:</span>
+                            <span id="total" style="font-size: 1.5rem; font-weight: bold; color: var(--primary-color);">R$ {{ "%.2f"|format(total) }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <a href="{{ url_for('checkout') }}" class="btn btn-primary" style="width: 100%; padding: 1rem; text-align: center; display: block; text-decoration: none;">
+                    <i class="fas fa-credit-card"></i> Finalizar Compra
+                </a>
+                
+                <a href="{{ url_for('loja') }}" style="display: block; text-align: center; margin-top: 1rem; color: var(--text-secondary); text-decoration: none;">
+                    <i class="fas fa-arrow-left"></i> Continuar Comprando
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 4rem 2rem; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <i class="fas fa-shopping-cart" style="font-size: 4rem; color: #ddd; margin-bottom: 1rem;"></i>
+            <h3 style="color: var(--text-secondary); margin-bottom: 1rem;">Seu carrinho está vazio</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem;">Adicione produtos ao carrinho para continuar.</p>
+            <a href="{{ url_for('loja') }}" class="btn btn-primary">
+                <i class="fas fa-store"></i> Ir para a Loja
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function atualizarQuantidade(produtoId, quantidade) {
+    const formData = new FormData();
+    formData.append('produto_id', produtoId);
+    formData.append('quantidade', quantidade);
+    
+    fetch('{{ url_for("atualizar_carrinho") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Erro ao atualizar quantidade');
+            location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao atualizar quantidade');
+        location.reload();
+    });
+}
+
+function removerItem(produtoId) {
+    if (!confirm('Deseja remover este produto do carrinho?')) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('produto_id', produtoId);
+    
+    fetch('{{ url_for("remover_carrinho") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Erro ao remover produto');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao remover produto');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const carrinho = {{ session.get('carrinho', [])|tojson }};
+    const totalItens = carrinho.reduce((sum, item) => sum + (item.quantidade || 1), 0);
+    const cartCount = document.getElementById('cart-count');
+    if (cartCount) {
+        cartCount.textContent = totalItens;
+    }
+});
+</script>
+{% endblock %}
+

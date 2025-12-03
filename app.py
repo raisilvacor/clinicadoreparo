@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, flash, redirect, url
 from datetime import datetime
 import json
 import os
+import random
 from functools import wraps
 from werkzeug.utils import secure_filename
 from io import BytesIO
@@ -11,7 +12,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, Categoria, Produto, Pedido, ItemPedido
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -818,7 +819,39 @@ def index():
         servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
         servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
     
-    return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos)
+    # Carregar produtos em destaque
+    produtos_destaque = []
+    if use_database():
+        try:
+            produtos_db = Produto.query.filter_by(ativo=True, destaque=True).order_by(Produto.ordem, Produto.nome).limit(6).all()
+            for p in produtos_db:
+                if p.imagem_id:
+                    imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
+                elif p.imagem:
+                    imagem_url = p.imagem
+                else:
+                    imagem_url = 'img/placeholder.png'
+                
+                produtos_destaque.append({
+                    'id': p.id,
+                    'nome': p.nome,
+                    'slug': p.slug,
+                    'descricao': p.descricao,
+                    'preco': float(p.preco),
+                    'preco_promocional': float(p.preco_promocional) if p.preco_promocional else None,
+                    'imagem': imagem_url,
+                    'categoria_id': p.categoria_id,
+                    'categoria_nome': p.categoria.nome if p.categoria else None,
+                    'marca': p.marca,
+                    'modelo': p.modelo,
+                    'estoque': p.estoque,
+                    'sku': p.sku
+                })
+        except Exception as e:
+            print(f"Erro ao carregar produtos em destaque do banco: {e}")
+            produtos_destaque = []
+    
+    return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos, produtos_destaque=produtos_destaque)
 
 @app.route('/sobre')
 def sobre():
@@ -866,6 +899,440 @@ def servicos():
         servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
     
     return render_template('servicos.html', footer=footer_data, servicos=servicos)
+
+# ==================== ROTAS DA LOJA ====================
+@app.route('/loja')
+def loja():
+    """Página principal da loja - lista todos os produtos"""
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    
+    categoria_id = request.args.get('categoria', type=int)
+    busca = request.args.get('busca', '').strip()
+    
+    # Carregar produtos do banco de dados
+    produtos = []
+    categorias = []
+    
+    if use_database():
+        try:
+            query = Produto.query.filter_by(ativo=True)
+            
+            if categoria_id:
+                query = query.filter_by(categoria_id=categoria_id)
+            
+            if busca:
+                query = query.filter(
+                    db.or_(
+                        Produto.nome.ilike(f'%{busca}%'),
+                        Produto.descricao.ilike(f'%{busca}%'),
+                        Produto.marca.ilike(f'%{busca}%')
+                    )
+                )
+            
+            produtos_db = query.order_by(Produto.ordem, Produto.nome).all()
+            
+            # Converter para formato de dicionário
+            for p in produtos_db:
+                if p.imagem_id:
+                    imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
+                elif p.imagem:
+                    imagem_url = p.imagem
+                else:
+                    imagem_url = 'img/placeholder.png'
+                
+                produtos.append({
+                    'id': p.id,
+                    'nome': p.nome,
+                    'slug': p.slug,
+                    'descricao': p.descricao,
+                    'preco': float(p.preco),
+                    'preco_promocional': float(p.preco_promocional) if p.preco_promocional else None,
+                    'imagem': imagem_url,
+                    'categoria_id': p.categoria_id,
+                    'categoria_nome': p.categoria.nome if p.categoria else None,
+                    'marca': p.marca,
+                    'estoque': p.estoque,
+                    'destaque': p.destaque
+                })
+            
+            # Carregar categorias
+            categorias_db = Categoria.query.filter_by(ativo=True).order_by(Categoria.ordem, Categoria.nome).all()
+            categorias = [{'id': c.id, 'nome': c.nome, 'slug': c.slug} for c in categorias_db]
+            
+        except Exception as e:
+            print(f"Erro ao carregar produtos do banco: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    categoria_selecionada = None
+    if categoria_id:
+        categoria_selecionada = next((c for c in categorias if c['id'] == categoria_id), None)
+    
+    return render_template('loja.html', footer=footer_data, produtos=produtos, categorias=categorias, 
+                         categoria_selecionada=categoria_selecionada, busca=busca)
+
+@app.route('/loja/produto/<slug>')
+def produto_detalhes(slug):
+    """Página de detalhes de um produto"""
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    
+    produto = None
+    
+    if use_database():
+        try:
+            p = Produto.query.filter_by(slug=slug, ativo=True).first()
+            if p:
+                if p.imagem_id:
+                    imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
+                elif p.imagem:
+                    imagem_url = p.imagem
+                else:
+                    imagem_url = 'img/placeholder.png'
+                
+                produto = {
+                    'id': p.id,
+                    'nome': p.nome,
+                    'slug': p.slug,
+                    'descricao': p.descricao,
+                    'descricao_completa': p.descricao_completa,
+                    'preco': float(p.preco),
+                    'preco_promocional': float(p.preco_promocional) if p.preco_promocional else None,
+                    'imagem': imagem_url,
+                    'categoria_id': p.categoria_id,
+                    'categoria_nome': p.categoria.nome if p.categoria else None,
+                    'marca': p.marca,
+                    'modelo': p.modelo,
+                    'estoque': p.estoque,
+                    'sku': p.sku,
+                    'peso': float(p.peso) if p.peso else None,
+                    'dimensoes': p.dimensoes
+                }
+        except Exception as e:
+            print(f"Erro ao carregar produto do banco: {e}")
+    
+    if not produto:
+        flash('Produto não encontrado.', 'error')
+        return redirect(url_for('loja'))
+    
+    return render_template('produto.html', footer=footer_data, produto=produto)
+
+@app.route('/loja/carrinho')
+def carrinho():
+    """Página do carrinho de compras"""
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    
+    carrinho_itens = session.get('carrinho', [])
+    produtos_carrinho = []
+    total = 0
+    
+    if use_database() and carrinho_itens:
+        try:
+            for item in carrinho_itens:
+                produto_id = item.get('produto_id')
+                quantidade = item.get('quantidade', 1)
+                
+                p = Produto.query.get(produto_id)
+                if p and p.ativo:
+                    if p.imagem_id:
+                        imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
+                    elif p.imagem:
+                        imagem_url = p.imagem
+                    else:
+                        imagem_url = 'img/placeholder.png'
+                    
+                    preco = float(p.preco_promocional if p.preco_promocional else p.preco)
+                    subtotal = preco * quantidade
+                    total += subtotal
+                    
+                    produtos_carrinho.append({
+                        'id': p.id,
+                        'nome': p.nome,
+                        'slug': p.slug,
+                        'imagem': imagem_url,
+                        'preco': preco,
+                        'quantidade': quantidade,
+                        'subtotal': subtotal,
+                        'estoque': p.estoque
+                    })
+        except Exception as e:
+            print(f"Erro ao carregar produtos do carrinho: {e}")
+    
+    return render_template('carrinho.html', footer=footer_data, produtos=produtos_carrinho, total=total)
+
+@app.route('/loja/adicionar-carrinho', methods=['POST'])
+def adicionar_carrinho():
+    """Adiciona produto ao carrinho"""
+    produto_id = request.form.get('produto_id', type=int)
+    quantidade = request.form.get('quantidade', type=int, default=1)
+    
+    if not produto_id or quantidade < 1:
+        return jsonify({'success': False, 'message': 'Dados inválidos'})
+    
+    if use_database():
+        try:
+            produto = Produto.query.get(produto_id)
+            if not produto or not produto.ativo:
+                return jsonify({'success': False, 'message': 'Produto não encontrado'})
+            
+            if produto.estoque < quantidade:
+                return jsonify({'success': False, 'message': f'Estoque insuficiente. Disponível: {produto.estoque}'})
+            
+            # Obter ou criar carrinho na sessão
+            carrinho = session.get('carrinho', [])
+            
+            # Verificar se produto já está no carrinho
+            item_existente = next((item for item in carrinho if item.get('produto_id') == produto_id), None)
+            
+            if item_existente:
+                nova_quantidade = item_existente['quantidade'] + quantidade
+                if produto.estoque < nova_quantidade:
+                    return jsonify({'success': False, 'message': f'Estoque insuficiente. Disponível: {produto.estoque}'})
+                item_existente['quantidade'] = nova_quantidade
+            else:
+                carrinho.append({
+                    'produto_id': produto_id,
+                    'quantidade': quantidade
+                })
+            
+            session['carrinho'] = carrinho
+            
+            # Calcular total de itens
+            total_itens = sum(item.get('quantidade', 0) for item in carrinho)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Produto adicionado ao carrinho',
+                'total_itens': total_itens
+            })
+        except Exception as e:
+            print(f"Erro ao adicionar ao carrinho: {e}")
+            return jsonify({'success': False, 'message': 'Erro ao adicionar produto'})
+    
+    return jsonify({'success': False, 'message': 'Banco de dados não disponível'})
+
+@app.route('/loja/remover-carrinho', methods=['POST'])
+def remover_carrinho():
+    """Remove produto do carrinho"""
+    produto_id = request.form.get('produto_id', type=int)
+    
+    if not produto_id:
+        return jsonify({'success': False, 'message': 'Produto inválido'})
+    
+    carrinho = session.get('carrinho', [])
+    carrinho = [item for item in carrinho if item.get('produto_id') != produto_id]
+    session['carrinho'] = carrinho
+    
+    return jsonify({'success': True, 'message': 'Produto removido do carrinho'})
+
+@app.route('/loja/atualizar-carrinho', methods=['POST'])
+def atualizar_carrinho():
+    """Atualiza quantidade de um item no carrinho"""
+    produto_id = request.form.get('produto_id', type=int)
+    quantidade = request.form.get('quantidade', type=int)
+    
+    if not produto_id or quantidade < 1:
+        return jsonify({'success': False, 'message': 'Dados inválidos'})
+    
+    if use_database():
+        try:
+            produto = Produto.query.get(produto_id)
+            if not produto or not produto.ativo:
+                return jsonify({'success': False, 'message': 'Produto não encontrado'})
+            
+            if produto.estoque < quantidade:
+                return jsonify({'success': False, 'message': f'Estoque insuficiente. Disponível: {produto.estoque}'})
+            
+            carrinho = session.get('carrinho', [])
+            item = next((item for item in carrinho if item.get('produto_id') == produto_id), None)
+            
+            if item:
+                item['quantidade'] = quantidade
+                session['carrinho'] = carrinho
+                
+                # Recalcular total
+                total = 0
+                for item in carrinho:
+                    p = Produto.query.get(item.get('produto_id'))
+                    if p:
+                        preco = float(p.preco_promocional if p.preco_promocional else p.preco)
+                        total += preco * item.get('quantidade', 1)
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Quantidade atualizada',
+                    'total': total
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Item não encontrado no carrinho'})
+        except Exception as e:
+            print(f"Erro ao atualizar carrinho: {e}")
+            return jsonify({'success': False, 'message': 'Erro ao atualizar carrinho'})
+    
+    return jsonify({'success': False, 'message': 'Banco de dados não disponível'})
+
+@app.route('/loja/checkout', methods=['GET', 'POST'])
+def checkout():
+    """Página de checkout/finalização do pedido"""
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    
+    carrinho_itens = session.get('carrinho', [])
+    
+    if not carrinho_itens:
+        flash('Seu carrinho está vazio.', 'warning')
+        return redirect(url_for('loja'))
+    
+    if request.method == 'POST':
+        # Processar pedido
+        nome = request.form.get('nome')
+        email = request.form.get('email')
+        telefone = request.form.get('telefone')
+        cpf = request.form.get('cpf')
+        endereco = request.form.get('endereco')
+        cep = request.form.get('cep')
+        cidade = request.form.get('cidade')
+        estado = request.form.get('estado')
+        forma_pagamento = request.form.get('forma_pagamento')
+        observacoes = request.form.get('observacoes')
+        
+        if not all([nome, telefone, endereco, cidade, estado, forma_pagamento]):
+            flash('Por favor, preencha todos os campos obrigatórios.', 'error')
+            return redirect(url_for('checkout'))
+        
+        if use_database():
+            try:
+                # Calcular totais
+                subtotal = 0
+                itens_pedido = []
+                
+                for item in carrinho_itens:
+                    produto = Produto.query.get(item.get('produto_id'))
+                    if produto and produto.ativo:
+                        quantidade = item.get('quantidade', 1)
+                        preco = float(produto.preco_promocional if produto.preco_promocional else produto.preco)
+                        subtotal_item = preco * quantidade
+                        subtotal += subtotal_item
+                        
+                        itens_pedido.append({
+                            'produto': produto,
+                            'quantidade': quantidade,
+                            'preco': preco,
+                            'subtotal': subtotal_item
+                        })
+                
+                if not itens_pedido:
+                    flash('Nenhum produto válido no carrinho.', 'error')
+                    return redirect(url_for('carrinho'))
+                
+                # Gerar número do pedido
+                numero_pedido = f"PED{datetime.now().strftime('%Y%m%d')}{random.randint(1000, 9999)}"
+                
+                # Criar pedido
+                pedido = Pedido(
+                    numero_pedido=numero_pedido,
+                    cliente_nome=nome,
+                    cliente_email=email,
+                    cliente_telefone=telefone,
+                    cliente_cpf=cpf,
+                    endereco_entrega=endereco,
+                    cep=cep,
+                    cidade=cidade,
+                    estado=estado,
+                    subtotal=subtotal,
+                    frete=0,  # Pode ser calculado depois
+                    desconto=0,
+                    total=subtotal,
+                    forma_pagamento=forma_pagamento,
+                    observacoes=observacoes,
+                    status='pendente'
+                )
+                
+                db.session.add(pedido)
+                db.session.flush()  # Para obter o ID do pedido
+                
+                # Criar itens do pedido
+                for item in itens_pedido:
+                    item_pedido = ItemPedido(
+                        pedido_id=pedido.id,
+                        produto_id=item['produto'].id,
+                        quantidade=item['quantidade'],
+                        preco_unitario=item['preco'],
+                        subtotal=item['subtotal']
+                    )
+                    db.session.add(item_pedido)
+                    
+                    # Atualizar estoque
+                    item['produto'].estoque -= item['quantidade']
+                
+                db.session.commit()
+                
+                # Limpar carrinho
+                session['carrinho'] = []
+                
+                flash(f'Pedido #{numero_pedido} realizado com sucesso!', 'success')
+                return redirect(url_for('pedido_sucesso', numero=numero_pedido))
+                
+            except Exception as e:
+                db.session.rollback()
+                print(f"Erro ao processar pedido: {e}")
+                import traceback
+                traceback.print_exc()
+                flash('Erro ao processar pedido. Tente novamente.', 'error')
+    
+    # GET - mostrar formulário
+    produtos_carrinho = []
+    subtotal = 0
+    
+    if use_database():
+        try:
+            for item in carrinho_itens:
+                produto = Produto.query.get(item.get('produto_id'))
+                if produto and produto.ativo:
+                    quantidade = item.get('quantidade', 1)
+                    preco = float(produto.preco_promocional if produto.preco_promocional else produto.preco)
+                    subtotal_item = preco * quantidade
+                    subtotal += subtotal_item
+                    
+                    produtos_carrinho.append({
+                        'nome': produto.nome,
+                        'quantidade': quantidade,
+                        'preco': preco,
+                        'subtotal': subtotal_item
+                    })
+        except Exception as e:
+            print(f"Erro ao carregar produtos do carrinho: {e}")
+    
+    return render_template('checkout.html', footer=footer_data, produtos=produtos_carrinho, subtotal=subtotal)
+
+@app.route('/loja/pedido-sucesso/<numero>')
+def pedido_sucesso(numero):
+    """Página de confirmação do pedido"""
+    init_footer_file()
+    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
+        footer_data = json.load(f)
+    
+    pedido = None
+    if use_database():
+        try:
+            p = Pedido.query.filter_by(numero_pedido=numero).first()
+            if p:
+                pedido = {
+                    'numero': p.numero_pedido,
+                    'data': p.data_pedido,
+                    'total': float(p.total),
+                    'status': p.status
+                }
+        except Exception as e:
+            print(f"Erro ao carregar pedido: {e}")
+    
+    return render_template('pedido_sucesso.html', footer=footer_data, pedido=pedido)
 
 @app.route('/contato', methods=['GET', 'POST'])
 def contato():

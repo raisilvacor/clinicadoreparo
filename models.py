@@ -256,3 +256,89 @@ class Fornecedor(db.Model):
     ativo = db.Column(db.Boolean, default=True)
     data_cadastro = db.Column(db.DateTime, default=datetime.now)
 
+# ==================== LOJA - CATEGORIAS ====================
+class Categoria(db.Model):
+    __tablename__ = 'categorias'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    slug = db.Column(db.String(200), unique=True)
+    descricao = db.Column(db.Text)
+    imagem = db.Column(db.String(500))  # Caminho ou ID da imagem (fallback)
+    imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
+    ordem = db.Column(db.Integer, default=1)
+    ativo = db.Column(db.Boolean, default=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    
+    # Relacionamento
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
+    produtos = db.relationship('Produto', backref='categoria', lazy=True)
+
+# ==================== LOJA - PRODUTOS ====================
+class Produto(db.Model):
+    __tablename__ = 'produtos'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    slug = db.Column(db.String(200), unique=True)
+    descricao = db.Column(db.Text)
+    descricao_completa = db.Column(db.Text)  # Descrição detalhada
+    categoria_id = db.Column(db.Integer, db.ForeignKey('categorias.id'))
+    preco = db.Column(db.Numeric(10, 2), nullable=False)
+    preco_promocional = db.Column(db.Numeric(10, 2))  # Preço com desconto
+    estoque = db.Column(db.Integer, default=0)
+    sku = db.Column(db.String(100), unique=True)  # Código do produto
+    imagem = db.Column(db.String(500))  # Caminho ou ID da imagem principal (fallback)
+    imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
+    imagens_galeria = db.Column(JSON)  # Lista de IDs de imagens adicionais
+    marca = db.Column(db.String(100))
+    modelo = db.Column(db.String(100))
+    peso = db.Column(db.Numeric(10, 2))  # Peso em kg
+    dimensoes = db.Column(db.String(100))  # Ex: "10x20x5 cm"
+    ativo = db.Column(db.Boolean, default=True)
+    destaque = db.Column(db.Boolean, default=False)  # Produto em destaque
+    ordem = db.Column(db.Integer, default=1)
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # Relacionamentos
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
+    itens_pedido = db.relationship('ItemPedido', backref='produto', lazy=True)
+
+# ==================== LOJA - PEDIDOS ====================
+class Pedido(db.Model):
+    __tablename__ = 'pedidos'
+    id = db.Column(db.Integer, primary_key=True)
+    numero_pedido = db.Column(db.String(20), unique=True, nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'))
+    cliente_nome = db.Column(db.String(200), nullable=False)
+    cliente_email = db.Column(db.String(200))
+    cliente_telefone = db.Column(db.String(20), nullable=False)
+    cliente_cpf = db.Column(db.String(14))
+    endereco_entrega = db.Column(db.Text, nullable=False)
+    cep = db.Column(db.String(10))
+    cidade = db.Column(db.String(100))
+    estado = db.Column(db.String(2))
+    subtotal = db.Column(db.Numeric(10, 2), default=0)
+    frete = db.Column(db.Numeric(10, 2), default=0)
+    desconto = db.Column(db.Numeric(10, 2), default=0)
+    total = db.Column(db.Numeric(10, 2), nullable=False)
+    forma_pagamento = db.Column(db.String(50))  # 'pix', 'cartao', 'boleto'
+    status = db.Column(db.String(50), default='pendente')  # pendente, confirmado, em_preparacao, enviado, entregue, cancelado
+    observacoes = db.Column(db.Text)
+    data_pedido = db.Column(db.DateTime, default=datetime.now)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # Relacionamentos
+    cliente = db.relationship('Cliente', foreign_keys=[cliente_id], lazy=True)
+    itens = db.relationship('ItemPedido', backref='pedido', lazy=True, cascade='all, delete-orphan')
+
+# ==================== LOJA - ITENS DO PEDIDO ====================
+class ItemPedido(db.Model):
+    __tablename__ = 'itens_pedido'
+    id = db.Column(db.Integer, primary_key=True)
+    pedido_id = db.Column(db.Integer, db.ForeignKey('pedidos.id'), nullable=False)
+    produto_id = db.Column(db.Integer, db.ForeignKey('produtos.id'), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False)
+    preco_unitario = db.Column(db.Numeric(10, 2), nullable=False)  # Preço no momento da compra
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False)
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+
