@@ -6378,6 +6378,87 @@ def admin_atualizar_status_pedido(pedido_id):
     
     return redirect(url_for('admin_pedido_detalhes', pedido_id=pedido_id))
 
+@app.route('/admin/loja/pedidos/<int:pedido_id>/edit', methods=['GET', 'POST'])
+@login_required
+def admin_edit_pedido(pedido_id):
+    """Editar pedido"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_pedidos'))
+    
+    pedido = Pedido.query.get_or_404(pedido_id)
+    
+    if request.method == 'POST':
+        try:
+            pedido.cliente_nome = request.form.get('nome')
+            pedido.cliente_email = request.form.get('email')
+            pedido.cliente_telefone = request.form.get('telefone')
+            pedido.cliente_cpf = request.form.get('cpf', '')
+            pedido.endereco_entrega = request.form.get('endereco')
+            pedido.cep = request.form.get('cep', '')
+            pedido.cidade = request.form.get('cidade')
+            pedido.estado = request.form.get('estado')
+            pedido.status = request.form.get('status')
+            observacoes = request.form.get('observacoes', '')
+            pedido.observacoes = observacoes
+            
+            # Recalcular total se necessário
+            total_itens = sum(float(item.preco_unitario) * item.quantidade for item in pedido.itens)
+            pedido.subtotal = total_itens
+            pedido.total = total_itens + float(pedido.frete or 0) - float(pedido.desconto or 0)
+            
+            db.session.commit()
+            flash('Pedido atualizado com sucesso!', 'success')
+            return redirect(url_for('admin_pedidos'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao editar pedido: {e}")
+            flash(f'Erro ao editar pedido: {str(e)}', 'error')
+    
+    # Preparar dados para o template
+    pedido_dict = {
+        'id': pedido.id,
+        'numero': pedido.numero_pedido,
+        'nome': pedido.cliente_nome,
+        'email': pedido.cliente_email,
+        'telefone': pedido.cliente_telefone,
+        'cpf': pedido.cliente_cpf or '',
+        'endereco': pedido.endereco_entrega,
+        'cep': pedido.cep or '',
+        'cidade': pedido.cidade or '',
+        'estado': pedido.estado or '',
+        'status': pedido.status,
+        'observacoes': pedido.observacoes or '',
+        'total': float(pedido.total),
+        'data_pedido': pedido.data_pedido.strftime('%d/%m/%Y %H:%M') if pedido.data_pedido else ''
+    }
+    
+    return render_template('admin/edit_pedido.html', pedido=pedido_dict)
+
+@app.route('/admin/loja/pedidos/<int:pedido_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_pedido(pedido_id):
+    """Excluir pedido"""
+    if not use_database():
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('admin_pedidos'))
+    
+    try:
+        pedido = Pedido.query.get_or_404(pedido_id)
+        numero_pedido = pedido.numero_pedido
+        
+        # Excluir pedido (os itens serão excluídos automaticamente por cascade)
+        db.session.delete(pedido)
+        db.session.commit()
+        
+        flash(f'Pedido #{numero_pedido} excluído com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao excluir pedido: {e}")
+        flash('Erro ao excluir pedido.', 'error')
+    
+    return redirect(url_for('admin_pedidos'))
+
 @app.route('/sitemap.xml')
 def sitemap():
     """Gera sitemap.xml dinâmico"""
