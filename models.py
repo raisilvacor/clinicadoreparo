@@ -335,10 +335,13 @@ class Pedido(db.Model):
 class ItemPedido(db.Model):
     __tablename__ = 'itens_pedido'
     id = db.Column(db.Integer, primary_key=True)
-    pedido_id = db.Column(db.Integer, db.ForeignKey('pedidos.id'), nullable=False)
-    produto_id = db.Column(db.Integer, db.ForeignKey('produtos.id'), nullable=False)
+    pedido_id = db.Column(db.Integer, db.ForeignKey('pedidos.id', ondelete='CASCADE'), nullable=False)
+    produto_id = db.Column(db.Integer, db.ForeignKey('produtos.id', ondelete='SET NULL'), nullable=True)  # Permite NULL para manter histórico
     quantidade = db.Column(db.Integer, nullable=False)
     preco_unitario = db.Column(db.Numeric(10, 2), nullable=False)  # Preço no momento da compra
     subtotal = db.Column(db.Numeric(10, 2), nullable=False)
     data_criacao = db.Column(db.DateTime, default=datetime.now)
+    # Campos adicionais para manter histórico mesmo se produto for excluído
+    produto_nome = db.Column(db.String(200))  # Nome do produto no momento da compra
+    produto_sku = db.Column(db.String(100))  # SKU do produto no momento da compra
 

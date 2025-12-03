@@ -1253,14 +1253,17 @@ def checkout():
                 db.session.add(pedido)
                 db.session.flush()  # Para obter o ID do pedido
                 
-                # Criar itens do pedido
+                # Criar itens do pedido - salvar dados históricos
                 for item in itens_pedido:
+                    produto = item['produto']
                     item_pedido = ItemPedido(
                         pedido_id=pedido.id,
-                        produto_id=item['produto'].id,
+                        produto_id=produto.id,
                         quantidade=item['quantidade'],
                         preco_unitario=item['preco'],
-                        subtotal=item['subtotal']
+                        subtotal=item['subtotal'],
+                        produto_nome=produto.nome,  # Salvar nome para histórico
+                        produto_sku=produto.sku if produto.sku else None  # Salvar SKU para histórico
                     )
                     db.session.add(item_pedido)
                     
@@ -6089,7 +6092,7 @@ def admin_edit_produto(produto_id):
 @app.route('/admin/loja/produtos/<int:produto_id>/delete', methods=['POST'])
 @login_required
 def admin_delete_produto(produto_id):
-    """Excluir produto"""
+    """Excluir produto - salva dados históricos antes de excluir"""
     if not use_database():
         flash('Banco de dados não disponível.', 'error')
         return redirect(url_for('admin_produtos'))
@@ -6097,19 +6100,29 @@ def admin_delete_produto(produto_id):
     try:
         produto = Produto.query.get_or_404(produto_id)
         
-        # Verificar se há itens de pedido associados a este produto
-        itens_pedido_count = ItemPedido.query.filter_by(produto_id=produto_id).count()
-        if itens_pedido_count > 0:
-            flash(f'Não é possível excluir este produto. Ele possui {itens_pedido_count} item(ns) em pedido(s). Para excluir, primeiro remova os itens dos pedidos ou desative o produto.', 'error')
-            return redirect(url_for('admin_produtos'))
+        # Verificar se há itens de pedido associados
+        itens_pedido = ItemPedido.query.filter_by(produto_id=produto_id).all()
+        itens_pedido_count = len(itens_pedido)
         
-        # Se o produto tem imagem no banco, não precisamos excluir a imagem
-        # pois pode ser compartilhada ou mantida para histórico
+        if itens_pedido_count > 0:
+            # Salvar dados históricos nos itens de pedido antes de excluir o produto
+            for item in itens_pedido:
+                if not item.produto_nome:
+                    item.produto_nome = produto.nome
+                if not item.produto_sku and produto.sku:
+                    item.produto_sku = produto.sku
+            
+            db.session.commit()  # Salvar dados históricos
         
         # Excluir o produto
+        # Com ondelete='SET NULL', os produto_id dos itens serão definidos como NULL automaticamente
         db.session.delete(produto)
         db.session.commit()
-        flash('Produto excluído com sucesso!', 'success')
+        
+        if itens_pedido_count > 0:
+            flash(f'Produto excluído com sucesso! {itens_pedido_count} item(ns) de pedido(s) mantido(s) com dados históricos.', 'success')
+        else:
+            flash('Produto excluído com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
         print(f"Erro ao excluir produto: {e}")
@@ -6305,9 +6318,13 @@ def admin_pedido_detalhes(pedido_id):
             else:
                 imagem_url = ''
             
+            # Usar nome do produto do histórico se produto foi excluído
+            produto_nome = item.produto_nome if item.produto_nome else (item.produto.nome if item.produto else 'Produto removido')
+            
             itens_list.append({
                 'id': item.id,
-                'produto_nome': item.produto.nome if item.produto else 'Produto removido',
+                'produto_nome': produto_nome,
+                'produto_sku': item.produto_sku or (item.produto.sku if item.produto else ''),
                 'produto_imagem': imagem_url,
                 'quantidade': item.quantidade,
                 'preco_unitario': float(item.preco_unitario),
