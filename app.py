@@ -18,6 +18,10 @@ from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cup
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
 
+# Configurações do Mercado Pago
+MERCADOPAGO_ACCESS_TOKEN = os.environ.get('MERCADOPAGO_ACCESS_TOKEN', 'APP_USR-76423944696406-120317-e90c1e5d3cd966a580b8ac832fcf4d32-3038587256')
+MERCADOPAGO_PUBLIC_KEY = os.environ.get('MERCADOPAGO_PUBLIC_KEY', 'APP_USR-f1ed3d57-6c67-417b-89a6-2750b70ca3f7')
+
 # Flag global para rastrear se o banco está disponível
 DB_AVAILABLE = False
 
@@ -1196,12 +1200,11 @@ def checkout():
         cep = request.form.get('cep')
         cidade = request.form.get('cidade')
         estado = request.form.get('estado')
-        forma_pagamento = request.form.get('forma_pagamento')
         observacoes = request.form.get('observacoes')
         senha = request.form.get('senha')
         confirmar_senha = request.form.get('confirmar_senha')
         
-        if not all([nome, telefone, endereco, cidade, estado, forma_pagamento, senha, confirmar_senha]):
+        if not all([nome, telefone, endereco, cidade, estado, senha, confirmar_senha]):
             flash('Por favor, preencha todos os campos obrigatórios.', 'error')
             return redirect(url_for('checkout'))
         
@@ -1280,10 +1283,10 @@ def checkout():
                     cidade=cidade,
                     estado=estado,
                     subtotal=subtotal,
-                    frete=0,  # Pode ser calculado depois
+                    frete=0,  # Retirar na loja
                     desconto=0,
                     total=subtotal,
-                    forma_pagamento=forma_pagamento,
+                    forma_pagamento='mercado_pago',
                     observacoes=observacoes,
                     status='pendente'
                 )
@@ -1302,23 +1305,76 @@ def checkout():
                         subtotal=item['subtotal']
                     )
                     db.session.add(item_pedido)
-                    
-                    # Atualizar estoque
-                    item['produto'].estoque -= item['quantidade']
                 
                 db.session.commit()
                 
-                # Limpar carrinho
-                session['carrinho'] = []
-                
-                # Fazer login automático do cliente
-                session['cliente_logado'] = True
-                session['cliente_id'] = cliente.id
-                session['cliente_nome'] = cliente.nome
-                session['cliente_email'] = cliente.email
-                
-                flash(f'Pedido #{numero_pedido} realizado com sucesso! Sua conta foi criada. Você pode acessar sua área do cliente para acompanhar seus pedidos.', 'success')
-                return redirect(url_for('pedido_sucesso', numero=numero_pedido))
+                # Criar preferência de pagamento no Mercado Pago
+                try:
+                    import mercadopago
+                    sdk = mercadopago.SDK(MERCADOPAGO_ACCESS_TOKEN)
+                    
+                    # Preparar itens para o Mercado Pago
+                    items = []
+                    for item in itens_pedido:
+                        items.append({
+                            "title": item['produto'].nome,
+                            "quantity": item['quantidade'],
+                            "unit_price": float(item['preco'])
+                        })
+                    
+                    # URL base do site
+                    base_url = request.url_root.rstrip('/')
+                    
+                    preference_data = {
+                        "items": items,
+                        "payer": {
+                            "name": nome,
+                            "email": email,
+                            "phone": {
+                                "area_code": telefone[:2] if len(telefone) > 2 else "",
+                                "number": telefone[2:] if len(telefone) > 2 else telefone
+                            }
+                        },
+                        "back_urls": {
+                            "success": f"{base_url}/loja/pagamento/sucesso",
+                            "failure": f"{base_url}/loja/pagamento/falha",
+                            "pending": f"{base_url}/loja/pagamento/pendente"
+                        },
+                        "auto_return": "approved",
+                        "external_reference": str(pedido.id),
+                        "notification_url": f"{base_url}/loja/pagamento/webhook",
+                        "statement_descriptor": "CLINICA DO REPARO"
+                    }
+                    
+                    preference_response = sdk.preference().create(preference_data)
+                    
+                    if preference_response["status"] == 201:
+                        preference_id = preference_response["response"]["id"]
+                        init_point = preference_response["response"]["init_point"]
+                        
+                        # Salvar preference_id no pedido
+                        pedido.mercado_pago_preference_id = preference_id
+                        db.session.commit()
+                        
+                        # Salvar dados do pedido na sessão para login após pagamento
+                        session['pedido_pendente_id'] = pedido.id
+                        session['pedido_pendente_cliente'] = {
+                            'id': cliente.id,
+                            'nome': cliente.nome,
+                            'email': cliente.email
+                        }
+                        
+                        # Redirecionar para o Mercado Pago
+                        return redirect(init_point)
+                    else:
+                        raise Exception(f"Erro ao criar preferência: {preference_response}")
+                        
+                except Exception as e:
+                    print(f"Erro ao processar pagamento Mercado Pago: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    flash('Erro ao processar pagamento. Tente novamente.', 'error')
+                    return redirect(url_for('checkout'))
                 
             except Exception as e:
                 db.session.rollback()
@@ -1350,7 +1406,147 @@ def checkout():
         except Exception as e:
             print(f"Erro ao carregar produtos do carrinho: {e}")
     
-    return render_template('checkout.html', footer=footer_data, produtos=produtos_carrinho, subtotal=subtotal)
+    return render_template('checkout.html', footer=footer_data, produtos=produtos_carrinho, subtotal=subtotal, mercado_pago_public_key=MERCADOPAGO_PUBLIC_KEY)
+
+@app.route('/loja/pagamento/sucesso')
+def pagamento_sucesso():
+    """Callback de sucesso do Mercado Pago"""
+    payment_id = request.args.get('payment_id')
+    status = request.args.get('status')
+    external_reference = request.args.get('external_reference')
+    
+    if use_database() and external_reference:
+        try:
+            pedido = Pedido.query.get(int(external_reference))
+            if pedido:
+                # Atualizar estoque apenas se o pedido ainda estiver pendente
+                if pedido.status == 'pendente':
+                    for item in pedido.itens:
+                        if item.produto:
+                            item.produto.estoque -= item.quantidade
+                    
+                    pedido.status = 'confirmado'
+                    pedido.mercado_pago_payment_id = payment_id
+                    db.session.commit()
+                
+                # Fazer login do cliente se houver dados na sessão
+                if 'pedido_pendente_cliente' in session:
+                    cliente_data = session['pedido_pendente_cliente']
+                    session['cliente_logado'] = True
+                    session['cliente_id'] = cliente_data['id']
+                    session['cliente_nome'] = cliente_data['nome']
+                    session['cliente_email'] = cliente_data['email']
+                    session.pop('pedido_pendente_id', None)
+                    session.pop('pedido_pendente_cliente', None)
+                
+                flash(f'Pagamento aprovado! Pedido #{pedido.numero_pedido} confirmado com sucesso!', 'success')
+                return redirect(url_for('pedido_sucesso', numero=pedido.numero_pedido))
+        except Exception as e:
+            print(f"Erro ao processar pagamento sucesso: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    flash('Pagamento aprovado!', 'success')
+    return redirect(url_for('loja'))
+
+@app.route('/loja/pagamento/falha')
+def pagamento_falha():
+    """Callback de falha do Mercado Pago"""
+    external_reference = request.args.get('external_reference')
+    
+    if use_database() and external_reference:
+        try:
+            pedido = Pedido.query.get(int(external_reference))
+            if pedido and pedido.status == 'pendente':
+                # Cancelar pedido se pagamento falhou
+                pedido.status = 'cancelado'
+                db.session.commit()
+        except Exception as e:
+            print(f"Erro ao processar pagamento falha: {e}")
+    
+    flash('O pagamento não foi aprovado. Tente novamente.', 'error')
+    return redirect(url_for('carrinho'))
+
+@app.route('/loja/pagamento/pendente')
+def pagamento_pendente():
+    """Callback de pagamento pendente do Mercado Pago"""
+    external_reference = request.args.get('external_reference')
+    
+    if use_database() and external_reference:
+        try:
+            pedido = Pedido.query.get(int(external_reference))
+            if pedido:
+                pedido.status = 'pendente'
+                db.session.commit()
+                
+                # Fazer login do cliente se houver dados na sessão
+                if 'pedido_pendente_cliente' in session:
+                    cliente_data = session['pedido_pendente_cliente']
+                    session['cliente_logado'] = True
+                    session['cliente_id'] = cliente_data['id']
+                    session['cliente_nome'] = cliente_data['nome']
+                    session['cliente_email'] = cliente_data['email']
+                    session.pop('pedido_pendente_id', None)
+                    session.pop('pedido_pendente_cliente', None)
+                
+                flash(f'Pagamento pendente. Pedido #{pedido.numero_pedido} aguardando confirmação.', 'warning')
+                return redirect(url_for('pedido_sucesso', numero=pedido.numero_pedido))
+        except Exception as e:
+            print(f"Erro ao processar pagamento pendente: {e}")
+    
+    flash('Pagamento pendente. Aguardando confirmação.', 'warning')
+    return redirect(url_for('loja'))
+
+@app.route('/loja/pagamento/webhook', methods=['POST'])
+def pagamento_webhook():
+    """Webhook do Mercado Pago para notificações"""
+    try:
+        data = request.get_json()
+        
+        if data and 'data' in data and 'id' in data['data']:
+            payment_id = data['data']['id']
+            
+            import mercadopago
+            sdk = mercadopago.SDK(MERCADOPAGO_ACCESS_TOKEN)
+            payment_info = sdk.payment().get(payment_id)
+            
+            if payment_info["status"] == 200:
+                payment = payment_info["response"]
+                external_reference = payment.get("external_reference")
+                
+                if use_database() and external_reference:
+                    pedido = Pedido.query.get(int(external_reference))
+                    if pedido:
+                        status_payment = payment.get("status")
+                        
+                        if status_payment == "approved":
+                            # Atualizar estoque apenas se ainda estiver pendente
+                            if pedido.status == 'pendente':
+                                for item in pedido.itens:
+                                    if item.produto:
+                                        item.produto.estoque -= item.quantidade
+                            
+                            pedido.status = 'confirmado'
+                            pedido.mercado_pago_payment_id = payment_id
+                            db.session.commit()
+                            
+                        elif status_payment == "rejected" or status_payment == "cancelled":
+                            if pedido.status == 'pendente':
+                                pedido.status = 'cancelado'
+                                db.session.commit()
+                        
+                        elif status_payment == "pending":
+                            pedido.status = 'pendente'
+                            pedido.mercado_pago_payment_id = payment_id
+                            db.session.commit()
+        
+        return jsonify({"status": "ok"}), 200
+        
+    except Exception as e:
+        print(f"Erro no webhook do Mercado Pago: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error"}), 500
 
 @app.route('/loja/pedido-sucesso/<numero>')
 def pedido_sucesso(numero):
