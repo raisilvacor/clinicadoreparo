@@ -123,21 +123,22 @@
             <h3>Ver Ordens de Serviço</h3>
             <p>Visualizar todas as ordens emitidas</p>
         </a>
-        <a href="{{ url_for('admin_produtos') }}" class="action-card">
-            <i class="fas fa-box"></i>
-            <h3>Gerenciar Produtos</h3>
-            <p>Adicionar, editar ou remover produtos da loja</p>
-        </a>
-        <a href="{{ url_for('admin_categorias') }}" class="action-card">
-            <i class="fas fa-tags"></i>
-            <h3>Gerenciar Categorias</h3>
-            <p>Organizar produtos por categorias</p>
-        </a>
-        <a href="{{ url_for('admin_pedidos') }}" class="action-card">
-            <i class="fas fa-shopping-cart"></i>
-            <h3>Pedidos da Loja</h3>
-            <p>Visualizar e gerenciar pedidos</p>
-        </a>
+        <div class="action-card loja-card">
+            <i class="fas fa-store"></i>
+            <h3>Loja</h3>
+            <p>Gerenciar produtos, categorias e pedidos</p>
+            <div class="loja-actions">
+                <a href="{{ url_for('admin_produtos') }}" class="loja-link">
+                    <i class="fas fa-box"></i> Produtos
+                </a>
+                <a href="{{ url_for('admin_categorias') }}" class="loja-link">
+                    <i class="fas fa-tags"></i> Categorias
+                </a>
+                <a href="{{ url_for('admin_pedidos') }}" class="loja-link">
+                    <i class="fas fa-shopping-cart"></i> Pedidos
+                </a>
+            </div>
+        </div>
         <a href="{{ url_for('admin_financeiro') }}" class="action-card">
             <i class="fas fa-dollar-sign"></i>
             <h3>Financeiro</h3>
