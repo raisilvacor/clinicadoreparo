@@ -82,6 +82,86 @@
 
 <div class="admin-section">
     <div class="section-header">
+        <h2><i class="fas fa-shopping-cart"></i> Meus Pedidos da Loja</h2>
+        <span class="badge">{{ pedidos|length if pedidos else 0 }} pedido(s)</span>
+    </div>
+    
+    {% if pedidos %}
+    <div class="orders-grid">
+        {% for pedido in pedidos %}
+        <div class="order-card">
+            <div class="order-header">
+                <h3>Pedido #{{ pedido.numero }}</h3>
+                <span class="status-badge status-{{ pedido.status }}">
+                    {% if pedido.status == 'pendente' %}
+                        <i class="fas fa-clock"></i> Pendente
+                    {% elif pedido.status == 'processando' %}
+                        <i class="fas fa-cog"></i> Processando
+                    {% elif pedido.status == 'enviado' %}
+                        <i class="fas fa-truck"></i> Enviado
+                    {% elif pedido.status == 'entregue' %}
+                        <i class="fas fa-check-circle"></i> Entregue
+                    {% elif pedido.status == 'cancelado' %}
+                        <i class="fas fa-times-circle"></i> Cancelado
+                    {% else %}
+                        {{ pedido.status }}
+                    {% endif %}
+                </span>
+            </div>
+            
+            <div class="order-body">
+                <div class="order-info-section">
+                    <h4><i class="fas fa-info-circle"></i> Informações</h4>
+                    <p><strong>Data:</strong> {{ pedido.data }}</p>
+                    <p><strong>Itens:</strong> {{ pedido.itens_count }} item(ns)</p>
+                    <p><strong>Forma de Pagamento:</strong> 
+                        {% if pedido.forma_pagamento == 'pix' %}
+                            <i class="fas fa-qrcode"></i> PIX
+                        {% elif pedido.forma_pagamento == 'cartao' %}
+                            <i class="fas fa-credit-card"></i> Cartão
+                        {% elif pedido.forma_pagamento == 'boleto' %}
+                            <i class="fas fa-barcode"></i> Boleto
+                        {% else %}
+                            {{ pedido.forma_pagamento }}
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="order-info-section cost-section">
+                    <h4><i class="fas fa-dollar-sign"></i> Valor Total</h4>
+                    <p class="total-cost"><strong>R$ {{ "%.2f"|format(pedido.total) }}</strong></p>
+                </div>
+                
+                <div class="order-actions">
+                    <a href="{{ url_for('client_pedido_detalhes', pedido_id=pedido.id) }}" class="btn btn-primary btn-small">
+                        <i class="fas fa-eye"></i> Ver Detalhes
+                    </a>
+                    {% if pedido.status == 'pendente' or pedido.status == 'processando' %}
+                    <form method="POST" action="{{ url_for('client_cancelar_pedido', pedido_id=pedido.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja cancelar este pedido?');">
+                        <button type="submit" class="btn btn-secondary btn-small" style="background: #e74c3c; border-color: #e74c3c;">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-shopping-cart"></i>
+        <p>Você ainda não possui pedidos na loja</p>
+        <p class="small">Visite nossa loja e faça seu primeiro pedido!</p>
+        <a href="{{ url_for('loja') }}" class="btn btn-primary">
+            <i class="fas fa-store"></i> Ir para a Loja
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
         <h2><i class="fas fa-tools"></i> Minhas Ordens de Serviço</h2>
         <span class="badge">{{ ordens|length }} ordem(ns)</span>
     </div>

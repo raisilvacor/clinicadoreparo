@@ -1,0 +1,165 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}Pedido #{{ pedido.numero }} - Área do Cliente{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-shopping-cart"></i> Pedido #{{ pedido.numero }}</h1>
+        <p>Data: {{ pedido.data_pedido }}</p>
+    </div>
+    <a href="{{ url_for('client_dashboard') }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Voltar
+    </a>
+</div>
+
+<div class="admin-form-card">
+    <h2 style="margin-bottom: 1.5rem;">Status do Pedido</h2>
+    <div style="margin-bottom: 2rem;">
+        {% if pedido.status == 'pendente' %}
+        <span class="status-badge" style="background: #f39c12; color: white; padding: 0.75rem 1.5rem; border-radius: 5px; font-size: 1rem;">
+            <i class="fas fa-clock"></i> Pendente
+        </span>
+        {% elif pedido.status == 'processando' %}
+        <span class="status-badge" style="background: #3498db; color: white; padding: 0.75rem 1.5rem; border-radius: 5px; font-size: 1rem;">
+            <i class="fas fa-cog"></i> Processando
+        </span>
+        {% elif pedido.status == 'enviado' %}
+        <span class="status-badge" style="background: #9b59b6; color: white; padding: 0.75rem 1.5rem; border-radius: 5px; font-size: 1rem;">
+            <i class="fas fa-truck"></i> Enviado
+        </span>
+        {% elif pedido.status == 'entregue' %}
+        <span class="status-badge" style="background: #27ae60; color: white; padding: 0.75rem 1.5rem; border-radius: 5px; font-size: 1rem;">
+            <i class="fas fa-check-circle"></i> Entregue
+        </span>
+        {% elif pedido.status == 'cancelado' %}
+        <span class="status-badge" style="background: #e74c3c; color: white; padding: 0.75rem 1.5rem; border-radius: 5px; font-size: 1rem;">
+            <i class="fas fa-times-circle"></i> Cancelado
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="admin-form-card" style="margin-top: 2rem;">
+    <h2 style="margin-bottom: 1.5rem;">Dados de Entrega</h2>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Nome</label>
+            <p style="margin: 0; padding: 0.5rem; background: #f5f5f5; border-radius: 5px;">{{ pedido.nome }}</p>
+        </div>
+        <div class="form-group">
+            <label>CPF</label>
+            <p style="margin: 0; padding: 0.5rem; background: #f5f5f5; border-radius: 5px;">{{ pedido.cpf }}</p>
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <div class="form-group">
+            <label>E-mail</label>
+            <p style="margin: 0; padding: 0.5rem; background: #f5f5f5; border-radius: 5px;">{{ pedido.email }}</p>
+        </div>
+        <div class="form-group">
+            <label>Telefone</label>
+            <p style="margin: 0; padding: 0.5rem; background: #f5f5f5; border-radius: 5px;">{{ pedido.telefone }}</p>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label>Endereço</label>
+        <p style="margin: 0; padding: 0.5rem; background: #f5f5f5; border-radius: 5px;">
+            {{ pedido.endereco }}{% if pedido.cep != '-' %}, CEP: {{ pedido.cep }}{% endif %}<br>
+            {% if pedido.cidade != '-' or pedido.estado != '-' %}{{ pedido.cidade }}{% if pedido.cidade != '-' and pedido.estado != '-' %}, {% endif %}{{ pedido.estado }}{% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="admin-form-card" style="margin-top: 2rem;">
+    <h2 style="margin-bottom: 1.5rem;">Itens do Pedido</h2>
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Quantidade</th>
+                    <th>Preço Unit.</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in pedido.itens %}
+                <tr>
+                    <td>
+                        {% if item.produto_imagem %}
+                        <img src="{{ item.produto_imagem }}" alt="{{ item.produto_nome }}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 10px; vertical-align: middle;">
+                        {% endif %}
+                        {{ item.produto_nome }}
+                    </td>
+                    <td>{{ item.quantidade }}</td>
+                    <td>R$ {{ "%.2f"|format(item.preco_unitario) }}</td>
+                    <td><strong>R$ {{ "%.2f"|format(item.subtotal) }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="text-align: right;"><strong>Subtotal:</strong></td>
+                    <td><strong>R$ {{ "%.2f"|format(pedido.subtotal) }}</strong></td>
+                </tr>
+                {% if pedido.frete > 0 %}
+                <tr>
+                    <td colspan="3" style="text-align: right;"><strong>Frete:</strong></td>
+                    <td><strong>R$ {{ "%.2f"|format(pedido.frete) }}</strong></td>
+                </tr>
+                {% endif %}
+                {% if pedido.desconto > 0 %}
+                <tr>
+                    <td colspan="3" style="text-align: right;"><strong>Desconto:</strong></td>
+                    <td><strong style="color: #27ae60;">-R$ {{ "%.2f"|format(pedido.desconto) }}</strong></td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
+                    <td><strong style="font-size: 1.2rem; color: var(--primary-color);">R$ {{ "%.2f"|format(pedido.total) }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<div class="admin-form-card" style="margin-top: 2rem;">
+    <h2 style="margin-bottom: 1.5rem;">Informações de Pagamento</h2>
+    <div class="form-group">
+        <label>Forma de Pagamento</label>
+        <p style="margin: 0; padding: 0.5rem; background: #f5f5f5; border-radius: 5px;">
+            {% if pedido.forma_pagamento == 'pix' %}
+                <i class="fas fa-qrcode"></i> PIX
+            {% elif pedido.forma_pagamento == 'cartao' %}
+                <i class="fas fa-credit-card"></i> Cartão de Crédito/Débito
+            {% elif pedido.forma_pagamento == 'boleto' %}
+                <i class="fas fa-barcode"></i> Boleto Bancário
+            {% else %}
+                {{ pedido.forma_pagamento }}
+            {% endif %}
+        </p>
+    </div>
+    {% if pedido.observacoes %}
+    <div class="form-group">
+        <label>Observações</label>
+        <p style="margin: 0; padding: 0.5rem; background: #f5f5f5; border-radius: 5px;">{{ pedido.observacoes }}</p>
+    </div>
+    {% endif %}
+</div>
+
+{% if pedido.status == 'pendente' or pedido.status == 'processando' %}
+<div class="admin-form-card" style="margin-top: 2rem; border: 2px solid #e74c3c;">
+    <h2 style="margin-bottom: 1.5rem; color: #e74c3c;">Cancelar Pedido</h2>
+    <p style="margin-bottom: 1rem;">Se deseja cancelar este pedido, clique no botão abaixo.</p>
+    <form method="POST" action="{{ url_for('client_cancelar_pedido', pedido_id=pedido.id) }}" onsubmit="return confirm('Tem certeza que deseja cancelar este pedido? Esta ação não pode ser desfeita.');">
+        <button type="submit" class="btn" style="background: #e74c3c; border-color: #e74c3c; color: white;">
+            <i class="fas fa-times"></i> Cancelar Pedido
+        </button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
+

@@ -5,6 +5,7 @@ import os
 import random
 from functools import wraps
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
@@ -1197,9 +1198,20 @@ def checkout():
         estado = request.form.get('estado')
         forma_pagamento = request.form.get('forma_pagamento')
         observacoes = request.form.get('observacoes')
+        senha = request.form.get('senha')
+        confirmar_senha = request.form.get('confirmar_senha')
         
-        if not all([nome, telefone, endereco, cidade, estado, forma_pagamento]):
+        if not all([nome, telefone, endereco, cidade, estado, forma_pagamento, senha, confirmar_senha]):
             flash('Por favor, preencha todos os campos obrigatórios.', 'error')
+            return redirect(url_for('checkout'))
+        
+        # Validar senhas
+        if senha != confirmar_senha:
+            flash('As senhas não coincidem. Por favor, verifique.', 'error')
+            return redirect(url_for('checkout'))
+        
+        if len(senha) < 6:
+            flash('A senha deve ter no mínimo 6 caracteres.', 'error')
             return redirect(url_for('checkout'))
         
         if use_database():
@@ -1227,12 +1239,38 @@ def checkout():
                     flash('Nenhum produto válido no carrinho.', 'error')
                     return redirect(url_for('carrinho'))
                 
+                # Criar ou atualizar cliente com senha
+                cliente = Cliente.query.filter_by(email=email).first()
+                if cliente:
+                    # Cliente existe, atualizar dados e senha
+                    cliente.nome = nome
+                    cliente.telefone = telefone
+                    cliente.cpf = cpf
+                    cliente.endereco = endereco
+                    cliente.password = generate_password_hash(senha)
+                    if not cliente.username:
+                        cliente.username = email  # Usar email como username se não tiver
+                else:
+                    # Criar novo cliente
+                    cliente = Cliente(
+                        nome=nome,
+                        email=email,
+                        telefone=telefone,
+                        cpf=cpf,
+                        endereco=endereco,
+                        username=email,  # Usar email como username
+                        password=generate_password_hash(senha)
+                    )
+                    db.session.add(cliente)
+                    db.session.flush()  # Para obter o ID do cliente
+                
                 # Gerar número do pedido
                 numero_pedido = f"PED{datetime.now().strftime('%Y%m%d')}{random.randint(1000, 9999)}"
                 
-                # Criar pedido
+                # Criar pedido associado ao cliente
                 pedido = Pedido(
                     numero_pedido=numero_pedido,
+                    cliente_id=cliente.id,
                     cliente_nome=nome,
                     cliente_email=email,
                     cliente_telefone=telefone,
@@ -1273,7 +1311,13 @@ def checkout():
                 # Limpar carrinho
                 session['carrinho'] = []
                 
-                flash(f'Pedido #{numero_pedido} realizado com sucesso!', 'success')
+                # Fazer login automático do cliente
+                session['cliente_logado'] = True
+                session['cliente_id'] = cliente.id
+                session['cliente_nome'] = cliente.nome
+                session['cliente_email'] = cliente.email
+                
+                flash(f'Pedido #{numero_pedido} realizado com sucesso! Sua conta foi criada. Você pode acessar sua área do cliente para acompanhar seus pedidos.', 'success')
                 return redirect(url_for('pedido_sucesso', numero=numero_pedido))
                 
             except Exception as e:
@@ -3351,7 +3395,7 @@ def download_pdf(filename):
 def client_login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'client_logged_in' not in session:
+        if 'client_logged_in' not in session and 'cliente_logado' not in session:
             return redirect(url_for('client_login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -3362,18 +3406,48 @@ def client_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        if not username or not password:
+            flash('Por favor, preencha todos os campos.', 'error')
+            return render_template('client/login.html')
         
-        cliente = next((c for c in data['clients'] if c.get('username') == username and c.get('password') == password), None)
-        
-        if cliente:
-            session['client_logged_in'] = True
-            session['client_id'] = cliente['id']
-            flash('Login realizado com sucesso!', 'success')
-            return redirect(url_for('client_dashboard'))
+        if use_database():
+            try:
+                # Buscar cliente por username ou email
+                cliente = Cliente.query.filter(
+                    db.or_(Cliente.username == username, Cliente.email == username)
+                ).first()
+                
+                if cliente and cliente.password and check_password_hash(cliente.password, password):
+                    session['client_logged_in'] = True
+                    session['cliente_logado'] = True
+                    session['client_id'] = cliente.id
+                    session['cliente_id'] = cliente.id
+                    session['cliente_nome'] = cliente.nome
+                    session['cliente_email'] = cliente.email
+                    flash('Login realizado com sucesso!', 'success')
+                    return redirect(url_for('client_dashboard'))
+                else:
+                    flash('Usuário ou senha incorretos!', 'error')
+            except Exception as e:
+                print(f"Erro ao fazer login do cliente: {e}")
+                flash('Erro ao fazer login. Tente novamente.', 'error')
         else:
-            flash('Usuário ou senha incorretos!', 'error')
+            # Fallback para JSON (se necessário)
+            try:
+                with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                cliente = next((c for c in data['clients'] if c.get('username') == username and c.get('password') == password), None)
+                
+                if cliente:
+                    session['client_logged_in'] = True
+                    session['client_id'] = cliente['id']
+                    flash('Login realizado com sucesso!', 'success')
+                    return redirect(url_for('client_dashboard'))
+                else:
+                    flash('Usuário ou senha incorretos!', 'error')
+            except:
+                flash('Erro ao fazer login. Tente novamente.', 'error')
     
     return render_template('client/login.html')
 
@@ -3381,44 +3455,261 @@ def client_login():
 def client_logout():
     session.pop('client_logged_in', None)
     session.pop('client_id', None)
+    session.pop('cliente_logado', None)
+    session.pop('cliente_id', None)
+    session.pop('cliente_nome', None)
+    session.pop('cliente_email', None)
     flash('Logout realizado com sucesso!', 'success')
     return redirect(url_for('client_login'))
 
 @app.route('/cliente')
 @client_login_required
 def client_dashboard():
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    cliente_id = session.get('client_id') or session.get('cliente_id')
     
-    cliente_id = session.get('client_id')
-    cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
+    if not cliente_id:
+        flash('Sessão expirada. Faça login novamente.', 'error')
+        return redirect(url_for('client_login'))
     
-    if not cliente:
-        flash('Cliente não encontrado!', 'error')
-        return redirect(url_for('client_logout'))
+    if use_database():
+        try:
+            cliente = Cliente.query.get(cliente_id)
+            
+            if not cliente:
+                flash('Cliente não encontrado!', 'error')
+                return redirect(url_for('client_logout'))
+            
+            # Buscar ordens de serviço do cliente
+            ordens_db = OrdemServico.query.filter_by(cliente_id=cliente_id).order_by(OrdemServico.data.desc()).all()
+            ordens = []
+            for ordem in ordens_db:
+                ordens.append({
+                    'id': ordem.id,
+                    'numero_ordem': ordem.numero_ordem,
+                    'servico': ordem.servico.nome if ordem.servico else 'Serviço',
+                    'tipo_aparelho': ordem.tipo_aparelho,
+                    'marca': ordem.marca,
+                    'modelo': ordem.modelo,
+                    'numero_serie': ordem.numero_serie,
+                    'defeitos_cliente': ordem.defeitos_cliente,
+                    'diagnostico_tecnico': ordem.diagnostico_tecnico,
+                    'status': ordem.status,
+                    'custo_pecas': float(ordem.custo_pecas) if ordem.custo_pecas else 0,
+                    'custo_mao_obra': float(ordem.custo_mao_obra) if ordem.custo_mao_obra else 0,
+                    'total': float(ordem.valor_total) if ordem.valor_total else 0,
+                    'data': ordem.data.strftime('%d/%m/%Y %H:%M') if ordem.data else '',
+                    'pdf_filename': ordem.pdf_filename
+                })
+            
+            # Buscar pedidos da loja do cliente
+            pedidos_db = Pedido.query.filter_by(cliente_id=cliente_id).order_by(Pedido.data_pedido.desc()).all()
+            pedidos = []
+            for pedido in pedidos_db:
+                itens_count = len(pedido.itens)
+                pedidos.append({
+                    'id': pedido.id,
+                    'numero': pedido.numero_pedido,
+                    'total': float(pedido.total),
+                    'status': pedido.status,
+                    'data': pedido.data_pedido.strftime('%d/%m/%Y %H:%M') if pedido.data_pedido else '',
+                    'itens_count': itens_count,
+                    'forma_pagamento': pedido.forma_pagamento
+                })
+            
+            # Buscar comprovantes do cliente
+            comprovantes_db = Comprovante.query.filter_by(cliente_id=cliente_id).order_by(Comprovante.data.desc()).all()
+            comprovantes = []
+            for comp in comprovantes_db:
+                comprovantes.append({
+                    'id': comp.id,
+                    'numero_ordem': comp.numero_ordem,
+                    'valor_total': float(comp.valor_total),
+                    'valor_pago': float(comp.valor_pago),
+                    'forma_pagamento': comp.forma_pagamento,
+                    'parcelas': comp.parcelas,
+                    'data': comp.data.strftime('%d/%m/%Y %H:%M') if comp.data else '',
+                    'pdf_filename': comp.pdf_filename
+                })
+            
+            # Buscar cupons de desconto do cliente
+            cupons_db = Cupom.query.filter_by(cliente_id=cliente_id).order_by(Cupom.data_emissao.desc()).all()
+            cupons = []
+            for cupom in cupons_db:
+                cupons.append({
+                    'id': cupom.id,
+                    'desconto_percentual': float(cupom.desconto_percentual),
+                    'usado': cupom.usado,
+                    'ordem_id': cupom.ordem_id,
+                    'data_emissao': cupom.data_emissao.strftime('%d/%m/%Y') if cupom.data_emissao else '',
+                    'data_uso': cupom.data_uso.strftime('%d/%m/%Y') if cupom.data_uso else None
+                })
+            
+            # Preparar dados do cliente para o template
+            cliente_dict = {
+                'id': cliente.id,
+                'nome': cliente.nome,
+                'email': cliente.email,
+                'telefone': cliente.telefone,
+                'cpf': cliente.cpf,
+                'endereco': cliente.endereco,
+                'data_cadastro': cliente.data_cadastro.strftime('%d/%m/%Y') if cliente.data_cadastro else ''
+            }
+            
+            return render_template('client/dashboard.html', 
+                                 cliente=cliente_dict, 
+                                 ordens=ordens, 
+                                 pedidos=pedidos,
+                                 comprovantes=comprovantes, 
+                                 cupons=cupons)
+        except Exception as e:
+            print(f"Erro ao carregar dashboard do cliente: {e}")
+            import traceback
+            traceback.print_exc()
+            flash('Erro ao carregar seus dados. Tente novamente.', 'error')
+            return redirect(url_for('client_login'))
+    else:
+        # Fallback para JSON (se necessário)
+        try:
+            with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
+            
+            if not cliente:
+                flash('Cliente não encontrado!', 'error')
+                return redirect(url_for('client_logout'))
+            
+            ordens = cliente.get('ordens', [])
+            ordens_ordenadas = sorted(ordens, key=lambda x: x.get('data', ''), reverse=True)
+            
+            # Buscar comprovantes do cliente
+            comprovantes = []
+            if os.path.exists(COMPROVANTES_FILE):
+                with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
+                    comprovantes_data = json.load(f)
+                
+                comprovantes = [c for c in comprovantes_data['comprovantes'] if c.get('cliente_id') == cliente_id]
+                comprovantes = sorted(comprovantes, key=lambda x: x.get('data', ''), reverse=True)
+            
+            # Buscar cupons de desconto do cliente
+            cupons = []
+            if os.path.exists(FIDELIDADE_FILE):
+                with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+                    fidelidade_data = json.load(f)
+                
+                cupons = [c for c in fidelidade_data['cupons'] if c.get('cliente_id') == cliente_id]
+                cupons = sorted(cupons, key=lambda x: x.get('data_emissao', ''), reverse=True)
+            
+            return render_template('client/dashboard.html', 
+                                 cliente=cliente, 
+                                 ordens=ordens_ordenadas, 
+                                 pedidos=[],
+                                 comprovantes=comprovantes, 
+                                 cupons=cupons)
+        except Exception as e:
+            print(f"Erro ao carregar dashboard: {e}")
+            flash('Erro ao carregar seus dados.', 'error')
+            return redirect(url_for('client_login'))
+
+@app.route('/cliente/pedidos/<int:pedido_id>')
+@client_login_required
+def client_pedido_detalhes(pedido_id):
+    """Detalhes do pedido para o cliente"""
+    cliente_id = session.get('client_id') or session.get('cliente_id')
     
-    ordens = cliente.get('ordens', [])
-    ordens_ordenadas = sorted(ordens, key=lambda x: x.get('data', ''), reverse=True)
+    if not cliente_id:
+        flash('Sessão expirada. Faça login novamente.', 'error')
+        return redirect(url_for('client_login'))
     
-    # Buscar comprovantes do cliente
-    comprovantes = []
-    if os.path.exists(COMPROVANTES_FILE):
-        with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
-            comprovantes_data = json.load(f)
-        
-        comprovantes = [c for c in comprovantes_data['comprovantes'] if c.get('cliente_id') == cliente_id]
-        comprovantes = sorted(comprovantes, key=lambda x: x.get('data', ''), reverse=True)
+    if use_database():
+        try:
+            pedido = Pedido.query.filter_by(id=pedido_id, cliente_id=cliente_id).first_or_404()
+            
+            # Preparar dados do pedido
+            itens_list = []
+            for item in pedido.itens:
+                produto_nome = item.produto_nome if item.produto_nome else (item.produto.nome if item.produto else 'Produto removido')
+                produto_imagem = None
+                if item.produto and item.produto.imagem_id:
+                    produto_imagem = url_for('produto_imagem', imagem_id=item.produto.imagem_id)
+                
+                itens_list.append({
+                    'produto_nome': produto_nome,
+                    'produto_imagem': produto_imagem,
+                    'quantidade': item.quantidade,
+                    'preco_unitario': float(item.preco_unitario),
+                    'subtotal': float(item.subtotal)
+                })
+            
+            pedido_dict = {
+                'id': pedido.id,
+                'numero': pedido.numero_pedido,
+                'nome': pedido.cliente_nome,
+                'email': pedido.cliente_email,
+                'telefone': pedido.cliente_telefone,
+                'cpf': pedido.cliente_cpf or '-',
+                'endereco': pedido.endereco_entrega,
+                'cep': pedido.cep or '-',
+                'cidade': pedido.cidade or '-',
+                'estado': pedido.estado or '-',
+                'status': pedido.status,
+                'total': float(pedido.total),
+                'subtotal': float(pedido.subtotal),
+                'frete': float(pedido.frete) if pedido.frete else 0,
+                'desconto': float(pedido.desconto) if pedido.desconto else 0,
+                'forma_pagamento': pedido.forma_pagamento,
+                'observacoes': pedido.observacoes or '',
+                'data_pedido': pedido.data_pedido.strftime('%d/%m/%Y %H:%M') if pedido.data_pedido else '',
+                'itens': itens_list
+            }
+            
+            return render_template('client/pedido_detalhes.html', pedido=pedido_dict)
+        except Exception as e:
+            print(f"Erro ao carregar detalhes do pedido: {e}")
+            flash('Erro ao carregar detalhes do pedido.', 'error')
+            return redirect(url_for('client_dashboard'))
+    else:
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('client_dashboard'))
+
+@app.route('/cliente/pedidos/<int:pedido_id>/cancelar', methods=['POST'])
+@client_login_required
+def client_cancelar_pedido(pedido_id):
+    """Cancelar pedido (cliente)"""
+    cliente_id = session.get('client_id') or session.get('cliente_id')
     
-    # Buscar cupons de desconto do cliente
-    cupons = []
-    if os.path.exists(FIDELIDADE_FILE):
-        with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
-            fidelidade_data = json.load(f)
-        
-        cupons = [c for c in fidelidade_data['cupons'] if c.get('cliente_id') == cliente_id]
-        cupons = sorted(cupons, key=lambda x: x.get('data_emissao', ''), reverse=True)
+    if not cliente_id:
+        flash('Sessão expirada. Faça login novamente.', 'error')
+        return redirect(url_for('client_login'))
     
-    return render_template('client/dashboard.html', cliente=cliente, ordens=ordens_ordenadas, comprovantes=comprovantes, cupons=cupons)
+    if use_database():
+        try:
+            pedido = Pedido.query.filter_by(id=pedido_id, cliente_id=cliente_id).first_or_404()
+            
+            # Só permite cancelar se estiver pendente ou processando
+            if pedido.status not in ['pendente', 'processando']:
+                flash('Este pedido não pode ser cancelado.', 'error')
+                return redirect(url_for('client_pedido_detalhes', pedido_id=pedido_id))
+            
+            # Restaurar estoque dos produtos
+            for item in pedido.itens:
+                if item.produto:
+                    item.produto.estoque += item.quantidade
+            
+            # Atualizar status
+            pedido.status = 'cancelado'
+            db.session.commit()
+            
+            flash(f'Pedido #{pedido.numero_pedido} cancelado com sucesso!', 'success')
+            return redirect(url_for('client_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao cancelar pedido: {e}")
+            flash('Erro ao cancelar pedido.', 'error')
+            return redirect(url_for('client_pedido_detalhes', pedido_id=pedido_id))
+    else:
+        flash('Banco de dados não disponível.', 'error')
+        return redirect(url_for('client_dashboard'))
 
 @app.route('/cliente/download-pdf/<path:filename>')
 @client_login_required
