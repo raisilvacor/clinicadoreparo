@@ -346,6 +346,6 @@ class ItemPedido(db.Model):
     # Campos opcionais para histórico (podem não existir no banco ainda)
     # produto_nome e produto_sku serão adicionados após executar migrate_produtos_delete.sql
     
-    # Relacionamento com produto
-    produto = db.relationship('Produto', foreign_keys=[produto_id], lazy=True)
+    # NOTA: O relacionamento 'produto' é criado automaticamente via backref no modelo Produto
+    # Não definir aqui para evitar conflito
 
