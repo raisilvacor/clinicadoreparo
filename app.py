@@ -6096,13 +6096,26 @@ def admin_delete_produto(produto_id):
     
     try:
         produto = Produto.query.get_or_404(produto_id)
+        
+        # Verificar se há itens de pedido associados a este produto
+        itens_pedido_count = ItemPedido.query.filter_by(produto_id=produto_id).count()
+        if itens_pedido_count > 0:
+            flash(f'Não é possível excluir este produto. Ele possui {itens_pedido_count} item(ns) em pedido(s). Para excluir, primeiro remova os itens dos pedidos ou desative o produto.', 'error')
+            return redirect(url_for('admin_produtos'))
+        
+        # Se o produto tem imagem no banco, não precisamos excluir a imagem
+        # pois pode ser compartilhada ou mantida para histórico
+        
+        # Excluir o produto
         db.session.delete(produto)
         db.session.commit()
         flash('Produto excluído com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
         print(f"Erro ao excluir produto: {e}")
-        flash('Erro ao excluir produto.', 'error')
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao excluir produto: {str(e)}', 'error')
     
     return redirect(url_for('admin_produtos'))
 
