@@ -1409,9 +1409,14 @@ def checkout():
                             init_point = response_data.get("init_point") or response_data.get("sandbox_init_point")
                             
                             if preference_id and init_point:
-                                # Salvar preference_id no pedido e fazer commit de tudo
+                                # Salvar preference_id no pedido usando SQL direto (coluna pode não existir ainda)
                                 try:
-                                    pedido.mercado_pago_preference_id = preference_id
+                                    from sqlalchemy import text
+                                    db.session.execute(
+                                        text("UPDATE pedidos SET mercado_pago_preference_id = :pref_id WHERE id = :pedido_id"),
+                                        {'pref_id': preference_id, 'pedido_id': pedido.id}
+                                    )
+                                    print(f"Preference ID {preference_id} salvo no pedido {pedido.id}")
                                 except Exception as e:
                                     print(f"Aviso: Não foi possível salvar preference_id (coluna pode não existir): {e}")
                                     # Continuar mesmo sem salvar preference_id
@@ -1510,7 +1515,15 @@ def pagamento_sucesso():
                             item.produto.estoque -= item.quantidade
                     
                     pedido.status = 'confirmado'
-                    pedido.mercado_pago_payment_id = payment_id
+                    # Salvar payment_id usando SQL direto (coluna pode não existir ainda)
+                    try:
+                        from sqlalchemy import text
+                        db.session.execute(
+                            text("UPDATE pedidos SET mercado_pago_payment_id = :payment_id WHERE id = :pedido_id"),
+                            {'payment_id': payment_id, 'pedido_id': pedido.id}
+                        )
+                    except Exception as e:
+                        print(f"Aviso: Não foi possível salvar payment_id (coluna pode não existir): {e}")
                     db.session.commit()
                 
                 # Fazer login do cliente se houver dados na sessão
@@ -1611,7 +1624,15 @@ def pagamento_webhook():
                                         item.produto.estoque -= item.quantidade
                             
                             pedido.status = 'confirmado'
-                            pedido.mercado_pago_payment_id = payment_id
+                            # Salvar payment_id usando SQL direto
+                            try:
+                                from sqlalchemy import text
+                                db.session.execute(
+                                    text("UPDATE pedidos SET mercado_pago_payment_id = :payment_id WHERE id = :pedido_id"),
+                                    {'payment_id': payment_id, 'pedido_id': pedido.id}
+                                )
+                            except Exception as e:
+                                print(f"Aviso: Não foi possível salvar payment_id: {e}")
                             db.session.commit()
                             
                         elif status_payment == "rejected" or status_payment == "cancelled":
@@ -1621,7 +1642,15 @@ def pagamento_webhook():
                         
                         elif status_payment == "pending":
                             pedido.status = 'pendente'
-                            pedido.mercado_pago_payment_id = payment_id
+                            # Salvar payment_id usando SQL direto
+                            try:
+                                from sqlalchemy import text
+                                db.session.execute(
+                                    text("UPDATE pedidos SET mercado_pago_payment_id = :payment_id WHERE id = :pedido_id"),
+                                    {'payment_id': payment_id, 'pedido_id': pedido.id}
+                                )
+                            except Exception as e:
+                                print(f"Aviso: Não foi possível salvar payment_id: {e}")
                             db.session.commit()
         
         return jsonify({"status": "ok"}), 200

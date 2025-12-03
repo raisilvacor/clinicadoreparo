@@ -326,8 +326,8 @@ class Pedido(db.Model):
     observacoes = db.Column(db.Text)
     data_pedido = db.Column(db.DateTime, default=datetime.now)
     data_atualizacao = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    mercado_pago_payment_id = db.Column(db.String(100))  # ID do pagamento no Mercado Pago
-    mercado_pago_preference_id = db.Column(db.String(100))  # ID da preferência no Mercado Pago
+    # NOTA: Colunas mercado_pago_payment_id e mercado_pago_preference_id serão adicionadas via migração
+    # Não definir aqui para evitar erro se as colunas não existirem no banco
     
     # Relacionamentos
     cliente = db.relationship('Cliente', foreign_keys=[cliente_id], lazy=True)
