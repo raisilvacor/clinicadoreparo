@@ -1191,6 +1191,10 @@ def checkout():
         return redirect(url_for('loja'))
     
     if request.method == 'POST':
+        print("=" * 50)
+        print("INICIANDO PROCESSAMENTO DE CHECKOUT")
+        print("=" * 50)
+        
         # Processar pedido
         nome = request.form.get('nome')
         email = request.form.get('email')
@@ -1204,27 +1208,36 @@ def checkout():
         senha = request.form.get('senha')
         confirmar_senha = request.form.get('confirmar_senha')
         
+        print(f"Dados recebidos - Nome: {nome}, Email: {email}, Telefone: {telefone}")
+        
         if not all([nome, telefone, endereco, cidade, estado, senha, confirmar_senha]):
+            print("ERRO: Campos obrigatórios não preenchidos")
             flash('Por favor, preencha todos os campos obrigatórios.', 'error')
             return redirect(url_for('checkout'))
         
         # Validar senhas
         if senha != confirmar_senha:
+            print("ERRO: Senhas não coincidem")
             flash('As senhas não coincidem. Por favor, verifique.', 'error')
             return redirect(url_for('checkout'))
         
         if len(senha) < 6:
+            print("ERRO: Senha muito curta")
             flash('A senha deve ter no mínimo 6 caracteres.', 'error')
             return redirect(url_for('checkout'))
         
         if use_database():
+            print("Banco de dados disponível. Iniciando processamento...")
             try:
                 # Calcular totais
+                print(f"Processando {len(carrinho_itens)} itens do carrinho...")
                 subtotal = 0
                 itens_pedido = []
                 
                 for item in carrinho_itens:
-                    produto = Produto.query.get(item.get('produto_id'))
+                    produto_id = item.get('produto_id')
+                    print(f"Buscando produto ID: {produto_id}")
+                    produto = Produto.query.get(produto_id)
                     if produto and produto.ativo:
                         quantidade = item.get('quantidade', 1)
                         preco = float(produto.preco_promocional if produto.preco_promocional else produto.preco)
@@ -1237,14 +1250,22 @@ def checkout():
                             'preco': preco,
                             'subtotal': subtotal_item
                         })
+                        print(f"Produto adicionado: {produto.nome} - Qtd: {quantidade} - Preço: {preco}")
+                    else:
+                        print(f"Produto ID {produto_id} não encontrado ou inativo")
                 
                 if not itens_pedido:
+                    print("ERRO: Nenhum produto válido no carrinho")
                     flash('Nenhum produto válido no carrinho.', 'error')
                     return redirect(url_for('carrinho'))
                 
+                print(f"Total calculado: R$ {subtotal:.2f}")
+                
                 # Criar ou atualizar cliente com senha
+                print("Criando/atualizando cliente...")
                 cliente = Cliente.query.filter_by(email=email).first()
                 if cliente:
+                    print(f"Cliente existente encontrado: ID {cliente.id}")
                     # Cliente existe, atualizar dados e senha
                     cliente.nome = nome
                     cliente.telefone = telefone
@@ -1254,6 +1275,7 @@ def checkout():
                     if not cliente.username:
                         cliente.username = email  # Usar email como username se não tiver
                 else:
+                    print("Criando novo cliente...")
                     # Criar novo cliente
                     cliente = Cliente(
                         nome=nome,
@@ -1266,9 +1288,11 @@ def checkout():
                     )
                     db.session.add(cliente)
                     db.session.flush()  # Para obter o ID do cliente
+                    print(f"Cliente criado com ID: {cliente.id}")
                 
                 # Gerar número do pedido
                 numero_pedido = f"PED{datetime.now().strftime('%Y%m%d')}{random.randint(1000, 9999)}"
+                print(f"Criando pedido: {numero_pedido}")
                 
                 # Criar pedido associado ao cliente
                 pedido = Pedido(
