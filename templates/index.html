@@ -1215,55 +1215,7 @@ body {
 }
 </style>
 <script>
-function adicionarAoCarrinhoDestaque(produtoId, event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    
-    const formData = new FormData();
-    formData.append('produto_id', produtoId);
-    formData.append('quantidade', 1);
-    
-    fetch('{{ url_for("adicionar_carrinho") }}', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Atualizar contador do carrinho
-            const cartCount = document.getElementById('cart-count');
-            if (cartCount) {
-                cartCount.textContent = data.total_itens || 0;
-            }
-            
-            // Mostrar mensagem de sucesso
-            alert('Produto adicionado ao carrinho!');
-        } else {
-            alert(data.message || 'Erro ao adicionar produto ao carrinho');
-        }
-    })
-    .catch(error => {
-        console.error('Erro:', error);
-        alert('Erro ao adicionar produto ao carrinho');
-    });
-}
-
-// Event delegation para botões de adicionar ao carrinho
-document.addEventListener('DOMContentLoaded', function() {
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.btn-adicionar-carrinho')) {
-            const button = e.target.closest('.btn-adicionar-carrinho');
-            if (button.disabled) return;
-            
-            const produtoId = button.getAttribute('data-produto-id');
-            if (produtoId) {
-                adicionarAoCarrinhoDestaque(parseInt(produtoId), e);
-            }
-        }
-    });
-});
+// Funções de carrinho removidas - sistema de loja removido
 </script>
 {% endblock %}
 
