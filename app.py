@@ -1410,8 +1410,14 @@ def checkout():
                             
                             if preference_id and init_point:
                                 # Salvar preference_id no pedido e fazer commit de tudo
-                                pedido.mercado_pago_preference_id = preference_id
+                                try:
+                                    pedido.mercado_pago_preference_id = preference_id
+                                except Exception as e:
+                                    print(f"Aviso: Não foi possível salvar preference_id (coluna pode não existir): {e}")
+                                    # Continuar mesmo sem salvar preference_id
+                                
                                 db.session.commit()  # Commit final: pedido + itens + preference_id
+                                print(f"Pedido {pedido.id} criado com sucesso e commit realizado")
                                 
                                 # Salvar dados do pedido na sessão para login após pagamento
                                 session['pedido_pendente_id'] = pedido.id
@@ -6839,24 +6845,67 @@ def admin_pedidos():
         return redirect(url_for('admin_dashboard'))
     
     try:
+        print("Buscando pedidos no banco de dados...")
         pedidos = Pedido.query.order_by(Pedido.data_pedido.desc()).all()
+        print(f"Encontrados {len(pedidos)} pedidos")
+        
         pedidos_list = []
         for p in pedidos:
-            pedidos_list.append({
-                'id': p.id,
-                'numero': p.numero_pedido,
-                'nome': p.cliente_nome,
-                'email': p.cliente_email,
-                'telefone': p.cliente_telefone,
-                'status': p.status,
-                'total': float(p.total),
-                'data_pedido': p.data_pedido.strftime('%d/%m/%Y %H:%M') if p.data_pedido else '',
-                'itens_count': len(p.itens)
-            })
+            try:
+                # Contar itens de forma segura
+                itens_count = 0
+                try:
+                    itens_count = len(p.itens) if p.itens else 0
+                except Exception as e:
+                    print(f"Erro ao contar itens do pedido {p.id}: {e}")
+                    # Tentar contar via SQL direto
+                    from sqlalchemy import text
+                    result = db.session.execute(
+                        text("SELECT COUNT(*) FROM itens_pedido WHERE pedido_id = :pedido_id"),
+                        {'pedido_id': p.id}
+                    )
+                    itens_count = result.scalar() or 0
+                
+                # Formatar data de forma segura
+                data_pedido_str = ''
+                try:
+                    if p.data_pedido:
+                        data_pedido_str = p.data_pedido.strftime('%d/%m/%Y %H:%M')
+                except Exception as e:
+                    print(f"Erro ao formatar data do pedido {p.id}: {e}")
+                
+                # Converter total de forma segura
+                total_value = 0.0
+                try:
+                    total_value = float(p.total) if p.total else 0.0
+                except Exception as e:
+                    print(f"Erro ao converter total do pedido {p.id}: {e}")
+                
+                pedidos_list.append({
+                    'id': p.id,
+                    'numero': p.numero_pedido or f'PED{p.id}',
+                    'nome': p.cliente_nome or 'Cliente não informado',
+                    'email': p.cliente_email or '',
+                    'telefone': p.cliente_telefone or '',
+                    'status': p.status or 'pendente',
+                    'total': total_value,
+                    'data_pedido': data_pedido_str,
+                    'itens_count': itens_count
+                })
+            except Exception as e:
+                print(f"Erro ao processar pedido {p.id}: {e}")
+                import traceback
+                traceback.print_exc()
+                # Continuar com próximo pedido mesmo se houver erro
+                continue
+        
+        print(f"Processados {len(pedidos_list)} pedidos com sucesso")
         return render_template('admin/pedidos.html', pedidos=pedidos_list)
     except Exception as e:
-        print(f"Erro ao buscar pedidos: {e}")
-        flash('Erro ao carregar pedidos.', 'error')
+        print(f"ERRO CRÍTICO ao buscar pedidos: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao carregar pedidos: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/loja/pedidos/<int:pedido_id>')
@@ -6869,53 +6918,119 @@ def admin_pedido_detalhes(pedido_id):
     
     try:
         pedido = Pedido.query.get_or_404(pedido_id)
+        print(f"Carregando detalhes do pedido {pedido_id}")
         
         itens_list = []
-        for item in pedido.itens:
-            # SEMPRE usar imagem_id do banco de dados
-            if item.produto:
-                if item.produto.imagem_id:
-                    imagem_url = f'/admin/produtos/imagem/{item.produto.imagem_id}'
-                else:
-                    imagem_url = ''  # Sem imagem - não usar fallback de arquivo local
-            else:
-                imagem_url = ''
-            
-            # Usar nome do produto
-            produto_nome = item.produto.nome if item.produto else 'Produto removido'
-            produto_sku = item.produto.sku if item.produto else ''
-            
-            itens_list.append({
-                'id': item.id,
-                'produto_nome': produto_nome,
-                'produto_sku': produto_sku,
-                'produto_imagem': imagem_url,
-                'quantidade': item.quantidade,
-                'preco_unitario': float(item.preco_unitario),
-                'subtotal': float(item.subtotal)
-            })
+        try:
+            for item in pedido.itens:
+                try:
+                    # Verificar se produto existe
+                    produto = None
+                    if item.produto_id:
+                        try:
+                            produto = item.produto
+                        except Exception as e:
+                            print(f"Erro ao acessar produto {item.produto_id}: {e}")
+                            # Tentar buscar diretamente
+                            produto = Produto.query.get(item.produto_id)
+                    
+                    # SEMPRE usar imagem_id do banco de dados
+                    imagem_url = ''
+                    if produto:
+                        try:
+                            if produto.imagem_id:
+                                imagem_url = f'/admin/produtos/imagem/{produto.imagem_id}'
+                        except Exception as e:
+                            print(f"Erro ao acessar imagem do produto: {e}")
+                    
+                    # Usar nome do produto (tentar produto_nome do item primeiro, depois do produto)
+                    produto_nome = 'Produto removido'
+                    produto_sku = ''
+                    
+                    # Tentar usar campos históricos do item (se existirem)
+                    try:
+                        if hasattr(item, 'produto_nome') and item.produto_nome:
+                            produto_nome = item.produto_nome
+                        elif produto:
+                            produto_nome = produto.nome
+                    except Exception as e:
+                        print(f"Erro ao obter nome do produto: {e}")
+                        if produto:
+                            produto_nome = produto.nome
+                    
+                    try:
+                        if hasattr(item, 'produto_sku') and item.produto_sku:
+                            produto_sku = item.produto_sku
+                        elif produto:
+                            produto_sku = produto.sku or ''
+                    except Exception as e:
+                        print(f"Erro ao obter SKU do produto: {e}")
+                        if produto:
+                            produto_sku = produto.sku or ''
+                    
+                    itens_list.append({
+                        'id': item.id,
+                        'produto_nome': produto_nome,
+                        'produto_sku': produto_sku,
+                        'produto_imagem': imagem_url,
+                        'quantidade': item.quantidade,
+                        'preco_unitario': float(item.preco_unitario) if item.preco_unitario else 0.0,
+                        'subtotal': float(item.subtotal) if item.subtotal else 0.0
+                    })
+                except Exception as e:
+                    print(f"Erro ao processar item {item.id} do pedido: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Adicionar item com dados mínimos mesmo com erro
+                    itens_list.append({
+                        'id': item.id,
+                        'produto_nome': 'Erro ao carregar produto',
+                        'produto_sku': '',
+                        'produto_imagem': '',
+                        'quantidade': item.quantidade if item.quantidade else 0,
+                        'preco_unitario': float(item.preco_unitario) if item.preco_unitario else 0.0,
+                        'subtotal': float(item.subtotal) if item.subtotal else 0.0
+                    })
+        except Exception as e:
+            print(f"Erro ao processar itens do pedido: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # Formatar dados do pedido de forma segura
+        try:
+            total_value = float(pedido.total) if pedido.total else 0.0
+        except:
+            total_value = 0.0
+        
+        try:
+            data_pedido_str = pedido.data_pedido.strftime('%d/%m/%Y %H:%M') if pedido.data_pedido else ''
+        except:
+            data_pedido_str = ''
         
         pedido_dict = {
             'id': pedido.id,
-            'numero': pedido.numero_pedido,
-            'nome': pedido.cliente_nome,
-            'email': pedido.cliente_email,
-            'telefone': pedido.cliente_telefone,
-            'cpf': pedido.cliente_cpf,
-            'endereco': pedido.endereco_entrega,
-            'cep': pedido.cep,
-            'cidade': pedido.cidade,
-            'estado': pedido.estado,
-            'status': pedido.status,
-            'total': float(pedido.total),
-            'data_pedido': pedido.data_pedido.strftime('%d/%m/%Y %H:%M') if pedido.data_pedido else '',
+            'numero': pedido.numero_pedido or f'PED{pedido.id}',
+            'nome': pedido.cliente_nome or 'Cliente não informado',
+            'email': pedido.cliente_email or '',
+            'telefone': pedido.cliente_telefone or '',
+            'cpf': pedido.cliente_cpf or '',
+            'endereco': pedido.endereco_entrega or '',
+            'cep': pedido.cep or '',
+            'cidade': pedido.cidade or '',
+            'estado': pedido.estado or '',
+            'status': pedido.status or 'pendente',
+            'total': total_value,
+            'data_pedido': data_pedido_str,
             'itens': itens_list
         }
         
+        print(f"Pedido {pedido_id} carregado com sucesso - {len(itens_list)} itens")
         return render_template('admin/pedido_detalhes.html', pedido=pedido_dict)
     except Exception as e:
-        print(f"Erro ao buscar pedido: {e}")
-        flash('Erro ao carregar pedido.', 'error')
+        print(f"ERRO CRÍTICO ao buscar pedido {pedido_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao carregar pedido: {str(e)}', 'error')
         return redirect(url_for('admin_pedidos'))
 
 @app.route('/admin/loja/pedidos/<int:pedido_id>/status', methods=['POST'])

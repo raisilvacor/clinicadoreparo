@@ -338,11 +338,14 @@ class ItemPedido(db.Model):
     __tablename__ = 'itens_pedido'
     id = db.Column(db.Integer, primary_key=True)
     pedido_id = db.Column(db.Integer, db.ForeignKey('pedidos.id', ondelete='CASCADE'), nullable=False)
-    produto_id = db.Column(db.Integer, db.ForeignKey('produtos.id'), nullable=False)  # Será alterado para nullable=True após migração
+    produto_id = db.Column(db.Integer, db.ForeignKey('produtos.id', ondelete='SET NULL'), nullable=True)  # Permite NULL para produtos removidos
     quantidade = db.Column(db.Integer, nullable=False)
     preco_unitario = db.Column(db.Numeric(10, 2), nullable=False)  # Preço no momento da compra
     subtotal = db.Column(db.Numeric(10, 2), nullable=False)
     data_criacao = db.Column(db.DateTime, default=datetime.now)
-    # NOTA: Campos produto_nome e produto_sku serão adicionados após executar migrate_produtos_delete.sql
-    # Por enquanto, não estão no modelo para evitar erros
+    # Campos opcionais para histórico (podem não existir no banco ainda)
+    # produto_nome e produto_sku serão adicionados após executar migrate_produtos_delete.sql
+    
+    # Relacionamento com produto
+    produto = db.relationship('Produto', foreign_keys=[produto_id], lazy=True)
 
