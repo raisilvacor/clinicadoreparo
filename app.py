@@ -825,12 +825,11 @@ def index():
         try:
             produtos_db = Produto.query.filter_by(ativo=True, destaque=True).order_by(Produto.ordem, Produto.nome).limit(6).all()
             for p in produtos_db:
+                # SEMPRE usar imagem_id do banco de dados
                 if p.imagem_id:
                     imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
-                elif p.imagem:
-                    imagem_url = p.imagem
                 else:
-                    imagem_url = 'img/placeholder.png'
+                    imagem_url = 'img/placeholder.png'  # Placeholder apenas se não houver imagem no banco
                 
                 produtos_destaque.append({
                     'id': p.id,
@@ -933,14 +932,13 @@ def loja():
             
             produtos_db = query.order_by(Produto.ordem, Produto.nome).all()
             
-            # Converter para formato de dicionário
+            # Converter para formato de dicionário - SEMPRE usar banco de dados
             for p in produtos_db:
+                # SEMPRE usar imagem_id do banco de dados
                 if p.imagem_id:
                     imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
-                elif p.imagem:
-                    imagem_url = p.imagem
                 else:
-                    imagem_url = 'img/placeholder.png'
+                    imagem_url = 'img/placeholder.png'  # Placeholder apenas se não houver imagem no banco
                 
                 produtos.append({
                     'id': p.id,
@@ -986,12 +984,11 @@ def produto_detalhes(slug):
         try:
             p = Produto.query.filter_by(slug=slug, ativo=True).first()
             if p:
+                # SEMPRE usar imagem_id do banco de dados
                 if p.imagem_id:
                     imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
-                elif p.imagem:
-                    imagem_url = p.imagem
                 else:
-                    imagem_url = 'img/placeholder.png'
+                    imagem_url = 'img/placeholder.png'  # Placeholder apenas se não houver imagem no banco
                 
                 produto = {
                     'id': p.id,
@@ -1039,12 +1036,11 @@ def carrinho():
                 
                 p = Produto.query.get(produto_id)
                 if p and p.ativo:
+                    # SEMPRE usar imagem_id do banco de dados
                     if p.imagem_id:
                         imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
-                    elif p.imagem:
-                        imagem_url = p.imagem
                     else:
-                        imagem_url = 'img/placeholder.png'
+                        imagem_url = 'img/placeholder.png'  # Placeholder apenas se não houver imagem no banco
                     
                     preco = float(p.preco_promocional if p.preco_promocional else p.preco)
                     subtotal = preco * quantidade
@@ -5833,11 +5829,17 @@ def slugify(text):
     return text
 
 def salvar_imagem_banco(file):
-    """Salva imagem no banco de dados e retorna objeto Imagem"""
+    """Salva imagem no banco de dados e retorna objeto Imagem - SEMPRE salva no banco"""
+    # Verificar se banco de dados está disponível
+    if not use_database():
+        print("ERRO: Banco de dados não disponível para salvar imagem")
+        return None
+    
     if not file or not file.filename:
         return None
     
     if not allowed_file(file.filename):
+        print(f"ERRO: Tipo de arquivo não permitido: {file.filename}")
         return None
     
     # Verificar tamanho
@@ -5845,6 +5847,7 @@ def salvar_imagem_banco(file):
     file_size = file.tell()
     file.seek(0)
     if file_size > MAX_FILE_SIZE:
+        print(f"ERRO: Arquivo muito grande: {file_size} bytes (máx: {MAX_FILE_SIZE})")
         return None
     
     # Ler dados
@@ -5871,10 +5874,13 @@ def salvar_imagem_banco(file):
         )
         db.session.add(imagem)
         db.session.commit()
+        print(f"SUCCESS: Imagem salva no banco com ID: {imagem.id}")
         return imagem
     except Exception as e:
         db.session.rollback()
-        print(f"Erro ao salvar imagem: {e}")
+        print(f"ERRO ao salvar imagem no banco: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 # ==================== ADMIN - LOJA ====================
@@ -5893,12 +5899,12 @@ def admin_produtos():
         
         produtos_list = []
         for p in produtos:
+            # SEMPRE usar imagem do banco de dados (imagem_id)
+            # Se não tiver imagem_id, não exibir imagem (não usar fallback de arquivo)
             if p.imagem_id:
                 imagem_url = f'/admin/produtos/imagem/{p.imagem_id}'
-            elif p.imagem:
-                imagem_url = p.imagem
             else:
-                imagem_url = ''
+                imagem_url = ''  # Sem imagem - não usar fallback de arquivo local
             
             produtos_list.append({
                 'id': p.id,
@@ -5980,13 +5986,23 @@ def admin_add_produto():
                 ordem=ordem
             )
             
-            # Upload de imagem
+            # Upload de imagem - SEMPRE salva no banco de dados
             if 'imagem' in request.files:
                 file = request.files['imagem']
                 if file and file.filename:
+                    if not use_database():
+                        flash('Erro: Banco de dados não disponível. Imagem não pode ser salva.', 'error')
+                        categorias = Categoria.query.order_by(Categoria.nome).all()
+                        return render_template('admin/add_produto.html', categorias=categorias)
+                    
                     imagem = salvar_imagem_banco(file)
                     if imagem:
                         produto.imagem_id = imagem.id
+                        produto.imagem = None  # Limpar campo de imagem antiga se existir
+                    else:
+                        flash('Erro ao salvar imagem. Verifique se o banco de dados está disponível.', 'error')
+                        categorias = Categoria.query.order_by(Categoria.nome).all()
+                        return render_template('admin/add_produto.html', categorias=categorias)
             
             db.session.add(produto)
             db.session.commit()
@@ -6041,13 +6057,23 @@ def admin_edit_produto(produto_id):
             produto.destaque = request.form.get('destaque') == 'on'
             produto.ordem = int(request.form.get('ordem', 1))
             
-            # Upload de nova imagem
+            # Upload de nova imagem - SEMPRE salva no banco de dados
             if 'imagem' in request.files:
                 file = request.files['imagem']
                 if file and file.filename:
+                    if not use_database():
+                        flash('Erro: Banco de dados não disponível. Imagem não pode ser salva.', 'error')
+                        categorias = Categoria.query.order_by(Categoria.nome).all()
+                        return render_template('admin/edit_produto.html', produto=produto, categorias=categorias)
+                    
                     imagem = salvar_imagem_banco(file)
                     if imagem:
                         produto.imagem_id = imagem.id
+                        produto.imagem = None  # Limpar campo de imagem antiga se existir
+                    else:
+                        flash('Erro ao salvar imagem. Verifique se o banco de dados está disponível.', 'error')
+                        categorias = Categoria.query.order_by(Categoria.nome).all()
+                        return render_template('admin/edit_produto.html', produto=produto, categorias=categorias)
             
             db.session.commit()
             flash('Produto atualizado com sucesso!', 'success')
@@ -6229,10 +6255,10 @@ def admin_pedidos():
         for p in pedidos:
             pedidos_list.append({
                 'id': p.id,
-                'numero': p.numero,
-                'nome': p.nome,
-                'email': p.email,
-                'telefone': p.telefone,
+                'numero': p.numero_pedido,
+                'nome': p.cliente_nome,
+                'email': p.cliente_email,
+                'telefone': p.cliente_telefone,
                 'status': p.status,
                 'total': float(p.total),
                 'data_pedido': p.data_pedido.strftime('%d/%m/%Y %H:%M') if p.data_pedido else '',
@@ -6257,13 +6283,12 @@ def admin_pedido_detalhes(pedido_id):
         
         itens_list = []
         for item in pedido.itens:
+            # SEMPRE usar imagem_id do banco de dados
             if item.produto:
                 if item.produto.imagem_id:
                     imagem_url = f'/admin/produtos/imagem/{item.produto.imagem_id}'
-                elif item.produto.imagem:
-                    imagem_url = item.produto.imagem
                 else:
-                    imagem_url = ''
+                    imagem_url = ''  # Sem imagem - não usar fallback de arquivo local
             else:
                 imagem_url = ''
             
@@ -6278,12 +6303,12 @@ def admin_pedido_detalhes(pedido_id):
         
         pedido_dict = {
             'id': pedido.id,
-            'numero': pedido.numero,
-            'nome': pedido.nome,
-            'email': pedido.email,
-            'telefone': pedido.telefone,
-            'cpf': pedido.cpf,
-            'endereco': pedido.endereco,
+            'numero': pedido.numero_pedido,
+            'nome': pedido.cliente_nome,
+            'email': pedido.cliente_email,
+            'telefone': pedido.cliente_telefone,
+            'cpf': pedido.cliente_cpf,
+            'endereco': pedido.endereco_entrega,
             'cep': pedido.cep,
             'cidade': pedido.cidade,
             'estado': pedido.estado,
