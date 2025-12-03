@@ -1316,25 +1316,47 @@ def checkout():
                     # Preparar itens para o Mercado Pago
                     items = []
                     for item in itens_pedido:
+                        # Validar e limpar nome do produto (máximo 127 caracteres)
+                        produto_nome = item['produto'].nome[:127] if len(item['produto'].nome) > 127 else item['produto'].nome
+                        
                         items.append({
-                            "title": item['produto'].nome,
-                            "quantity": item['quantidade'],
+                            "title": produto_nome,
+                            "quantity": int(item['quantidade']),
                             "unit_price": float(item['preco'])
                         })
+                    
+                    # Validar telefone
+                    telefone_limpo = ''.join(filter(str.isdigit, telefone))
+                    area_code = ""
+                    number = telefone_limpo
+                    
+                    if len(telefone_limpo) >= 10:
+                        # Formato: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+                        area_code = telefone_limpo[:2]
+                        number = telefone_limpo[2:]
+                    elif len(telefone_limpo) >= 8:
+                        # Formato simples
+                        number = telefone_limpo
                     
                     # URL base do site
                     base_url = request.url_root.rstrip('/')
                     
+                    # Preparar dados do pagador
+                    payer_data = {
+                        "name": nome[:127] if len(nome) > 127 else nome,
+                        "email": email
+                    }
+                    
+                    # Adicionar telefone apenas se tiver formato válido
+                    if area_code and len(number) >= 8:
+                        payer_data["phone"] = {
+                            "area_code": area_code,
+                            "number": number
+                        }
+                    
                     preference_data = {
                         "items": items,
-                        "payer": {
-                            "name": nome,
-                            "email": email,
-                            "phone": {
-                                "area_code": telefone[:2] if len(telefone) > 2 else "",
-                                "number": telefone[2:] if len(telefone) > 2 else telefone
-                            }
-                        },
+                        "payer": payer_data,
                         "back_urls": {
                             "success": f"{base_url}/loja/pagamento/sucesso",
                             "failure": f"{base_url}/loja/pagamento/falha",
@@ -1346,34 +1368,64 @@ def checkout():
                         "statement_descriptor": "CLINICA DO REPARO"
                     }
                     
+                    print(f"Tentando criar preferência no Mercado Pago...")
                     preference_response = sdk.preference().create(preference_data)
                     
-                    if preference_response["status"] == 201:
-                        preference_id = preference_response["response"]["id"]
-                        init_point = preference_response["response"]["init_point"]
+                    print(f"Resposta do Mercado Pago: {preference_response}")
+                    
+                    # Verificar resposta
+                    if isinstance(preference_response, dict):
+                        status = preference_response.get("status", 0)
+                        response_data = preference_response.get("response", {})
                         
-                        # Salvar preference_id no pedido
-                        pedido.mercado_pago_preference_id = preference_id
-                        db.session.commit()
-                        
-                        # Salvar dados do pedido na sessão para login após pagamento
-                        session['pedido_pendente_id'] = pedido.id
-                        session['pedido_pendente_cliente'] = {
-                            'id': cliente.id,
-                            'nome': cliente.nome,
-                            'email': cliente.email
-                        }
-                        
-                        # Redirecionar para o Mercado Pago
-                        return redirect(init_point)
+                        if status == 201 or status == 200:
+                            preference_id = response_data.get("id")
+                            init_point = response_data.get("init_point") or response_data.get("sandbox_init_point")
+                            
+                            if preference_id and init_point:
+                                # Salvar preference_id no pedido e fazer commit
+                                pedido.mercado_pago_preference_id = preference_id
+                                db.session.commit()
+                                
+                                # Salvar dados do pedido na sessão para login após pagamento
+                                session['pedido_pendente_id'] = pedido.id
+                                session['pedido_pendente_cliente'] = {
+                                    'id': cliente.id,
+                                    'nome': cliente.nome,
+                                    'email': cliente.email
+                                }
+                                
+                                # Redirecionar para o Mercado Pago
+                                return redirect(init_point)
+                            else:
+                                raise Exception(f"Resposta inválida do Mercado Pago: {response_data}")
+                        else:
+                            error_message = response_data.get("message", "Erro desconhecido")
+                            errors = response_data.get("cause", [])
+                            error_details = ""
+                            if errors:
+                                error_details = f" - Detalhes: {errors}"
+                            raise Exception(f"Erro ao criar preferência (Status {status}): {error_message}{error_details}")
                     else:
-                        raise Exception(f"Erro ao criar preferência: {preference_response}")
+                        raise Exception(f"Resposta inesperada do Mercado Pago: {type(preference_response)}")
                         
+                except ImportError as e:
+                    print(f"Erro: SDK do Mercado Pago não instalado: {e}")
+                    # Fazer rollback - remover pedido e itens criados
+                    db.session.rollback()
+                    flash('Sistema de pagamento temporariamente indisponível. O pacote do Mercado Pago precisa ser instalado. Entre em contato conosco.', 'error')
+                    return redirect(url_for('checkout'))
                 except Exception as e:
                     print(f"Erro ao processar pagamento Mercado Pago: {e}")
                     import traceback
                     traceback.print_exc()
-                    flash('Erro ao processar pagamento. Tente novamente.', 'error')
+                    # Fazer rollback - remover pedido e itens criados
+                    db.session.rollback()
+                    error_msg = str(e)
+                    # Limitar tamanho da mensagem de erro
+                    if len(error_msg) > 200:
+                        error_msg = error_msg[:200] + "..."
+                    flash(f'Erro ao processar pagamento: {error_msg}. Tente novamente ou entre em contato conosco.', 'error')
                     return redirect(url_for('checkout'))
                 
             except Exception as e:
