@@ -1,0 +1,95 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Reparos Realizados - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-tools"></i> Gerenciar Reparos Realizados</h1>
+        <p>Gerencie a galeria de fotos de reparos realizados exibida na página inicial</p>
+    </div>
+    <a href="{{ url_for('add_reparo') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Reparo
+    </a>
+</div>
+
+{% if reparos %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Imagem</th>
+                <th>Título</th>
+                <th>Descrição</th>
+                <th>Ordem</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for reparo in reparos %}
+            <tr>
+                <td>{{ reparo.id }}</td>
+                <td>
+                    <div class="reparo-preview">
+                        <img src="{{ reparo.imagem_url }}" alt="Reparo {{ reparo.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                    </div>
+                </td>
+                <td>{{ reparo.titulo or '-' }}</td>
+                <td>{{ reparo.descricao[:50] if reparo.descricao else '-' }}{% if reparo.descricao and reparo.descricao|length > 50 %}...{% endif %}</td>
+                <td><strong>{{ reparo.ordem }}</strong></td>
+                <td>
+                    {% if reparo.ativo %}
+                    <span class="badge badge-success">Ativo</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Inativo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('edit_reparo', reparo_id=reparo.id) }}" class="btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_reparo', reparo_id=reparo.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este reparo?');">
+                            <button type="submit" class="btn-icon btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-tools"></i>
+    <p>Nenhum reparo cadastrado</p>
+    <a href="{{ url_for('add_reparo') }}" class="btn btn-primary">Adicionar Primeiro Reparo</a>
+</div>
+{% endif %}
+
+<style>
+.reparo-preview {
+    width: 100px;
+    height: 100px;
+    overflow: hidden;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, #ddd);
+}
+
+.reparo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.badge-secondary {
+    background: #6c757d;
+    color: white;
+}
+</style>
+{% endblock %}
+

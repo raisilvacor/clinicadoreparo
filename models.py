@@ -258,3 +258,18 @@ class Fornecedor(db.Model):
 
 # Modelos da loja removidos - sistema de loja removido
 
+# ==================== REPAROS REALIZADOS ====================
+class ReparoRealizado(db.Model):
+    """Galeria de fotos de reparos realizados"""
+    __tablename__ = 'reparos_realizados'
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(200))  # Título opcional para a foto
+    descricao = db.Column(db.Text)  # Descrição opcional
+    imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'), nullable=False)
+    ordem = db.Column(db.Integer, default=1)  # Ordem de exibição
+    ativo = db.Column(db.Boolean, default=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    
+    # Relacionamento
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
+

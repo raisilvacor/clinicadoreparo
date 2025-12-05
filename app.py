@@ -13,7 +13,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -822,7 +822,31 @@ def index():
         servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
         servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
     
-    return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos)
+    # Carregar reparos realizados (galeria)
+    if use_database():
+        try:
+            reparos_db = ReparoRealizado.query.filter_by(ativo=True).order_by(ReparoRealizado.ordem).limit(6).all()
+        except Exception as e:
+            print(f"Erro ao carregar reparos realizados do banco: {e}")
+            reparos_db = []
+        reparos = []
+        for r in reparos_db:
+            if r.imagem_obj:
+                imagem_url = f'/admin/reparos/imagem/{r.imagem_id}'
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            reparos.append({
+                'id': r.id,
+                'titulo': r.titulo or '',
+                'descricao': r.descricao or '',
+                'imagem_url': imagem_url,
+                'imagem_id': r.imagem_id
+            })
+    else:
+        reparos = []
+    
+    return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos, reparos=reparos)
 
 @app.route('/sobre')
 def sobre():
@@ -4560,6 +4584,243 @@ def delete_milestone(milestone_id):
     
     flash('Milestone excluído com sucesso!', 'success')
     return redirect(url_for('admin_milestones'))
+
+# ==================== REPAROS REALIZADOS ====================
+
+@app.route('/admin/reparos')
+@login_required
+def admin_reparos():
+    """Lista todos os reparos realizados cadastrados"""
+    if use_database():
+        try:
+            reparos_db = ReparoRealizado.query.order_by(ReparoRealizado.ordem).all()
+            reparos = []
+            for r in reparos_db:
+                if r.imagem_obj:
+                    imagem_url = f'/admin/reparos/imagem/{r.imagem_id}'
+                else:
+                    imagem_url = 'img/placeholder.png'
+                
+                reparos.append({
+                    'id': r.id,
+                    'titulo': r.titulo or '',
+                    'descricao': r.descricao or '',
+                    'imagem_url': imagem_url,
+                    'imagem_id': r.imagem_id,
+                    'ordem': r.ordem,
+                    'ativo': r.ativo,
+                    'data_criacao': r.data_criacao
+                })
+        except Exception as e:
+            print(f"Erro ao buscar reparos do banco: {e}")
+            reparos = []
+    else:
+        reparos = []
+    
+    return render_template('admin/reparos.html', reparos=reparos)
+
+@app.route('/admin/reparos/add', methods=['GET', 'POST'])
+@login_required
+def add_reparo():
+    """Adiciona um novo reparo realizado"""
+    if request.method == 'POST':
+        titulo = request.form.get('titulo', '').strip()
+        descricao = request.form.get('descricao', '').strip()
+        imagem_id = request.form.get('imagem_id', '').strip()
+        ordem = request.form.get('ordem', '1')
+        ativo = request.form.get('ativo') == 'on'
+        
+        if not imagem_id or not imagem_id.isdigit():
+            flash('Por favor, faça upload de uma imagem antes de salvar.', 'error')
+            return redirect(url_for('add_reparo'))
+        
+        if use_database():
+            try:
+                # Verificar se a imagem existe
+                imagem = Imagem.query.get(int(imagem_id))
+                if not imagem:
+                    flash('Imagem não encontrada. Por favor, faça upload novamente.', 'error')
+                    return redirect(url_for('add_reparo'))
+                
+                # Obter próxima ordem se não especificada
+                if not ordem or not ordem.isdigit():
+                    ultimo_reparo = ReparoRealizado.query.order_by(ReparoRealizado.ordem.desc()).first()
+                    ordem = (ultimo_reparo.ordem + 1) if ultimo_reparo else 1
+                else:
+                    ordem = int(ordem)
+                
+                novo_reparo = ReparoRealizado(
+                    titulo=titulo if titulo else None,
+                    descricao=descricao if descricao else None,
+                    imagem_id=int(imagem_id),
+                    ordem=ordem,
+                    ativo=ativo
+                )
+                
+                db.session.add(novo_reparo)
+                db.session.commit()
+                
+                flash('Reparo cadastrado com sucesso!', 'success')
+                return redirect(url_for('admin_reparos'))
+            except Exception as e:
+                print(f"Erro ao salvar reparo no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash(f'Erro ao salvar reparo: {str(e)}', 'error')
+        else:
+            flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
+            return redirect(url_for('admin_reparos'))
+    
+    return render_template('admin/add_reparo.html')
+
+@app.route('/admin/reparos/<int:reparo_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_reparo(reparo_id):
+    """Edita um reparo existente"""
+    if use_database():
+        try:
+            reparo = ReparoRealizado.query.get(reparo_id)
+            if not reparo:
+                flash('Reparo não encontrado!', 'error')
+                return redirect(url_for('admin_reparos'))
+            
+            if request.method == 'POST':
+                reparo.titulo = request.form.get('titulo', '').strip() or None
+                reparo.descricao = request.form.get('descricao', '').strip() or None
+                reparo.ordem = int(request.form.get('ordem', '1')) if request.form.get('ordem', '1').isdigit() else 1
+                reparo.ativo = request.form.get('ativo') == 'on'
+                
+                # Atualizar imagem se uma nova foi enviada
+                nova_imagem_id = request.form.get('imagem_id', '').strip()
+                if nova_imagem_id and nova_imagem_id.isdigit():
+                    imagem = Imagem.query.get(int(nova_imagem_id))
+                    if imagem:
+                        reparo.imagem_id = int(nova_imagem_id)
+                
+                db.session.commit()
+                
+                flash('Reparo atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_reparos'))
+            
+            # Preparar dados para o template
+            if reparo.imagem_obj:
+                imagem_url = f'/admin/reparos/imagem/{reparo.imagem_id}'
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            reparo_dict = {
+                'id': reparo.id,
+                'titulo': reparo.titulo or '',
+                'descricao': reparo.descricao or '',
+                'imagem_url': imagem_url,
+                'imagem_id': reparo.imagem_id,
+                'ordem': reparo.ordem,
+                'ativo': reparo.ativo
+            }
+            
+            return render_template('admin/edit_reparo.html', reparo=reparo_dict)
+        except Exception as e:
+            print(f"Erro ao editar reparo: {e}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Erro ao editar reparo: {str(e)}', 'error')
+            return redirect(url_for('admin_reparos'))
+    else:
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_reparos'))
+
+@app.route('/admin/reparos/<int:reparo_id>/delete', methods=['POST'])
+@login_required
+def delete_reparo(reparo_id):
+    """Exclui um reparo"""
+    if use_database():
+        try:
+            reparo = ReparoRealizado.query.get(reparo_id)
+            if not reparo:
+                flash('Reparo não encontrado!', 'error')
+                return redirect(url_for('admin_reparos'))
+            
+            db.session.delete(reparo)
+            db.session.commit()
+            
+            flash('Reparo excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir reparo: {e}")
+            db.session.rollback()
+            flash(f'Erro ao excluir reparo: {str(e)}', 'error')
+    else:
+        flash('Banco de dados não configurado.', 'error')
+    
+    return redirect(url_for('admin_reparos'))
+
+@app.route('/admin/reparos/upload-imagem', methods=['POST'])
+@login_required
+def upload_imagem_reparo():
+    """Upload de imagem para reparos - salva no banco de dados"""
+    if 'imagem' not in request.files:
+        return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['imagem']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP'}), 400
+    
+    # Verificar tamanho do arquivo
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
+    
+    file_data = file.read()
+    imagem_tipo = file.mimetype
+    
+    if use_database():
+        try:
+            imagem = Imagem(
+                nome=secure_filename(file.filename),
+                dados=file_data,
+                tipo_mime=imagem_tipo,
+                tamanho=file_size,
+                referencia=f'reparo_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            )
+            db.session.add(imagem)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'path': f'/admin/reparos/imagem/{imagem.id}',
+                'image_id': imagem.id
+            })
+        except Exception as e:
+            print(f"Erro ao salvar imagem de reparo no banco: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
+    
+    return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
+
+@app.route('/admin/reparos/imagem/<int:image_id>')
+def servir_imagem_reparo(image_id):
+    """Rota para servir imagens de reparos do banco de dados"""
+    if use_database():
+        try:
+            imagem = Imagem.query.get(image_id)
+            if imagem and imagem.dados:
+                return Response(
+                    imagem.dados,
+                    mimetype=imagem.tipo_mime,
+                    headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                )
+        except Exception as e:
+            print(f"Erro ao buscar imagem de reparo: {e}")
+    
+    # Fallback: retornar placeholder
+    return redirect(url_for('static', filename='img/placeholder.png'))
 
 # ==================== ADMIN USERS MANAGEMENT ====================
 
