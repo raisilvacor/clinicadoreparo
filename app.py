@@ -1061,27 +1061,53 @@ def contato():
         servico = request.form.get('servico')
         mensagem = request.form.get('mensagem')
         
-        # Salvar contato
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        novo_contato = {
-            'id': len(data['contacts']) + 1,
-            'nome': nome,
-            'email': email,
-            'telefone': telefone,
-            'servico': servico,
-            'mensagem': mensagem,
-            'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        data['contacts'].append(novo_contato)
-        
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Mensagem enviada com sucesso! Entraremos em contato em breve.', 'success')
-        return redirect(url_for('contato'))
+        # Salvar contato no banco de dados
+        if use_database():
+            try:
+                novo_contato = Contato(
+                    nome=nome,
+                    email=email if email else None,
+                    telefone=telefone if telefone else None,
+                    servico=servico if servico else None,
+                    mensagem=mensagem if mensagem else None
+                )
+                
+                db.session.add(novo_contato)
+                db.session.commit()
+                
+                flash('Mensagem enviada com sucesso! Entraremos em contato em breve.', 'success')
+                return redirect(url_for('contato'))
+            except Exception as e:
+                print(f"Erro ao salvar contato no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash('Erro ao enviar mensagem. Tente novamente.', 'error')
+        else:
+            # Fallback para JSON
+            init_data_file()
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            novo_contato = {
+                'id': len(data.get('contacts', [])) + 1,
+                'nome': nome,
+                'email': email,
+                'telefone': telefone,
+                'servico': servico,
+                'mensagem': mensagem,
+                'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            if 'contacts' not in data:
+                data['contacts'] = []
+            data['contacts'].append(novo_contato)
+            
+            with open(DATA_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Mensagem enviada com sucesso! Entraremos em contato em breve.', 'success')
+            return redirect(url_for('contato'))
     
     # Carregar footer do banco de dados
     footer_data = None
@@ -1349,12 +1375,39 @@ def admin_logout():
 @app.route('/admin')
 @login_required
 def admin_dashboard():
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    total_contatos = len(data['contacts'])
-    total_servicos = len(data['services'])
-    contatos_recentes = sorted(data['contacts'], key=lambda x: x['data'], reverse=True)[:5]
+    if use_database():
+        try:
+            # Contatos do banco
+            total_contatos = Contato.query.count()
+            contatos_recentes_db = Contato.query.order_by(Contato.data.desc()).limit(5).all()
+            contatos_recentes = []
+            for c in contatos_recentes_db:
+                contatos_recentes.append({
+                    'id': c.id,
+                    'nome': c.nome,
+                    'email': c.email or '',
+                    'telefone': c.telefone or '',
+                    'servico': c.servico or '',
+                    'mensagem': c.mensagem or '',
+                    'data': c.data.strftime('%Y-%m-%d %H:%M:%S') if c.data else ''
+                })
+            
+            # Serviços do banco
+            total_servicos = Servico.query.count()
+        except Exception as e:
+            print(f"Erro ao buscar estatísticas do banco: {e}")
+            total_contatos = 0
+            total_servicos = 0
+            contatos_recentes = []
+    else:
+        # Fallback para JSON
+        init_data_file()
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        total_contatos = len(data.get('contacts', []))
+        total_servicos = len(data.get('services', []))
+        contatos_recentes = sorted(data.get('contacts', []), key=lambda x: x.get('data', ''), reverse=True)[:5]
     
     stats = {
         'total_contatos': total_contatos,
@@ -1396,15 +1449,34 @@ def admin_contatos():
 @app.route('/admin/contatos/<int:contato_id>/delete', methods=['POST'])
 @login_required
 def delete_contato(contato_id):
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    if use_database():
+        try:
+            contato = Contato.query.get(contato_id)
+            if not contato:
+                flash('Contato não encontrado!', 'error')
+                return redirect(url_for('admin_contatos'))
+            
+            db.session.delete(contato)
+            db.session.commit()
+            
+            flash('Contato excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir contato do banco: {e}")
+            db.session.rollback()
+            flash(f'Erro ao excluir contato: {str(e)}', 'error')
+    else:
+        # Fallback para JSON
+        init_data_file()
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        data['contacts'] = [c for c in data.get('contacts', []) if c.get('id') != contato_id]
+        
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Contato excluído com sucesso!', 'success')
     
-    data['contacts'] = [c for c in data['contacts'] if c.get('id') != contato_id]
-    
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    flash('Contato excluído com sucesso!', 'success')
     return redirect(url_for('admin_contatos'))
 
 @app.route('/admin/servicos')
