@@ -638,6 +638,19 @@ section {
     height: 100%;
     object-fit: cover;
     border-radius: 20px;
+    pointer-events: none;
+}
+
+.image-placeholder video::-webkit-media-controls {
+    display: none !important;
+}
+
+.image-placeholder video::-webkit-media-controls-enclosure {
+    display: none !important;
+}
+
+.image-placeholder video::-webkit-media-controls-panel {
+    display: none !important;
 }
 
 .image-placeholder i {
