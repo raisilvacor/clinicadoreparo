@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -31,8 +30,9 @@
     <meta name="twitter:image" content="{% block twitter_image %}{{ url_for('static', filename='img/logo.png', _external=True) }}{% endblock %}">
     
     <title>{% block title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('favicon') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('favicon') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('favicon') }}">
     <link rel="canonical" href="{{ request.url if request else '' }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -668,7 +668,12 @@ init_slides_file()
 
 @app.route('/favicon.ico')
 def favicon():
-    return send_file('static/img/favi.ico', mimetype='image/x-icon')
+    """Serve o favicon do site"""
+    try:
+        return send_file('static/img/favi.ico', mimetype='image/x-icon')
+    except Exception as e:
+        # Se não encontrar, retornar 404
+        return '', 404
 
 @app.route('/')
 def index():
