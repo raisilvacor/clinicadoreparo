@@ -1217,14 +1217,14 @@ const reparosDataFull = {{ (reparos[:6] if reparos else [])|tojson }};
 /* eslint-enable */
 
 function abrirPopupReparo(index) {
-    if (index < 0 || index >= reparosDataFull.length) return;
+    if (!reparosDataFull || index < 0 || index >= reparosDataFull.length) return;
     
     const reparo = reparosDataFull[index];
     const popup = document.getElementById('reparo-popup');
     const popupImg = document.getElementById('reparo-popup-img');
     const popupInfo = document.getElementById('reparo-popup-info');
     
-    popupImg.src = reparo.imagem;
+    popupImg.src = reparo.imagem_url || reparo.imagem;
     popupImg.alt = reparo.titulo || 'Reparo realizado';
     
     // Atualizar informações
@@ -1248,6 +1248,27 @@ function fecharPopupReparo() {
     const popup = document.getElementById('reparo-popup');
     popup.classList.remove('active');
     document.body.style.overflow = ''; // Restaurar scroll do body
+}
+
+// Event delegation para cliques nos reparos
+function initReparosPopup() {
+    const reparoItems = document.querySelectorAll('.reparo-item');
+    reparoItems.forEach(function(item) {
+        item.addEventListener('click', function() {
+            const index = parseInt(this.getAttribute('data-reparo-index'), 10);
+            if (!isNaN(index)) {
+                abrirPopupReparo(index);
+            }
+        });
+    });
+}
+
+// Inicializar quando o DOM estiver pronto
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initReparosPopup);
+} else {
+    // DOM já está pronto
+    initReparosPopup();
 }
 
 // Fechar popup com ESC
