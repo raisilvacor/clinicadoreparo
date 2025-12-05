@@ -77,9 +77,27 @@ if database_url:
             with app.app_context():
                 # Forçar criação do engine e tabelas
                 # Importar explicitamente todos os modelos para garantir que sejam registrados
-                from models import Fornecedor  # Garantir que Fornecedor está importado
+                from models import Fornecedor, Video  # Garantir que todos os modelos estão importados
                 db.create_all()
                 print("DEBUG: ✅ Tabelas criadas/verificadas no banco de dados")
+                
+                # Garantir que existe um usuário admin padrão no banco
+                try:
+                    admin_user = AdminUser.query.filter_by(username='admin').first()
+                    if not admin_user:
+                        # Criar usuário admin padrão
+                        admin_user = AdminUser(
+                            username='admin',
+                            password=generate_password_hash('admin123'),
+                            nome='Administrador',
+                            email='admin@clinicadoreparo.com',
+                            ativo=True
+                        )
+                        db.session.add(admin_user)
+                        db.session.commit()
+                        print("DEBUG: ✅ Usuário admin padrão criado no banco de dados")
+                except Exception as admin_err:
+                    print(f"DEBUG: ⚠️ Aviso ao criar usuário admin padrão: {admin_err}")
                 # Nota: garantir_tabela_fornecedores() será chamada automaticamente quando necessário
                 # Testar conexão (mas não falhar se der erro temporário)
                 try:
@@ -1278,7 +1296,7 @@ def admin_login():
                 except Exception as db_err:
                     print(f"Erro ao buscar usuário no banco: {db_err}")
                     user = None
-                if user and user.password == password:
+                if user and check_password_hash(user.password, password):
                     session['admin_logged_in'] = True
                     session['admin_username'] = username
                     session['admin_user_id'] = user.id
@@ -1291,12 +1309,25 @@ def admin_login():
                 
                 user = next((u for u in users_data.get('users', []) if u.get('username') == username and u.get('ativo', True)), None)
                 
-                if user and user.get('password') == password:
-                    session['admin_logged_in'] = True
-                    session['admin_username'] = username
-                    session['admin_user_id'] = user.get('id')
-                    flash('Login realizado com sucesso!', 'success')
-                    return redirect(url_for('admin_dashboard'))
+                if user:
+                    # Verificar senha (pode estar hasheada ou não)
+                    user_password = user.get('password', '')
+                    if user_password.startswith('pbkdf2:') or user_password.startswith('scrypt:'):
+                        # Senha hasheada
+                        if check_password_hash(user_password, password):
+                            session['admin_logged_in'] = True
+                            session['admin_username'] = username
+                            session['admin_user_id'] = user.get('id')
+                            flash('Login realizado com sucesso!', 'success')
+                            return redirect(url_for('admin_dashboard'))
+                    else:
+                        # Senha em texto plano (backward compatibility)
+                        if user_password == password:
+                            session['admin_logged_in'] = True
+                            session['admin_username'] = username
+                            session['admin_user_id'] = user.get('id')
+                            flash('Login realizado com sucesso!', 'success')
+                            return redirect(url_for('admin_dashboard'))
             
             flash('Usuário ou senha incorretos!', 'error')
         except Exception as e:
@@ -5210,11 +5241,29 @@ def todos_videos():
 @app.route('/admin/usuarios')
 @login_required
 def admin_usuarios():
-    init_admin_users_file()
-    with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    if use_database():
+        try:
+            usuarios_db = AdminUser.query.order_by(AdminUser.id).all()
+            usuarios = []
+            for u in usuarios_db:
+                usuarios.append({
+                    'id': u.id,
+                    'username': u.username,
+                    'nome': u.nome,
+                    'email': u.email,
+                    'ativo': u.ativo,
+                    'data_criacao': u.data_criacao.strftime('%Y-%m-%d %H:%M:%S') if u.data_criacao else '-'
+                })
+        except Exception as e:
+            print(f"Erro ao buscar usuários do banco: {e}")
+            usuarios = []
+    else:
+        # Fallback para JSON
+        init_admin_users_file()
+        with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        usuarios = sorted(data.get('users', []), key=lambda x: x.get('id', 0))
     
-    usuarios = sorted(data.get('users', []), key=lambda x: x.get('id', 0))
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
 @app.route('/admin/usuarios/add', methods=['GET', 'POST'])
@@ -5231,106 +5280,198 @@ def add_usuario_admin():
             flash('Usuário e senha são obrigatórios!', 'error')
             return render_template('admin/add_usuario.html')
         
-        init_admin_users_file()
-        with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Verificar se username já existe
-        if any(u.get('username') == username for u in data.get('users', [])):
-            flash('Este nome de usuário já está em uso!', 'error')
-            return render_template('admin/add_usuario.html')
-        
-        # Obter próximo ID
-        max_id = max([u.get('id', 0) for u in data.get('users', [])], default=0)
-        
-        novo_usuario = {
-            'id': max_id + 1,
-            'username': username,
-            'password': password,
-            'nome': nome,
-            'email': email,
-            'ativo': ativo,
-            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        data.setdefault('users', []).append(novo_usuario)
-        
-        with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Usuário adicionado com sucesso!', 'success')
-        return redirect(url_for('admin_usuarios'))
+        if use_database():
+            try:
+                # Verificar se username já existe
+                usuario_existente = AdminUser.query.filter_by(username=username).first()
+                if usuario_existente:
+                    flash('Este nome de usuário já está em uso!', 'error')
+                    return render_template('admin/add_usuario.html')
+                
+                novo_usuario = AdminUser(
+                    username=username,
+                    password=generate_password_hash(password),
+                    nome=nome if nome else None,
+                    email=email if email else None,
+                    ativo=ativo
+                )
+                
+                db.session.add(novo_usuario)
+                db.session.commit()
+                
+                flash('Usuário adicionado com sucesso!', 'success')
+                return redirect(url_for('admin_usuarios'))
+            except Exception as e:
+                print(f"Erro ao adicionar usuário no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash(f'Erro ao adicionar usuário: {str(e)}', 'error')
+                return render_template('admin/add_usuario.html')
+        else:
+            # Fallback para JSON
+            init_admin_users_file()
+            with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Verificar se username já existe
+            if any(u.get('username') == username for u in data.get('users', [])):
+                flash('Este nome de usuário já está em uso!', 'error')
+                return render_template('admin/add_usuario.html')
+            
+            # Obter próximo ID
+            max_id = max([u.get('id', 0) for u in data.get('users', [])], default=0)
+            
+            novo_usuario = {
+                'id': max_id + 1,
+                'username': username,
+                'password': generate_password_hash(password),
+                'nome': nome,
+                'email': email,
+                'ativo': ativo,
+                'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            data.setdefault('users', []).append(novo_usuario)
+            
+            with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Usuário adicionado com sucesso!', 'success')
+            return redirect(url_for('admin_usuarios'))
     
     return render_template('admin/add_usuario.html')
 
 @app.route('/admin/usuarios/<int:usuario_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_usuario_admin(usuario_id):
-    init_admin_users_file()
-    with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    usuario = next((u for u in data.get('users', []) if u.get('id') == usuario_id), None)
-    if not usuario:
-        flash('Usuário não encontrado!', 'error')
-        return redirect(url_for('admin_usuarios'))
-    
-    # Não permitir editar o próprio usuário se for o usuário padrão (id 0)
-    current_user_id = session.get('admin_user_id', 0)
-    if usuario_id == current_user_id and current_user_id == 0:
-        flash('Não é possível editar o usuário padrão através desta interface!', 'error')
-        return redirect(url_for('admin_usuarios'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
-        nome = request.form.get('nome', '').strip()
-        email = request.form.get('email', '').strip()
-        ativo = request.form.get('ativo') == 'on'
-        
-        if not username:
-            flash('Nome de usuário é obrigatório!', 'error')
+    if use_database():
+        try:
+            usuario = AdminUser.query.get(usuario_id)
+            if not usuario:
+                flash('Usuário não encontrado!', 'error')
+                return redirect(url_for('admin_usuarios'))
+            
+            if request.method == 'POST':
+                username = request.form.get('username', '').strip()
+                password = request.form.get('password', '').strip()
+                nome = request.form.get('nome', '').strip()
+                email = request.form.get('email', '').strip()
+                ativo = request.form.get('ativo') == 'on'
+                
+                if not username:
+                    flash('Nome de usuário é obrigatório!', 'error')
+                    return render_template('admin/edit_usuario.html', usuario=usuario)
+                
+                # Verificar se username já existe (exceto o próprio usuário)
+                usuario_existente = AdminUser.query.filter(
+                    AdminUser.username == username,
+                    AdminUser.id != usuario_id
+                ).first()
+                
+                if usuario_existente:
+                    flash('Este nome de usuário já está em uso!', 'error')
+                    return render_template('admin/edit_usuario.html', usuario=usuario)
+                
+                usuario.username = username
+                if password:  # Só atualiza senha se foi informada
+                    usuario.password = generate_password_hash(password)
+                usuario.nome = nome if nome else None
+                usuario.email = email if email else None
+                usuario.ativo = ativo
+                
+                db.session.commit()
+                
+                flash('Usuário atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_usuarios'))
+            
             return render_template('admin/edit_usuario.html', usuario=usuario)
+        except Exception as e:
+            print(f"Erro ao editar usuário no banco: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao editar usuário: {str(e)}', 'error')
+            return redirect(url_for('admin_usuarios'))
+    else:
+        # Fallback para JSON (não recomendado)
+        init_admin_users_file()
+        with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
         
-        # Verificar se username já existe (exceto o próprio usuário)
-        if any(u.get('username') == username and u.get('id') != usuario_id for u in data.get('users', [])):
-            flash('Este nome de usuário já está em uso!', 'error')
-            return render_template('admin/edit_usuario.html', usuario=usuario)
+        usuario = next((u for u in data.get('users', []) if u.get('id') == usuario_id), None)
+        if not usuario:
+            flash('Usuário não encontrado!', 'error')
+            return redirect(url_for('admin_usuarios'))
         
-        usuario['username'] = username
-        if password:  # Só atualiza senha se foi informada
-            usuario['password'] = password
-        usuario['nome'] = nome
-        usuario['email'] = email
-        usuario['ativo'] = ativo
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            nome = request.form.get('nome', '').strip()
+            email = request.form.get('email', '').strip()
+            ativo = request.form.get('ativo') == 'on'
+            
+            if not username:
+                flash('Nome de usuário é obrigatório!', 'error')
+                return render_template('admin/edit_usuario.html', usuario=usuario)
+            
+            # Verificar se username já existe (exceto o próprio usuário)
+            if any(u.get('username') == username and u.get('id') != usuario_id for u in data.get('users', [])):
+                flash('Este nome de usuário já está em uso!', 'error')
+                return render_template('admin/edit_usuario.html', usuario=usuario)
+            
+            usuario['username'] = username
+            if password:  # Só atualiza senha se foi informada
+                usuario['password'] = generate_password_hash(password)
+            usuario['nome'] = nome
+            usuario['email'] = email
+            usuario['ativo'] = ativo
+            
+            with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Usuário atualizado com sucesso!', 'success')
+            return redirect(url_for('admin_usuarios'))
         
-        with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Usuário atualizado com sucesso!', 'success')
-        return redirect(url_for('admin_usuarios'))
-    
-    return render_template('admin/edit_usuario.html', usuario=usuario)
+        return render_template('admin/edit_usuario.html', usuario=usuario)
 
 @app.route('/admin/usuarios/<int:usuario_id>/delete', methods=['POST'])
 @login_required
 def delete_usuario_admin(usuario_id):
     # Não permitir excluir o próprio usuário
-    current_user_id = session.get('admin_user_id', 0)
-    if usuario_id == current_user_id:
+    current_user_id = session.get('admin_user_id')
+    if current_user_id and usuario_id == current_user_id:
         flash('Você não pode excluir seu próprio usuário!', 'error')
         return redirect(url_for('admin_usuarios'))
     
-    init_admin_users_file()
-    with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    if use_database():
+        try:
+            usuario = AdminUser.query.get(usuario_id)
+            if not usuario:
+                flash('Usuário não encontrado!', 'error')
+                return redirect(url_for('admin_usuarios'))
+            
+            db.session.delete(usuario)
+            db.session.commit()
+            
+            flash('Usuário excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir usuário do banco: {e}")
+            db.session.rollback()
+            flash(f'Erro ao excluir usuário: {str(e)}', 'error')
+    else:
+        # Fallback para JSON
+        init_admin_users_file()
+        with open(ADMIN_USERS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        data['users'] = [u for u in data.get('users', []) if u.get('id') != usuario_id]
+        
+        with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Usuário excluído com sucesso!', 'success')
     
-    data['users'] = [u for u in data.get('users', []) if u.get('id') != usuario_id]
-    
-    with open(ADMIN_USERS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    flash('Usuário excluído com sucesso!', 'success')
     return redirect(url_for('admin_usuarios'))
 
 @app.context_processor
