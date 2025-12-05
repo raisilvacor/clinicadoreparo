@@ -730,9 +730,14 @@ def index():
         else:
             footer_data = None
     else:
-        init_footer_file()
-        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-            footer_data = json.load(f)
+        # Se não usar banco, criar footer padrão (não usar JSON)
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'contato': {'telefone': '', 'email': '', 'endereco': ''},
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
     
     # Carregar marcas
     if use_database():
@@ -854,16 +859,63 @@ def index():
 
 @app.route('/sobre')
 def sobre():
-    init_footer_file()
-    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-        footer_data = json.load(f)
+    # Carregar footer do banco de dados
+    footer_data = None
+    if use_database():
+        try:
+            footer_obj = Footer.query.first()
+            if footer_obj:
+                contato = footer_obj.contato if footer_obj.contato else {}
+                redes_sociais = footer_obj.redes_sociais if footer_obj.redes_sociais else {}
+                footer_data = {
+                    'descricao': footer_obj.descricao or '',
+                    'redes_sociais': redes_sociais,
+                    'contato': contato,
+                    'copyright': footer_obj.copyright or '',
+                    'whatsapp_float': footer_obj.whatsapp_float or ''
+                }
+        except Exception as e:
+            print(f"Erro ao carregar footer do banco: {e}")
+    
+    if not footer_data:
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'contato': {'telefone': '', 'email': '', 'endereco': ''},
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
+    
     return render_template('sobre.html', footer=footer_data)
 
 @app.route('/servicos')
 def servicos():
-    init_footer_file()
-    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-        footer_data = json.load(f)
+    # Carregar footer do banco de dados
+    footer_data = None
+    if use_database():
+        try:
+            footer_obj = Footer.query.first()
+            if footer_obj:
+                contato = footer_obj.contato if footer_obj.contato else {}
+                redes_sociais = footer_obj.redes_sociais if footer_obj.redes_sociais else {}
+                footer_data = {
+                    'descricao': footer_obj.descricao or '',
+                    'redes_sociais': redes_sociais,
+                    'contato': contato,
+                    'copyright': footer_obj.copyright or '',
+                    'whatsapp_float': footer_obj.whatsapp_float or ''
+                }
+        except Exception as e:
+            print(f"Erro ao carregar footer do banco: {e}")
+    
+    if not footer_data:
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'contato': {'telefone': '', 'email': '', 'endereco': ''},
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
     
     # Carregar serviços do banco de dados ou JSON
     if use_database():
@@ -931,9 +983,33 @@ def contato():
         flash('Mensagem enviada com sucesso! Entraremos em contato em breve.', 'success')
         return redirect(url_for('contato'))
     
-    init_footer_file()
-    with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-        footer_data = json.load(f)
+    # Carregar footer do banco de dados
+    footer_data = None
+    if use_database():
+        try:
+            footer_obj = Footer.query.first()
+            if footer_obj:
+                contato = footer_obj.contato if footer_obj.contato else {}
+                redes_sociais = footer_obj.redes_sociais if footer_obj.redes_sociais else {}
+                footer_data = {
+                    'descricao': footer_obj.descricao or '',
+                    'redes_sociais': redes_sociais,
+                    'contato': contato,
+                    'copyright': footer_obj.copyright or '',
+                    'whatsapp_float': footer_obj.whatsapp_float or ''
+                }
+        except Exception as e:
+            print(f"Erro ao carregar footer do banco: {e}")
+    
+    if not footer_data:
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'contato': {'telefone': '', 'email': '', 'endereco': ''},
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
+    
     return render_template('contato.html', footer=footer_data)
 
 @app.route('/rastrear', methods=['GET', 'POST'])
@@ -4199,7 +4275,7 @@ def admin_footer():
                 footer_obj.whatsapp_float = whatsapp_float
                 
                 db.session.commit()
-                flash('Rodapé atualizado com sucesso!', 'success')
+                flash('Rodapé atualizado com sucesso no banco de dados!', 'success')
                 return redirect(url_for('admin_footer'))
             except Exception as e:
                 print(f"Erro ao salvar footer no banco: {e}")
@@ -4209,29 +4285,11 @@ def admin_footer():
                     db.session.rollback()
                 except:
                     pass
-                flash('Erro ao salvar rodapé. Tente novamente.', 'error')
+                flash(f'Erro ao salvar rodapé no banco de dados: {str(e)}. Verifique a conexão.', 'error')
                 return redirect(url_for('admin_footer'))
         
-        # Fallback para JSON
-        init_footer_file()
-        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Atualizar dados
-        data['descricao'] = descricao
-        data['redes_sociais']['facebook'] = facebook
-        data['redes_sociais']['instagram'] = instagram
-        data['redes_sociais']['whatsapp'] = whatsapp
-        data['contato']['telefone'] = telefone
-        data['contato']['email'] = email
-        data['contato']['endereco'] = endereco
-        data['copyright'] = copyright_text
-        data['whatsapp_float'] = whatsapp_float
-        
-        with open(FOOTER_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Rodapé atualizado com sucesso!', 'success')
+        # Se não usar banco, mostrar erro
+        flash('Banco de dados não configurado. Configure DATABASE_URL no Render para salvar os dados permanentemente.', 'error')
         return redirect(url_for('admin_footer'))
     
     # GET - Carregar dados
@@ -4275,11 +4333,25 @@ def admin_footer():
             print(f"Erro ao carregar footer do banco: {e}")
             footer_data = None
     
-    # Fallback para JSON
+    # Se não usar banco ou não encontrou, criar footer padrão
     if not use_database() or footer_data is None:
-        init_footer_file()
-        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-            footer_data = json.load(f)
+        if not use_database():
+            flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'warning')
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {
+                'facebook': '',
+                'instagram': '',
+                'whatsapp': ''
+            },
+            'contato': {
+                'telefone': '',
+                'email': '',
+                'endereco': ''
+            },
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
     
     return render_template('admin/footer.html', footer=footer_data)
 
@@ -4983,14 +5055,23 @@ def inject_footer():
             print(f"Erro ao carregar footer do banco em inject_footer: {e}")
             footer_data = None
     
-    # Fallback para JSON se não encontrou no banco
+    # Se não encontrou no banco, retornar footer padrão (não usar JSON)
     if footer_data is None:
-        init_footer_file()
-        try:
-            with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-                footer_data = json.load(f)
-        except:
-            footer_data = None
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {
+                'facebook': '',
+                'instagram': '',
+                'whatsapp': ''
+            },
+            'contato': {
+                'telefone': '',
+                'email': '',
+                'endereco': ''
+            },
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
     
     return {'footer': footer_data}
 
@@ -5068,11 +5149,15 @@ def enviar_notificacao_whatsapp(mensagem):
         from urllib.parse import quote
         import re
         
-        # Buscar número do WhatsApp do footer
-        with open(FOOTER_FILE, 'r', encoding='utf-8') as f:
-            footer_data = json.load(f)
-        
-        whatsapp_link = footer_data.get('whatsapp_float') or footer_data.get('redes_sociais', {}).get('whatsapp', '')
+        # Buscar número do WhatsApp do footer do banco de dados
+        whatsapp_link = ''
+        if use_database():
+            try:
+                footer_obj = Footer.query.first()
+                if footer_obj:
+                    whatsapp_link = footer_obj.whatsapp_float or (footer_obj.redes_sociais.get('whatsapp') if footer_obj.redes_sociais else '')
+            except Exception as e:
+                print(f"Erro ao buscar WhatsApp do footer: {e}")
         
         if not whatsapp_link:
             print("WhatsApp não configurado no footer")
