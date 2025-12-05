@@ -31,9 +31,8 @@
     <meta name="twitter:image" content="{% block twitter_image %}{{ url_for('static', filename='img/logo.png', _external=True) }}{% endblock %}">
     
     <title>{% block title %}Clínica do Reparo - Assistência Técnica em Barueri{% endblock %}</title>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favi.ico') }}">
-    <link rel="shortcut icon" href="{{ url_for('static', filename='img/favi.ico') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favi.ico') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('favicon') }}">
+    <link rel="shortcut icon" href="{{ url_for('favicon') }}">
     <link rel="canonical" href="{{ request.url if request else '' }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
