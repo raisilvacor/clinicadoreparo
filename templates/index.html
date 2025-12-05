@@ -302,8 +302,8 @@
         </div>
         <div class="reparos-grid">
             {% for reparo in reparos[:6] %}
-            <div class="reparo-item" data-reparo-id="{{ reparo.id }}">
-                <img src="{{ reparo.imagem_url }}" alt="{{ reparo.titulo or 'Reparo realizado' }}" loading="lazy" onclick="abrirPopupReparo({{ loop.index0 }})">
+            <div class="reparo-item" data-reparo-id="{{ reparo.id }}" data-reparo-index="{{ loop.index0 }}">
+                <img src="{{ reparo.imagem_url }}" alt="{{ reparo.titulo or 'Reparo realizado' }}" loading="lazy">
             </div>
             {% endfor %}
         </div>
@@ -1211,21 +1211,15 @@ body {
 // Funções de carrinho removidas - sistema de loja removido
 
 // Reparos Realizados - Popup
-const reparosData = [
-    {% for reparo in reparos[:6] %}
-    {
-        id: {{ reparo.id }},
-        imagem: '{{ reparo.imagem_url }}',
-        titulo: {{ reparo.titulo|tojson if reparo.titulo else 'null' }},
-        descricao: {{ reparo.descricao|tojson if reparo.descricao else 'null' }}
-    }{% if not loop.last %},{% endif %}
-    {% endfor %}
-];
+/* eslint-disable */
+// @ts-nocheck
+const reparosDataFull = {{ (reparos[:6] if reparos else [])|tojson }};
+/* eslint-enable */
 
 function abrirPopupReparo(index) {
-    if (index < 0 || index >= reparosData.length) return;
+    if (index < 0 || index >= reparosDataFull.length) return;
     
-    const reparo = reparosData[index];
+    const reparo = reparosDataFull[index];
     const popup = document.getElementById('reparo-popup');
     const popupImg = document.getElementById('reparo-popup-img');
     const popupInfo = document.getElementById('reparo-popup-info');
