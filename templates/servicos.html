@@ -9,8 +9,8 @@
 {% block content %}
 <section class="page-header">
     <div class="container">
-        <h1>Serviços de Assistência Técnica em Barueri</h1>
-        <p>Conserto especializado de celulares, notebooks, computadores e eletrodomésticos em Barueri, Alphaville e Tamboré</p>
+        <h1>Serviços de Assistência Técnica</h1>
+        <p>Conserto especializado de celulares, notebooks, computadores e eletrodomésticos</p>
     </div>
 </section>
 
@@ -18,8 +18,8 @@
     <div class="container">
         <div class="section-header">
             <span class="section-badge">Nossos Serviços</span>
-            <h2 class="section-title">Assistência Técnica Completa em Barueri</h2>
-            <p class="section-description">Oferecemos conserto especializado de celulares, notebooks, computadores, máquinas de lavar, micro-ondas, TVs e video games em Barueri, Alphaville, Tamboré e toda região</p>
+            <h2 class="section-title">Assistência Técnica Completa</h2>
+            <p class="section-description">Oferecemos conserto especializado de celulares, notebooks, computadores, máquinas de lavar, micro-ondas, TVs e video games.</p>
         </div>
         <div class="services-grid">
             {% if servicos %}
@@ -27,9 +27,9 @@
                 <div class="service-card">
                     <div class="service-image">
                         {% if servico.imagem and servico.imagem.startswith('/admin/servicos/imagem/') %}
-                            <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                            <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
                         {% elif servico.imagem %}
-                            <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                            <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
                         {% else %}
                             <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="{{ servico.nome }}" loading="lazy">
                         {% endif %}
@@ -42,21 +42,21 @@
                 <!-- Fallback para serviços padrão se não houver serviços cadastrados -->
                 <div class="service-card">
                     <div class="service-image">
-                        <img src="{{ url_for('static', filename='img/servico-celular.jpg') }}" alt="Reparo de Celulares" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        <img src="{{ url_for('static', filename='img/servico-celular.jpg') }}" alt="Reparo de Celulares" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
                     </div>
                     <h3>Reparo de Celulares</h3>
                     <p>Troca de tela, bateria, conectores e muito mais. Todas as marcas e modelos.</p>
                 </div>
                 <div class="service-card">
                     <div class="service-image">
-                        <img src="{{ url_for('static', filename='img/servico-eletrodomestico.jpg') }}" alt="Eletrodomésticos" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        <img src="{{ url_for('static', filename='img/servico-eletrodomestico.jpg') }}" alt="Eletrodomésticos" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
                     </div>
                     <h3>Eletrodomésticos</h3>
                     <p>Geladeiras, máquinas de lavar, micro-ondas e todos os eletrodomésticos.</p>
                 </div>
                 <div class="service-card">
                     <div class="service-image">
-                        <img src="{{ url_for('static', filename='img/servico-computador.jpg') }}" alt="Computadores e Notebook" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        <img src="{{ url_for('static', filename='img/servico-computador.jpg') }}" alt="Computadores e Notebook" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
                     </div>
                     <h3>Computadores e Notebook</h3>
                     <p>Reparo e manutenção de computadores, notebooks e componentes.</p>
@@ -68,12 +68,22 @@
 
 <div class="services-cta">
     <div class="container">
-        <h2>Precisa de Assistência Técnica em Barueri?</h2>
-        <p>Entre em contato conosco e solicite um orçamento gratuito. Atendemos Barueri, Alphaville, Tamboré e toda região.</p>
+        <h2>Precisa de Assistência Técnica?</h2>
+        <p>Entre em contato conosco e solicite um orçamento gratuito.</p>
         <a href="{{ url_for('contato') }}" class="btn btn-primary btn-large">
             <i class="fas fa-calendar-check"></i>
             Solicitar Orçamento
         </a>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const images = document.querySelectorAll('img[data-fallback]');
+    images.forEach(function(img) {
+        img.addEventListener('error', function() {
+            this.src = this.getAttribute('data-fallback');
+        });
+    });
+});
+</script>
 {% endblock %}
