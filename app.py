@@ -862,6 +862,62 @@ def index():
     
     return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos, reparos=reparos)
 
+@app.route('/reparos')
+def todos_reparos():
+    """Página que exibe todos os reparos realizados"""
+    # Carregar footer do banco de dados
+    footer_data = None
+    if use_database():
+        try:
+            footer_obj = Footer.query.first()
+            if footer_obj:
+                contato = footer_obj.contato if footer_obj.contato else {}
+                redes_sociais = footer_obj.redes_sociais if footer_obj.redes_sociais else {}
+                footer_data = {
+                    'descricao': footer_obj.descricao or '',
+                    'redes_sociais': redes_sociais,
+                    'contato': contato,
+                    'copyright': footer_obj.copyright or '',
+                    'whatsapp_float': footer_obj.whatsapp_float or ''
+                }
+        except Exception as e:
+            print(f"Erro ao carregar footer do banco: {e}")
+    
+    if not footer_data:
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'contato': {'telefone': '', 'email': '', 'endereco': ''},
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
+    
+    # Carregar todos os reparos realizados
+    if use_database():
+        try:
+            reparos_db = ReparoRealizado.query.filter_by(ativo=True).order_by(ReparoRealizado.ordem).all()
+        except Exception as e:
+            print(f"Erro ao carregar reparos realizados do banco: {e}")
+            reparos_db = []
+        reparos = []
+        for r in reparos_db:
+            if r.imagem_id:
+                imagem_url = f'/admin/reparos/imagem/{r.imagem_id}'
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            reparos.append({
+                'id': r.id,
+                'titulo': r.titulo or '',
+                'descricao': r.descricao or '',
+                'imagem_url': imagem_url,
+                'ordem': r.ordem
+            })
+    else:
+        reparos = []
+    
+    return render_template('reparos.html', footer=footer_data, reparos=reparos)
+
 @app.route('/sobre')
 def sobre():
     # Carregar footer do banco de dados
