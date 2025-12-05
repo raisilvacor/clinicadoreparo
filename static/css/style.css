@@ -630,6 +630,14 @@ section {
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+}
+
+.image-placeholder video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 20px;
 }
 
 .image-placeholder i {
