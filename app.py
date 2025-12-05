@@ -1367,10 +1367,30 @@ def admin_dashboard():
 @app.route('/admin/contatos')
 @login_required
 def admin_contatos():
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    if use_database():
+        try:
+            contatos_db = Contato.query.order_by(Contato.data.desc()).all()
+            contatos = []
+            for c in contatos_db:
+                contatos.append({
+                    'id': c.id,
+                    'nome': c.nome,
+                    'email': c.email or '',
+                    'telefone': c.telefone or '',
+                    'servico': c.servico or '',
+                    'mensagem': c.mensagem or '',
+                    'data': c.data.strftime('%Y-%m-%d %H:%M:%S') if c.data else ''
+                })
+        except Exception as e:
+            print(f"Erro ao buscar contatos do banco: {e}")
+            contatos = []
+    else:
+        # Fallback para JSON
+        init_data_file()
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        contatos = sorted(data.get('contacts', []), key=lambda x: x.get('data', ''), reverse=True)
     
-    contatos = sorted(data['contacts'], key=lambda x: x['data'], reverse=True)
     return render_template('admin/contatos.html', contatos=contatos)
 
 @app.route('/admin/contatos/<int:contato_id>/delete', methods=['POST'])
