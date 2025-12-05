@@ -28,14 +28,16 @@
             <small class="form-help">Cole aqui o link completo do vídeo do YouTube</small>
         </div>
         
-        {% if video.thumbnail_url %}
         <div class="form-group">
             <label>Preview do Vídeo</label>
             <div class="video-preview-large">
-                <img src="{{ video.thumbnail_url }}" alt="Thumbnail do vídeo" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                {% if video.video_id %}
+                <img src="https://img.youtube.com/vi/{{ video.video_id }}/maxresdefault.jpg" alt="Thumbnail do vídeo" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                {% else %}
+                <img src="{{ video.thumbnail_url or url_for('static', filename='img/placeholder.png') }}" alt="Thumbnail do vídeo">
+                {% endif %}
             </div>
         </div>
-        {% endif %}
         
         <div class="form-row">
             <div class="form-group">

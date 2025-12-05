@@ -33,10 +33,10 @@
                 <td>{{ video.id }}</td>
                 <td>
                     <div class="video-preview">
-                        {% if video.thumbnail_url %}
-                        <img src="{{ video.thumbnail_url }}" alt="Thumbnail {{ video.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% if video.video_id %}
+                        <img src="https://img.youtube.com/vi/{{ video.video_id }}/maxresdefault.jpg" alt="Thumbnail {{ video.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
                         {% else %}
-                        <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="Sem thumbnail">
+                        <img src="{{ video.thumbnail_url or url_for('static', filename='img/placeholder.png') }}" alt="Thumbnail {{ video.id }}">
                         {% endif %}
                     </div>
                 </td>

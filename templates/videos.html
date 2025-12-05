@@ -21,10 +21,10 @@
             {% for video in videos %}
             <div class="video-page-item">
                 <div class="video-page-thumbnail" onclick="abrirVideoModal('{{ video.embed_url }}', '{{ video.titulo|e }}')">
-                    {% if video.thumbnail_url %}
-                    <img src="{{ video.thumbnail_url }}" alt="{{ video.titulo }}" loading="lazy">
+                    {% if video.video_id %}
+                    <img src="https://img.youtube.com/vi/{{ video.video_id }}/maxresdefault.jpg" alt="{{ video.titulo }}" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
                     {% else %}
-                    <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="{{ video.titulo }}" loading="lazy">
+                    <img src="{{ video.thumbnail_url or url_for('static', filename='img/placeholder.png') }}" alt="{{ video.titulo }}" loading="lazy">
                     {% endif %}
                     <div class="video-play-button">
                         <i class="fas fa-play"></i>
