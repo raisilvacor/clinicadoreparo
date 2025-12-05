@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}Vídeos - Clínica do Reparo{% endblock %}
+
+{% block description %}Confira todos os vídeos tutoriais e demonstrações da Clínica do Reparo. Aprenda sobre reparos e manutenção.{% endblock %}
+
+{% block keywords %}vídeos tutoriais, vídeos de reparo, demonstrações, clínica do reparo vídeos{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>Nossos Vídeos</h1>
+        <p>Confira todos os nossos vídeos tutoriais e demonstrações</p>
+    </div>
+</section>
+
+{% if videos %}
+<section class="videos-page-section">
+    <div class="container">
+        <div class="videos-page-grid">
+            {% for video in videos %}
+            <div class="video-page-item">
+                <div class="video-page-thumbnail" onclick="abrirVideoModal('{{ video.embed_url }}', '{{ video.titulo|e }}')">
+                    {% if video.thumbnail_url %}
+                    <img src="{{ video.thumbnail_url }}" alt="{{ video.titulo }}" loading="lazy">
+                    {% else %}
+                    <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="{{ video.titulo }}" loading="lazy">
+                    {% endif %}
+                    <div class="video-play-button">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </div>
+                <h3>{{ video.titulo }}</h3>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Modal para exibir vídeo -->
+<div id="video-modal" class="video-modal" onclick="fecharVideoModal()">
+    <div class="video-modal-content" onclick="event.stopPropagation()">
+        <span class="video-modal-close" onclick="fecharVideoModal()">&times;</span>
+        <div class="video-modal-iframe-container">
+            <iframe id="video-modal-iframe" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <h3 id="video-modal-title"></h3>
+    </div>
+</div>
+{% else %}
+<section class="empty-state-section">
+    <div class="container">
+        <div class="empty-state">
+            <i class="fas fa-video"></i>
+            <h2>Nenhum vídeo cadastrado ainda</h2>
+            <p>Em breve, você poderá ver aqui todos os nossos vídeos tutoriais e demonstrações.</p>
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* Page Header */
+.page-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    padding: 4rem 0;
+    text-align: center;
+}
+
+.page-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.page-header p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+/* Videos Page Section */
+.videos-page-section {
+    padding: 4rem 0;
+    background: var(--bg-primary);
+}
+
+.videos-page-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.video-page-item {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.video-page-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.video-page-thumbnail {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    background: #000;
+    cursor: pointer;
+}
+
+.video-page-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.video-page-item:hover .video-page-thumbnail img {
+    transform: scale(1.05);
+}
+
+.video-play-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70px;
+    height: 70px;
+    background: rgba(255, 0, 0, 0.9);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.video-page-thumbnail:hover .video-play-button {
+    background: rgba(255, 0, 0, 1);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.video-page-item h3 {
+    padding: 1.5rem;
+    font-size: 1.2rem;
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Video Modal */
+.video-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.video-modal.active {
+    display: flex;
+}
+
+.video-modal-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 900px;
+}
+
+.video-modal-iframe-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+}
+
+.video-modal-iframe-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.video-modal-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    color: white;
+    font-size: 3rem;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 10001;
+    transition: color 0.3s ease;
+}
+
+.video-modal-close:hover {
+    color: #ff6b6b;
+}
+
+.video-modal-content h3 {
+    padding: 1.5rem;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.3rem;
+}
+
+/* Empty State */
+.empty-state-section {
+    padding: 5rem 0;
+    text-align: center;
+}
+
+.empty-state {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    opacity: 0.5;
+}
+
+.empty-state h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .page-header h1 {
+        font-size: 2rem;
+    }
+    
+    .page-header p {
+        font-size: 1rem;
+    }
+    
+    .videos-page-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .video-modal-content {
+        max-width: 95%;
+        max-height: 95%;
+    }
+    
+    .video-modal-close {
+        top: -30px;
+        font-size: 2.5rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .videos-page-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+function abrirVideoModal(embedUrl, titulo) {
+    const modal = document.getElementById('video-modal');
+    const iframe = document.getElementById('video-modal-iframe');
+    const title = document.getElementById('video-modal-title');
+    
+    iframe.src = embedUrl + '?autoplay=1';
+    title.textContent = titulo;
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function fecharVideoModal() {
+    const modal = document.getElementById('video-modal');
+    const iframe = document.getElementById('video-modal-iframe');
+    
+    iframe.src = '';
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+// Fechar com ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        fecharVideoModal();
+    }
+});
+</script>
+{% endblock %}
+

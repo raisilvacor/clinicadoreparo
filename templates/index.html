@@ -325,6 +325,52 @@
 </div>
 {% endif %}
 
+<!-- Vídeos Section -->
+{% if videos %}
+<section class="videos-section">
+    <div class="container">
+        <div class="section-header">
+            <span class="section-badge">Vídeos</span>
+            <h2 class="section-title">Nossos Vídeos</h2>
+            <p class="section-description">Confira nossos vídeos tutoriais e demonstrações</p>
+        </div>
+        <div class="videos-grid">
+            {% for video in videos[:6] %}
+            <div class="video-item">
+                <div class="video-thumbnail" onclick="abrirVideoModal('{{ video.embed_url }}', '{{ video.titulo|e }}')">
+                    {% if video.thumbnail_url %}
+                    <img src="{{ video.thumbnail_url }}" alt="{{ video.titulo }}" loading="lazy">
+                    {% else %}
+                    <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="{{ video.titulo }}" loading="lazy">
+                    {% endif %}
+                    <div class="video-play-button">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </div>
+                <h3>{{ video.titulo }}</h3>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="videos-actions" style="text-align: center; margin-top: 2rem;">
+            <a href="{{ url_for('todos_videos') }}" class="btn btn-primary btn-large">
+                <i class="fas fa-video"></i> Ver todos os vídeos
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Modal para exibir vídeo -->
+<div id="video-modal" class="video-modal" onclick="fecharVideoModal()">
+    <div class="video-modal-content" onclick="event.stopPropagation()">
+        <span class="video-modal-close" onclick="fecharVideoModal()">&times;</span>
+        <div class="video-modal-iframe-container">
+            <iframe id="video-modal-iframe" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <h3 id="video-modal-title"></h3>
+    </div>
+</div>
+{% endif %}
+
 <section class="features">
     <div class="container">
         <div class="features-grid">
@@ -1206,6 +1252,195 @@ body {
         font-size: 2.5rem;
     }
 }
+
+/* Vídeos Section */
+.videos-section {
+    padding: 5rem 0;
+    background: var(--bg-secondary);
+}
+
+.videos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.video-item {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.video-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.video-thumbnail {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    background: #000;
+    cursor: pointer;
+}
+
+.video-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.video-item:hover .video-thumbnail img {
+    transform: scale(1.05);
+}
+
+.video-play-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70px;
+    height: 70px;
+    background: rgba(255, 0, 0, 0.9);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.video-thumbnail:hover .video-play-button {
+    background: rgba(255, 0, 0, 1);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.video-item h3 {
+    padding: 1.5rem;
+    font-size: 1.2rem;
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.videos-actions {
+    margin-top: 2rem;
+}
+
+.videos-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.videos-actions .btn i {
+    font-size: 1.2rem;
+}
+
+/* Video Modal */
+.video-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.video-modal.active {
+    display: flex;
+}
+
+.video-modal-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 900px;
+}
+
+.video-modal-iframe-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+}
+
+.video-modal-iframe-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.video-modal-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    color: white;
+    font-size: 3rem;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 10001;
+    transition: color 0.3s ease;
+}
+
+.video-modal-close:hover {
+    color: #ff6b6b;
+}
+
+.video-modal-content h3 {
+    padding: 1.5rem;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.3rem;
+}
+
+@media (max-width: 768px) {
+    .videos-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .video-modal-content {
+        max-width: 95%;
+        max-height: 95%;
+    }
+    
+    .video-modal-close {
+        top: -30px;
+        font-size: 2.5rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .videos-grid {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 <script>
 // Funções de carrinho removidas - sistema de loja removido
@@ -1275,7 +1510,33 @@ if (document.readyState === 'loading') {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         fecharPopupReparo();
+        fecharVideoModal();
     }
 });
+
+// Funções para modal de vídeo
+function abrirVideoModal(embedUrl, titulo) {
+    const modal = document.getElementById('video-modal');
+    const iframe = document.getElementById('video-modal-iframe');
+    const title = document.getElementById('video-modal-title');
+    
+    if (modal && iframe && title) {
+        iframe.src = embedUrl + '?autoplay=1';
+        title.textContent = titulo;
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function fecharVideoModal() {
+    const modal = document.getElementById('video-modal');
+    const iframe = document.getElementById('video-modal-iframe');
+    
+    if (modal && iframe) {
+        iframe.src = '';
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
 </script>
 {% endblock %}

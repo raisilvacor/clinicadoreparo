@@ -1,0 +1,89 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Vídeo - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-video"></i> Editar Vídeo</h1>
+    <p>Edite as informações do vídeo</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_video', video_id=video.id) }}" class="admin-form">
+        <div class="form-group">
+            <label for="titulo">
+                <i class="fas fa-heading"></i>
+                Título do Vídeo <span class="required">*</span>
+            </label>
+            <input type="text" id="titulo" name="titulo" value="{{ video.titulo }}" required placeholder="Ex: Como consertar celular">
+            <small class="form-help">Título que será exibido junto com o vídeo</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="link_youtube">
+                <i class="fab fa-youtube"></i>
+                Link do YouTube <span class="required">*</span>
+            </label>
+            <input type="url" id="link_youtube" name="link_youtube" value="{{ video.link_youtube }}" required placeholder="https://www.youtube.com/watch?v=... ou https://youtu.be/...">
+            <small class="form-help">Cole aqui o link completo do vídeo do YouTube</small>
+        </div>
+        
+        {% if video.thumbnail_url %}
+        <div class="form-group">
+            <label>Preview do Vídeo</label>
+            <div class="video-preview-large">
+                <img src="{{ video.thumbnail_url }}" alt="Thumbnail do vídeo" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="ordem">
+                    <i class="fas fa-sort-numeric-down"></i>
+                    Ordem de Exibição
+                </label>
+                <input type="number" id="ordem" name="ordem" value="{{ video.ordem }}" min="1">
+                <small class="form-help">Número que define a ordem de exibição (menor aparece primeiro)</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="ativo" name="ativo" {% if video.ativo %}checked{% endif %}>
+                    <span>Vídeo ativo (será exibido na página inicial)</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Atualizar Vídeo
+            </button>
+            <a href="{{ url_for('admin_videos') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.video-preview-large {
+    width: 100%;
+    max-width: 560px;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #f5f5f5;
+    border: 1px solid var(--border-color);
+}
+
+.video-preview-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+</style>
+{% endblock %}
+

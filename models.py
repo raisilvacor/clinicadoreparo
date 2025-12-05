@@ -273,3 +273,42 @@ class ReparoRealizado(db.Model):
     # Relacionamento
     imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
 
+# ==================== VÍDEOS ====================
+class Video(db.Model):
+    """Vídeos do YouTube cadastrados"""
+    __tablename__ = 'videos'
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(200), nullable=False)
+    link_youtube = db.Column(db.String(500), nullable=False)  # Link completo do YouTube
+    ordem = db.Column(db.Integer, default=1)  # Ordem de exibição
+    ativo = db.Column(db.Boolean, default=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    
+    def get_video_id(self):
+        """Extrai o ID do vídeo do link do YouTube"""
+        import re
+        # Suporta diferentes formatos de link do YouTube
+        patterns = [
+            r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})',
+            r'youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})'
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, self.link_youtube)
+            if match:
+                return match.group(1)
+        return None
+    
+    def get_embed_url(self):
+        """Retorna a URL de embed do YouTube"""
+        video_id = self.get_video_id()
+        if video_id:
+            return f'https://www.youtube.com/embed/{video_id}'
+        return None
+    
+    def get_thumbnail_url(self):
+        """Retorna a URL da thumbnail do YouTube"""
+        video_id = self.get_video_id()
+        if video_id:
+            return f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg'
+        return None
+

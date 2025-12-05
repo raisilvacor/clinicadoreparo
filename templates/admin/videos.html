@@ -1,0 +1,115 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Vídeos - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-video"></i> Gerenciar Vídeos</h1>
+        <p>Gerencie os vídeos do YouTube exibidos na página inicial</p>
+    </div>
+    <a href="{{ url_for('add_video') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Vídeo
+    </a>
+</div>
+
+{% if videos %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Thumbnail</th>
+                <th>Título</th>
+                <th>Link YouTube</th>
+                <th>Ordem</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for video in videos %}
+            <tr>
+                <td>{{ video.id }}</td>
+                <td>
+                    <div class="video-preview">
+                        {% if video.thumbnail_url %}
+                        <img src="{{ video.thumbnail_url }}" alt="Thumbnail {{ video.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                        {% else %}
+                        <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="Sem thumbnail">
+                        {% endif %}
+                    </div>
+                </td>
+                <td><strong>{{ video.titulo }}</strong></td>
+                <td>
+                    <a href="{{ video.link_youtube }}" target="_blank" rel="noopener noreferrer" class="link-external">
+                        <i class="fab fa-youtube"></i> Ver no YouTube
+                    </a>
+                </td>
+                <td><strong>{{ video.ordem }}</strong></td>
+                <td>
+                    {% if video.ativo %}
+                    <span class="badge badge-success">Ativo</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Inativo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('edit_video', video_id=video.id) }}" class="btn btn-sm btn-warning" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_video', video_id=video.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este vídeo?');">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-video"></i>
+    <h3>Nenhum vídeo cadastrado</h3>
+    <p>Comece adicionando seu primeiro vídeo do YouTube</p>
+    <a href="{{ url_for('add_video') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Primeiro Vídeo
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block styles %}
+<style>
+.video-preview {
+    width: 120px;
+    height: 68px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #f5f5f5;
+}
+
+.video-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.link-external {
+    color: var(--primary-color);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.link-external:hover {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}
+

@@ -13,7 +13,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, Video
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -860,7 +860,28 @@ def index():
     else:
         reparos = []
     
-    return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos, reparos=reparos)
+    # Carregar vídeos do YouTube (últimos 6)
+    if use_database():
+        try:
+            videos_db = Video.query.filter_by(ativo=True).order_by(Video.ordem, Video.data_criacao.desc()).limit(6).all()
+        except Exception as e:
+            print(f"Erro ao carregar vídeos do banco: {e}")
+            videos_db = []
+        videos = []
+        for v in videos_db:
+            videos.append({
+                'id': v.id,
+                'titulo': v.titulo,
+                'link_youtube': v.link_youtube,
+                'video_id': v.get_video_id(),
+                'embed_url': v.get_embed_url(),
+                'thumbnail_url': v.get_thumbnail_url(),
+                'ordem': v.ordem
+            })
+    else:
+        videos = []
+    
+    return render_template('index.html', slides=slides, footer=footer_data, marcas=marcas, milestones=milestones, servicos=servicos, reparos=reparos, videos=videos)
 
 @app.route('/reparos')
 def todos_reparos():
@@ -4958,6 +4979,231 @@ def servir_imagem_reparo(image_id):
     
     # Fallback: retornar placeholder
     return redirect(url_for('static', filename='img/placeholder.png'))
+
+# ==================== VÍDEOS ====================
+
+@app.route('/admin/videos')
+@login_required
+def admin_videos():
+    """Lista todos os vídeos cadastrados"""
+    if use_database():
+        try:
+            videos_db = Video.query.order_by(Video.ordem, Video.data_criacao.desc()).all()
+            videos = []
+            for v in videos_db:
+                videos.append({
+                    'id': v.id,
+                    'titulo': v.titulo,
+                    'link_youtube': v.link_youtube,
+                    'video_id': v.get_video_id(),
+                    'thumbnail_url': v.get_thumbnail_url(),
+                    'ordem': v.ordem,
+                    'ativo': v.ativo,
+                    'data_criacao': v.data_criacao
+                })
+        except Exception as e:
+            print(f"Erro ao buscar vídeos do banco: {e}")
+            videos = []
+    else:
+        videos = []
+    
+    return render_template('admin/videos.html', videos=videos)
+
+@app.route('/admin/videos/add', methods=['GET', 'POST'])
+@login_required
+def add_video():
+    """Adiciona um novo vídeo"""
+    if request.method == 'POST':
+        titulo = request.form.get('titulo', '').strip()
+        link_youtube = request.form.get('link_youtube', '').strip()
+        ordem = request.form.get('ordem', '1')
+        ativo = request.form.get('ativo') == 'on'
+        
+        if not titulo:
+            flash('Por favor, informe o título do vídeo.', 'error')
+            return redirect(url_for('add_video'))
+        
+        if not link_youtube:
+            flash('Por favor, informe o link do YouTube.', 'error')
+            return redirect(url_for('add_video'))
+        
+        if use_database():
+            try:
+                # Validar se o link é válido
+                video_temp = Video()
+                video_temp.link_youtube = link_youtube
+                if not video_temp.get_video_id():
+                    flash('Link do YouTube inválido. Use um link válido do YouTube.', 'error')
+                    return redirect(url_for('add_video'))
+                
+                # Obter próxima ordem se não especificada
+                if not ordem or not ordem.isdigit():
+                    ultimo_video = Video.query.order_by(Video.ordem.desc()).first()
+                    ordem = (ultimo_video.ordem + 1) if ultimo_video else 1
+                else:
+                    ordem = int(ordem)
+                
+                novo_video = Video(
+                    titulo=titulo,
+                    link_youtube=link_youtube,
+                    ordem=ordem,
+                    ativo=ativo
+                )
+                
+                db.session.add(novo_video)
+                db.session.commit()
+                
+                flash('Vídeo cadastrado com sucesso!', 'success')
+                return redirect(url_for('admin_videos'))
+            except Exception as e:
+                print(f"Erro ao salvar vídeo no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash(f'Erro ao salvar vídeo: {str(e)}', 'error')
+        else:
+            flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
+            return redirect(url_for('admin_videos'))
+    
+    return render_template('admin/add_video.html')
+
+@app.route('/admin/videos/<int:video_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_video(video_id):
+    """Edita um vídeo existente"""
+    if use_database():
+        try:
+            video = Video.query.get(video_id)
+            if not video:
+                flash('Vídeo não encontrado!', 'error')
+                return redirect(url_for('admin_videos'))
+            
+            if request.method == 'POST':
+                video.titulo = request.form.get('titulo', '').strip()
+                link_youtube = request.form.get('link_youtube', '').strip()
+                ordem = request.form.get('ordem', '1')
+                video.ativo = request.form.get('ativo') == 'on'
+                
+                if not video.titulo:
+                    flash('Por favor, informe o título do vídeo.', 'error')
+                    return redirect(url_for('edit_video', video_id=video_id))
+                
+                if not link_youtube:
+                    flash('Por favor, informe o link do YouTube.', 'error')
+                    return redirect(url_for('edit_video', video_id=video_id))
+                
+                # Validar link
+                video_temp = Video()
+                video_temp.link_youtube = link_youtube
+                if not video_temp.get_video_id():
+                    flash('Link do YouTube inválido. Use um link válido do YouTube.', 'error')
+                    return redirect(url_for('edit_video', video_id=video_id))
+                
+                video.link_youtube = link_youtube
+                
+                if ordem and ordem.isdigit():
+                    video.ordem = int(ordem)
+                
+                db.session.commit()
+                
+                flash('Vídeo atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_videos'))
+            
+            video_data = {
+                'id': video.id,
+                'titulo': video.titulo,
+                'link_youtube': video.link_youtube,
+                'video_id': video.get_video_id(),
+                'thumbnail_url': video.get_thumbnail_url(),
+                'ordem': video.ordem,
+                'ativo': video.ativo
+            }
+        except Exception as e:
+            print(f"Erro ao buscar vídeo: {e}")
+            flash('Erro ao carregar vídeo.', 'error')
+            return redirect(url_for('admin_videos'))
+    else:
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_videos'))
+    
+    return render_template('admin/edit_video.html', video=video_data)
+
+@app.route('/admin/videos/<int:video_id>/delete', methods=['POST'])
+@login_required
+def delete_video(video_id):
+    """Exclui um vídeo"""
+    if use_database():
+        try:
+            video = Video.query.get(video_id)
+            if not video:
+                flash('Vídeo não encontrado!', 'error')
+                return redirect(url_for('admin_videos'))
+            
+            db.session.delete(video)
+            db.session.commit()
+            
+            flash('Vídeo excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir vídeo: {e}")
+            db.session.rollback()
+            flash(f'Erro ao excluir vídeo: {str(e)}', 'error')
+    else:
+        flash('Banco de dados não configurado.', 'error')
+    
+    return redirect(url_for('admin_videos'))
+
+@app.route('/videos')
+def todos_videos():
+    """Página que exibe todos os vídeos"""
+    # Carregar footer do banco de dados
+    footer_data = None
+    if use_database():
+        try:
+            footer_obj = Footer.query.first()
+            if footer_obj:
+                contato = footer_obj.contato if footer_obj.contato else {}
+                redes_sociais = footer_obj.redes_sociais if footer_obj.redes_sociais else {}
+                footer_data = {
+                    'descricao': footer_obj.descricao or '',
+                    'redes_sociais': redes_sociais,
+                    'contato': contato,
+                    'copyright': footer_obj.copyright or '',
+                    'whatsapp_float': footer_obj.whatsapp_float or ''
+                }
+        except Exception as e:
+            print(f"Erro ao carregar footer do banco: {e}")
+    
+    if not footer_data:
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'contato': {'telefone': '', 'email': '', 'endereco': ''},
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
+    
+    # Carregar todos os vídeos
+    if use_database():
+        try:
+            videos_db = Video.query.filter_by(ativo=True).order_by(Video.ordem, Video.data_criacao.desc()).all()
+        except Exception as e:
+            print(f"Erro ao carregar vídeos do banco: {e}")
+            videos_db = []
+        videos = []
+        for v in videos_db:
+            videos.append({
+                'id': v.id,
+                'titulo': v.titulo,
+                'link_youtube': v.link_youtube,
+                'video_id': v.get_video_id(),
+                'embed_url': v.get_embed_url(),
+                'thumbnail_url': v.get_thumbnail_url(),
+                'ordem': v.ordem
+            })
+    else:
+        videos = []
+    
+    return render_template('videos.html', footer=footer_data, videos=videos)
 
 # ==================== ADMIN USERS MANAGEMENT ====================
 
