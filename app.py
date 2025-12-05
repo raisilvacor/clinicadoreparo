@@ -668,9 +668,7 @@ init_slides_file()
 
 @app.route('/favicon.ico')
 def favicon():
-    import os
-    favicon_path = os.path.join(app.root_path, 'static', 'img', 'favi.ico')
-    return send_file(favicon_path, mimetype='image/x-icon')
+    return send_file('static/img/favi.ico', mimetype='image/x-icon')
 
 @app.route('/')
 def index():
