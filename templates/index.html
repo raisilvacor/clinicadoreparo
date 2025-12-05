@@ -291,6 +291,35 @@
     </div>
 </section>
 
+<!-- Reparos Realizados Section -->
+{% if reparos %}
+<section class="reparos-realizados-section">
+    <div class="container">
+        <div class="section-header">
+            <span class="section-badge">Reparos Realizados</span>
+            <h2 class="section-title">Nossos Trabalhos</h2>
+            <p class="section-description">Confira alguns dos reparos que realizamos com qualidade e dedicação</p>
+        </div>
+        <div class="reparos-grid">
+            {% for reparo in reparos[:6] %}
+            <div class="reparo-item" data-reparo-id="{{ reparo.id }}">
+                <img src="{{ reparo.imagem_url }}" alt="{{ reparo.titulo or 'Reparo realizado' }}" loading="lazy" onclick="abrirPopupReparo({{ loop.index0 }})">
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Popup para exibir imagem expandida -->
+<div id="reparo-popup" class="reparo-popup" onclick="fecharPopupReparo()">
+    <div class="reparo-popup-content" onclick="event.stopPropagation()">
+        <span class="reparo-popup-close" onclick="fecharPopupReparo()">&times;</span>
+        <img id="reparo-popup-img" src="" alt="Reparo realizado">
+        <div id="reparo-popup-info" class="reparo-popup-info"></div>
+    </div>
+</div>
+{% endif %}
+
 <section class="features">
     <div class="container">
         <div class="features-grid">
