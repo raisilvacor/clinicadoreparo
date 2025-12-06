@@ -2172,15 +2172,65 @@ def edit_servico(servico_id):
 @app.route('/admin/servicos/<int:servico_id>/delete', methods=['POST'])
 @login_required
 def delete_servico(servico_id):
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    if use_database():
+        try:
+            # Buscar serviço no banco
+            servico = Servico.query.get(servico_id)
+            if not servico:
+                flash('Serviço não encontrado!', 'error')
+                return redirect(url_for('admin_servicos'))
+            
+            # Deletar imagem do banco se existir e estiver associada apenas a este serviço
+            if servico.imagem_id:
+                try:
+                    imagem = Imagem.query.get(servico.imagem_id)
+                    if imagem:
+                        # Verificar se a imagem não está sendo usada por outros serviços
+                        outros_servicos = Servico.query.filter(
+                            Servico.imagem_id == servico.imagem_id,
+                            Servico.id != servico_id
+                        ).count()
+                        
+                        # Se não há outros serviços usando esta imagem, deletar
+                        if outros_servicos == 0:
+                            db.session.delete(imagem)
+                            print(f"✅ Imagem {servico.imagem_id} deletada (não usada por outros serviços)")
+                except Exception as e:
+                    print(f"Erro ao deletar imagem: {e}")
+                    # Continuar mesmo se der erro ao deletar imagem
+            
+            # Deletar serviço
+            db.session.delete(servico)
+            db.session.commit()
+            
+            flash('Serviço excluído com sucesso!', 'success')
+            return redirect(url_for('admin_servicos'))
+        except Exception as e:
+            print(f"Erro ao excluir serviço do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                db.session.rollback()
+            except:
+                pass
+            flash('Erro ao excluir serviço. Tente novamente.', 'error')
+            return redirect(url_for('admin_servicos'))
     
-    data['services'] = [s for s in data['services'] if s.get('id') != servico_id]
+    # Fallback para JSON (apenas se banco não estiver disponível)
+    try:
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        data['services'] = [s for s in data['services'] if s.get('id') != servico_id]
+        
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Serviço excluído com sucesso!', 'success')
+    except Exception as e:
+        print(f"Erro ao excluir serviço do JSON: {e}")
+        flash('Erro ao excluir serviço. Tente novamente.', 'error')
     
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    flash('Serviço excluído com sucesso!', 'success')
     return redirect(url_for('admin_servicos'))
 
 # ==================== CLIENT MANAGEMENT (ADMIN) ====================
