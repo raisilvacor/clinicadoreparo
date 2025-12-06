@@ -1947,6 +1947,11 @@ def add_servico_admin():
             paginas_servicos = PaginaServico.query.filter_by(ativo=True).order_by(PaginaServico.ordem).all()
         except Exception as e:
             print(f"Erro ao carregar páginas de serviços: {e}")
+            # Fazer rollback explícito para evitar InFailedSqlTransaction
+            try:
+                db.session.rollback()
+            except:
+                pass
     
     return render_template('admin/add_servico.html', paginas_servicos=paginas_servicos)
 
@@ -2027,6 +2032,7 @@ def edit_servico(servico_id):
             pagina_servico_id = None
             # Verificar se a coluna existe sem tentar criar (mais rápido para GET)
             global _pagina_servico_id_column_exists
+            # Só tentar buscar se não sabemos que a coluna não existe
             if _pagina_servico_id_column_exists is not False:  # Se não sabemos ou sabemos que existe
                 try:
                     result = db.session.execute(
@@ -2039,15 +2045,17 @@ def edit_servico(servico_id):
                         _pagina_servico_id_column_exists = True
                 except Exception as e:
                     error_str = str(e).lower()
-                    if 'column' in error_str and 'does not exist' in error_str:
-                        # Coluna não existe, marcar como False
+                    # Fazer rollback IMEDIATAMENTE para evitar InFailedSqlTransaction
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
+                    if 'column' in error_str and ('does not exist' in error_str or 'undefined column' in error_str):
+                        # Coluna não existe, marcar como False para não tentar novamente
                         _pagina_servico_id_column_exists = False
+                        print(f"Coluna pagina_servico_id não existe. Pulando busca.")
                     else:
                         print(f"Erro ao buscar pagina_servico_id: {e}")
-                        try:
-                            db.session.rollback()
-                        except:
-                            pass
             
             servico_dict = {
                 'id': servico.id,
@@ -2066,6 +2074,11 @@ def edit_servico(servico_id):
                 paginas_servicos = PaginaServico.query.filter_by(ativo=True).order_by(PaginaServico.ordem).all()
             except Exception as e:
                 print(f"Erro ao carregar páginas de serviços: {e}")
+                # Fazer rollback explícito para evitar InFailedSqlTransaction
+                try:
+                    db.session.rollback()
+                except:
+                    pass
             
             return render_template('admin/edit_servico.html', servico=servico_dict, paginas_servicos=paginas_servicos)
         except Exception as e:
@@ -6067,6 +6080,11 @@ def inject_footer():
                 }
         except Exception as e:
             print(f"Erro ao carregar footer do banco em inject_footer: {e}")
+            # Fazer rollback explícito para evitar InFailedSqlTransaction
+            try:
+                db.session.rollback()
+            except:
+                pass
             footer_data = None
     
     # Se não encontrou no banco, retornar footer padrão (não usar JSON)
@@ -6109,6 +6127,11 @@ def inject_servicos():
                 })
         except Exception as e:
             print(f"Erro ao carregar serviços do banco em inject_servicos: {e}")
+            # Fazer rollback explícito para evitar InFailedSqlTransaction
+            try:
+                db.session.rollback()
+            except:
+                pass
             servicos = []
     
     # Fallback para JSON se não encontrou no banco
@@ -6146,6 +6169,11 @@ def inject_paginas_servicos():
                 })
         except Exception as e:
             print(f"Erro ao carregar páginas de serviços do banco em inject_paginas_servicos: {e}")
+            # Fazer rollback explícito para evitar InFailedSqlTransaction
+            try:
+                db.session.rollback()
+            except:
+                pass
             paginas_servicos_menu = []
     
     return {'paginas_servicos_menu': paginas_servicos_menu}
