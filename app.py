@@ -1755,7 +1755,7 @@ def servir_pdf(pdf_id):
 def add_servico_admin():
     if request.method == 'POST':
         nome = request.form.get('nome')
-        pagina_servico_id = request.form.get('pagina_servico_id', '').strip()
+        # pagina_servico_id = request.form.get('pagina_servico_id', '').strip()  # TEMPORARIAMENTE COMENTADO
         imagem = request.form.get('imagem', '').strip()
         ordem = request.form.get('ordem', '999')
         ativo = request.form.get('ativo') == 'on'
@@ -1769,9 +1769,9 @@ def add_servico_admin():
                 pass
         
         # Converter pagina_servico_id para int se fornecido
-        pagina_id = None
-        if pagina_servico_id and pagina_servico_id.isdigit():
-            pagina_id = int(pagina_servico_id)
+        # pagina_id = None  # TEMPORARIAMENTE COMENTADO
+        # if pagina_servico_id and pagina_servico_id.isdigit():  # TEMPORARIAMENTE COMENTADO
+        #     pagina_id = int(pagina_servico_id)  # TEMPORARIAMENTE COMENTADO
         
         if use_database():
             try:
@@ -1781,7 +1781,7 @@ def add_servico_admin():
                     descricao=None,  # Não usar mais descrição
                     imagem=imagem if not imagem_id else None,
                     imagem_id=imagem_id,
-                    pagina_servico_id=pagina_id,
+                    # pagina_servico_id=pagina_id,  # TEMPORARIAMENTE COMENTADO - Descomente após executar migrate_servicos_pagina_servico.sql
                     ordem=int(ordem) if ordem.isdigit() else 999,
                     ativo=ativo,
                     data=datetime.now()
@@ -1840,14 +1840,14 @@ def edit_servico(servico_id):
             if request.method == 'POST':
                 servico.nome = request.form.get('nome')
                 servico.descricao = None  # Não usar mais descrição
-                pagina_servico_id = request.form.get('pagina_servico_id', '').strip()
+                # pagina_servico_id = request.form.get('pagina_servico_id', '').strip()  # TEMPORARIAMENTE COMENTADO
                 imagem_nova = request.form.get('imagem', '').strip()
                 
                 # Converter pagina_servico_id para int se fornecido
-                if pagina_servico_id and pagina_servico_id.isdigit():
-                    servico.pagina_servico_id = int(pagina_servico_id)
-                else:
-                    servico.pagina_servico_id = None
+                # if pagina_servico_id and pagina_servico_id.isdigit():  # TEMPORARIAMENTE COMENTADO
+                #     servico.pagina_servico_id = int(pagina_servico_id)  # TEMPORARIAMENTE COMENTADO
+                # else:  # TEMPORARIAMENTE COMENTADO
+                #     servico.pagina_servico_id = None  # TEMPORARIAMENTE COMENTADO - Descomente após executar migrate_servicos_pagina_servico.sql
                 
                 if imagem_nova:
                     servico.imagem = imagem_nova if not imagem_nova.startswith('/admin/servicos/imagem/') else None
@@ -1881,7 +1881,7 @@ def edit_servico(servico_id):
                 'imagem': imagem_url,
                 'ordem': servico.ordem,
                 'ativo': servico.ativo,
-                'pagina_servico_id': servico.pagina_servico_id,
+                # 'pagina_servico_id': servico.pagina_servico_id,  # TEMPORARIAMENTE COMENTADO - Descomente após executar migrate_servicos_pagina_servico.sql
                 'data': servico.data.strftime('%Y-%m-%d %H:%M:%S') if servico.data else ''
             }
             return render_template('admin/edit_servico.html', servico=servico_dict)

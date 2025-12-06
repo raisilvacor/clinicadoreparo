@@ -52,14 +52,14 @@ class Servico(db.Model):
     descricao = db.Column(db.Text)  # Mantido para compatibilidade, mas não será usado
     imagem = db.Column(db.String(500))  # Caminho ou ID da imagem
     imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
-    pagina_servico_id = db.Column(db.Integer, db.ForeignKey('paginas_servicos.id'))  # Página de serviço associada
+    # pagina_servico_id = db.Column(db.Integer, db.ForeignKey('paginas_servicos.id'))  # TEMPORARIAMENTE COMENTADO - Descomente após executar migrate_servicos_pagina_servico.sql
     ordem = db.Column(db.Integer, default=999)
     ativo = db.Column(db.Boolean, default=True)
     data = db.Column(db.DateTime, default=datetime.now)
     
     # Relacionamentos
     imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
-    pagina_servico = db.relationship('PaginaServico', foreign_keys=[pagina_servico_id], lazy=True)
+    # pagina_servico = db.relationship('PaginaServico', foreign_keys=[pagina_servico_id], lazy=True)  # TEMPORARIAMENTE COMENTADO - Descomente após executar migrate_servicos_pagina_servico.sql
 
 # ==================== TÉCNICOS ====================
 class Tecnico(db.Model):
