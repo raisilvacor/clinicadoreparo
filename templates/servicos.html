@@ -24,7 +24,7 @@
         <div class="services-grid">
             {% if servicos %}
                 {% for servico in servicos %}
-                <a href="{% if servico.pagina_slug %}{{ url_for('pagina_servico', slug=servico.pagina_slug) }}{% else %}{{ url_for('servicos') }}{% endif %}" class="service-card-link">
+                <a href="{% if servico.pagina_slug %}{{ url_for('pagina_servico', slug=servico.pagina_slug) }}{% elif primeira_pagina_servico_slug %}{{ url_for('pagina_servico', slug=primeira_pagina_servico_slug) }}{% else %}{{ url_for('index') }}{% endif %}" class="service-card-link">
                 <div class="service-card">
                     <div class="service-image">
                         {% if servico.imagem and servico.imagem.startswith('/admin/servicos/imagem/') %}

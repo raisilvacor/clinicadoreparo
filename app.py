@@ -1114,119 +1114,18 @@ def sobre():
 
 @app.route('/servicos')
 def servicos():
-    # Carregar footer do banco de dados
-    footer_data = None
+    """Redireciona para a primeira página de serviço disponível ou para a home"""
+    # Tentar encontrar a primeira página de serviço ativa (ordenada por ordem)
     if use_database():
         try:
-            footer_obj = Footer.query.first()
-            if footer_obj:
-                contato = footer_obj.contato if footer_obj.contato else {}
-                redes_sociais = footer_obj.redes_sociais if footer_obj.redes_sociais else {}
-                footer_data = {
-                    'descricao': footer_obj.descricao or '',
-                    'redes_sociais': redes_sociais,
-                    'contato': contato,
-                    'copyright': footer_obj.copyright or '',
-                    'whatsapp_float': footer_obj.whatsapp_float or ''
-                }
+            primeira_pagina = PaginaServico.query.filter_by(ativo=True).order_by(PaginaServico.ordem).first()
+            if primeira_pagina:
+                return redirect(url_for('pagina_servico', slug=primeira_pagina.slug))
         except Exception as e:
-            print(f"Erro ao carregar footer do banco: {e}")
+            print(f"Erro ao buscar primeira página de serviço: {e}")
     
-    if not footer_data:
-        footer_data = {
-            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
-            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
-            'contato': {'telefone': '', 'email': '', 'endereco': ''},
-            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
-            'whatsapp_float': ''
-        }
-    
-    # Carregar serviços do banco de dados ou JSON
-    if use_database():
-        try:
-            servicos_db = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
-        except Exception as e:
-            print(f"Erro ao carregar serviços do banco: {e}")
-            servicos_db = []
-        servicos = []
-        for s in servicos_db:
-            # Se tem imagem_id, usar rota do banco, senão usar caminho estático
-            if s.imagem_id:
-                imagem_url = f'/admin/servicos/imagem/{s.imagem_id}'
-            elif s.imagem:
-                imagem_url = s.imagem
-            else:
-                imagem_url = 'img/placeholder.png'
-            
-            # Buscar pagina_slug usando SQL direto
-            pagina_slug = None
-            global _pagina_servico_id_column_exists
-            
-            # Garantir que a coluna existe (apenas se ainda não soubermos que não existe)
-            if _pagina_servico_id_column_exists is not False:
-                if _pagina_servico_id_column_exists is not True:
-                    garantir_coluna_pagina_servico_id()
-                
-                # Tentar buscar apenas se a coluna existe ou pode existir
-                if _pagina_servico_id_column_exists is True:
-                    try:
-                        result = db.session.execute(
-                            db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
-                            {'servico_id': s.id}
-                        ).fetchone()
-                        if result and result[0]:
-                            pagina_servico_id = result[0]
-                            pagina_result = db.session.execute(
-                                db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
-                                {'pagina_id': pagina_servico_id}
-                            ).fetchone()
-                            if pagina_result:
-                                pagina_slug = pagina_result[0]
-                    except Exception as e:
-                        # Se der erro, fazer rollback e verificar se é problema de coluna
-                        error_str = str(e).lower()
-                        try:
-                            db.session.rollback()
-                        except:
-                            pass
-                        if 'column' in error_str and ('does not exist' in error_str or 'undefined column' in error_str):
-                            # Se a coluna realmente não existe, resetar cache e tentar criar uma última vez
-                            _pagina_servico_id_column_exists = None
-                            if garantir_coluna_pagina_servico_id():
-                                # Tentar ler novamente
-                                try:
-                                    result = db.session.execute(
-                                        db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
-                                        {'servico_id': s.id}
-                                    ).fetchone()
-                                    if result and result[0]:
-                                        pagina_servico_id = result[0]
-                                        pagina_result = db.session.execute(
-                                            db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
-                                            {'pagina_id': pagina_servico_id}
-                                        ).fetchone()
-                                        if pagina_result:
-                                            pagina_slug = pagina_result[0]
-                                except:
-                                    pass
-            
-            servicos.append({
-                'id': s.id,
-                'nome': s.nome,
-                'descricao': s.descricao,
-                'imagem': imagem_url,
-                'ordem': s.ordem,
-                'ativo': s.ativo,
-                'pagina_slug': pagina_slug
-            })
-    else:
-        init_data_file()
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            services_data = json.load(f)
-        servicos = [s for s in services_data.get('services', []) if s.get('ativo', True)]
-        servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
-    
-    return render_template('servicos.html', footer=footer_data, servicos=servicos)
+    # Se não encontrar nenhuma página, redirecionar para a home
+    return redirect(url_for('index'))
 
 @app.route('/servico/<slug>')
 def pagina_servico(slug):
@@ -1234,19 +1133,23 @@ def pagina_servico(slug):
     # SEMPRE usar banco de dados - não há fallback para JSON
     if not use_database():
         flash('Sistema de páginas de serviços não disponível. Configure DATABASE_URL no Render.', 'error')
-        return redirect(url_for('servicos'))
+        return redirect(url_for('index'))
     
     try:
         pagina = PaginaServico.query.filter_by(slug=slug, ativo=True).first()
         if not pagina:
             flash('Página de serviço não encontrada.', 'error')
-            return redirect(url_for('servicos'))
+            # Redirecionar para a primeira página disponível ou home
+            primeira_pagina = PaginaServico.query.filter_by(ativo=True).order_by(PaginaServico.ordem).first()
+            if primeira_pagina:
+                return redirect(url_for('pagina_servico', slug=primeira_pagina.slug))
+            return redirect(url_for('index'))
     except Exception as e:
         print(f"Erro ao buscar página de serviço: {e}")
         import traceback
         traceback.print_exc()
         flash('Erro ao carregar página.', 'error')
-        return redirect(url_for('servicos'))
+        return redirect(url_for('index'))
     
     # Carregar footer
     footer_data = None
@@ -6264,6 +6167,7 @@ def inject_tipos_servico():
 def inject_paginas_servicos():
     """Injeta páginas de serviços ativas em todos os templates para o menu"""
     paginas_servicos_menu = []
+    primeira_pagina_servico = None
     
     if use_database():
         try:
@@ -6275,6 +6179,10 @@ def inject_paginas_servicos():
                     'titulo': p.titulo,
                     'ordem': p.ordem
                 })
+            
+            # Pegar a primeira página para usar como fallback
+            if paginas_db:
+                primeira_pagina_servico = paginas_db[0].slug
         except Exception as e:
             print(f"Erro ao carregar páginas de serviços do banco em inject_paginas_servicos: {e}")
             # Fazer rollback explícito para evitar InFailedSqlTransaction
@@ -6284,7 +6192,10 @@ def inject_paginas_servicos():
                 pass
             paginas_servicos_menu = []
     
-    return {'paginas_servicos_menu': paginas_servicos_menu}
+    return {
+        'paginas_servicos_menu': paginas_servicos_menu,
+        'primeira_pagina_servico_slug': primeira_pagina_servico
+    }
 
 @app.template_filter('get_status_label')
 def get_status_label(status):
