@@ -81,11 +81,6 @@ if database_url:
                 # Importar explicitamente todos os modelos para garantir que sejam registrados
                 from models import Fornecedor, Video, PaginaServico  # Garantir que todos os modelos estão importados
                 
-                # Tentar criar tabelas com timeout
-                import signal
-                def timeout_handler(signum, frame):
-                    raise TimeoutError("Timeout ao criar tabelas")
-                
                 # Apenas criar tabelas, sem queries pesadas
                 try:
                     db.create_all()
@@ -98,18 +93,8 @@ if database_url:
                 # Essas operações serão feitas sob demanda quando necessário
                 print("DEBUG: ✅ Inicialização do banco concluída (dados padrão serão criados sob demanda)")
                 DB_AVAILABLE = True
-                    else:
-                        print("DEBUG: ⚠️ Engine não pôde ser criado")
-                        DB_AVAILABLE = False
-                except Exception as conn_error:
-                    print(f"DEBUG: ⚠️ Aviso ao testar conexão: {type(conn_error).__name__}: {str(conn_error)}")
-                    print("DEBUG: O banco está configurado, mas a conexão pode estar temporariamente indisponível.")
-                    print("DEBUG: O sistema tentará usar o banco quando necessário.")
-                    DB_AVAILABLE = False
         except Exception as e:
             print(f"DEBUG: ⚠️ Erro ao inicializar banco de dados: {type(e).__name__}: {str(e)}")
-            import traceback
-            traceback.print_exc()
             print("DEBUG: O sistema tentará usar o banco quando necessário.")
             DB_AVAILABLE = False
     except Exception as e:
