@@ -24,19 +24,20 @@
         <div class="services-grid">
             {% if servicos %}
                 {% for servico in servicos %}
-                <div class="service-card">
-                    <div class="service-image">
-                        {% if servico.imagem and servico.imagem.startswith('/admin/servicos/imagem/') %}
-                            <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
-                        {% elif servico.imagem %}
-                            <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
-                        {% else %}
-                            <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="{{ servico.nome }}" loading="lazy">
-                        {% endif %}
+                <a href="{% if servico.pagina_slug %}{{ url_for('pagina_servico', slug=servico.pagina_slug) }}{% else %}{{ url_for('servicos') }}{% endif %}" class="service-card-link">
+                    <div class="service-card">
+                        <div class="service-image">
+                            {% if servico.imagem and servico.imagem.startswith('/admin/servicos/imagem/') %}
+                                <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                            {% elif servico.imagem %}
+                                <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                            {% else %}
+                                <img src="{{ url_for('static', filename='img/placeholder.png') }}" alt="{{ servico.nome }}" loading="lazy">
+                            {% endif %}
+                        </div>
+                        <h3>{{ servico.nome }}</h3>
                     </div>
-                    <h3>{{ servico.nome }}</h3>
-                    <p>{{ servico.descricao }}</p>
-                </div>
+                </a>
                 {% endfor %}
             {% else %}
                 <!-- Fallback para serviços padrão se não houver serviços cadastrados -->

@@ -1755,7 +1755,7 @@ def servir_pdf(pdf_id):
 def add_servico_admin():
     if request.method == 'POST':
         nome = request.form.get('nome')
-        descricao = request.form.get('descricao')
+        pagina_servico_id = request.form.get('pagina_servico_id', '').strip()
         imagem = request.form.get('imagem', '').strip()
         ordem = request.form.get('ordem', '999')
         ativo = request.form.get('ativo') == 'on'
@@ -1768,14 +1768,20 @@ def add_servico_admin():
             except:
                 pass
         
+        # Converter pagina_servico_id para int se fornecido
+        pagina_id = None
+        if pagina_servico_id and pagina_servico_id.isdigit():
+            pagina_id = int(pagina_servico_id)
+        
         if use_database():
             try:
                 # Em rotas Flask, já estamos em um contexto de aplicação
                 servico = Servico(
                     nome=nome,
-                    descricao=descricao,
-                    imagem=imagem,
+                    descricao=None,  # Não usar mais descrição
+                    imagem=imagem if not imagem_id else None,
                     imagem_id=imagem_id,
+                    pagina_servico_id=pagina_id,
                     ordem=int(ordem) if ordem.isdigit() else 999,
                     ativo=ativo,
                     data=datetime.now()
@@ -1833,10 +1839,18 @@ def edit_servico(servico_id):
             
             if request.method == 'POST':
                 servico.nome = request.form.get('nome')
-                servico.descricao = request.form.get('descricao')
+                servico.descricao = None  # Não usar mais descrição
+                pagina_servico_id = request.form.get('pagina_servico_id', '').strip()
                 imagem_nova = request.form.get('imagem', '').strip()
+                
+                # Converter pagina_servico_id para int se fornecido
+                if pagina_servico_id and pagina_servico_id.isdigit():
+                    servico.pagina_servico_id = int(pagina_servico_id)
+                else:
+                    servico.pagina_servico_id = None
+                
                 if imagem_nova:
-                    servico.imagem = imagem_nova
+                    servico.imagem = imagem_nova if not imagem_nova.startswith('/admin/servicos/imagem/') else None
                     # Extrair image_id se veio do banco
                     if imagem_nova.startswith('/admin/servicos/imagem/'):
                         try:
@@ -1863,10 +1877,11 @@ def edit_servico(servico_id):
             servico_dict = {
                 'id': servico.id,
                 'nome': servico.nome,
-                'descricao': servico.descricao,
+                'descricao': servico.descricao or '',  # Mantido para compatibilidade
                 'imagem': imagem_url,
                 'ordem': servico.ordem,
                 'ativo': servico.ativo,
+                'pagina_servico_id': servico.pagina_servico_id,
                 'data': servico.data.strftime('%Y-%m-%d %H:%M:%S') if servico.data else ''
             }
             return render_template('admin/edit_servico.html', servico=servico_dict)

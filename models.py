@@ -49,15 +49,17 @@ class Servico(db.Model):
     __tablename__ = 'servicos'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
-    descricao = db.Column(db.Text)
+    descricao = db.Column(db.Text)  # Mantido para compatibilidade, mas não será usado
     imagem = db.Column(db.String(500))  # Caminho ou ID da imagem
     imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Referência à tabela de imagens
+    pagina_servico_id = db.Column(db.Integer, db.ForeignKey('paginas_servicos.id'))  # Página de serviço associada
     ordem = db.Column(db.Integer, default=999)
     ativo = db.Column(db.Boolean, default=True)
     data = db.Column(db.DateTime, default=datetime.now)
     
-    # Relacionamento
+    # Relacionamentos
     imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
+    pagina_servico = db.relationship('PaginaServico', foreign_keys=[pagina_servico_id], lazy=True)
 
 # ==================== TÉCNICOS ====================
 class Tecnico(db.Model):

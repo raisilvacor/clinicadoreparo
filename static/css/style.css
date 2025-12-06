@@ -487,6 +487,12 @@ section {
     margin-top: 3rem;
 }
 
+.service-card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
 .service-card {
     background: white;
     border-radius: 0;
@@ -497,8 +503,10 @@ section {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    cursor: pointer;
 }
 
+.service-card-link:hover .service-card,
 .service-card:hover {
     transform: translateY(-10px);
     box-shadow: var(--shadow-xl);
