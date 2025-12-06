@@ -894,7 +894,20 @@ def index():
                     if pagina_result:
                         pagina_slug = pagina_result[0]
             except Exception as e:
-                print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
+                # Se a coluna não existe, apenas ignora (faz rollback para não abortar a transação)
+                error_str = str(e).lower()
+                if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
+                    # Coluna não existe ainda, faz rollback e continua sem pagina_slug
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
+                else:
+                    print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
             
             servicos.append({
                 'id': s.id,
@@ -1108,7 +1121,20 @@ def servicos():
                     if pagina_result:
                         pagina_slug = pagina_result[0]
             except Exception as e:
-                print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
+                # Se a coluna não existe, apenas ignora (faz rollback para não abortar a transação)
+                error_str = str(e).lower()
+                if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
+                    # Coluna não existe ainda, faz rollback e continua sem pagina_slug
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
+                else:
+                    print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
             
             servicos.append({
                 'id': s.id,
@@ -1835,8 +1861,20 @@ def add_servico_admin():
                         )
                         db.session.commit()
                     except Exception as e:
-                        print(f"Erro ao atualizar pagina_servico_id: {e}")
-                        db.session.rollback()
+                        # Se a coluna não existe, apenas ignora (a migração ainda não foi executada)
+                        error_str = str(e).lower()
+                        if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
+                            try:
+                                db.session.rollback()
+                            except:
+                                pass
+                            # Não exibe erro, apenas continua
+                        else:
+                            print(f"Erro ao atualizar pagina_servico_id: {e}")
+                            try:
+                                db.session.rollback()
+                            except:
+                                pass
                 
                 flash('Serviço adicionado com sucesso!', 'success')
                 return redirect(url_for('admin_servicos'))
@@ -1935,8 +1973,20 @@ def edit_servico(servico_id):
                         )
                     db.session.commit()
                 except Exception as e:
-                    print(f"Erro ao atualizar pagina_servico_id: {e}")
-                    db.session.rollback()
+                    # Se a coluna não existe, apenas ignora (a migração ainda não foi executada)
+                    error_str = str(e).lower()
+                    if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
+                        try:
+                            db.session.rollback()
+                        except:
+                            pass
+                        # Não exibe erro, apenas continua
+                    else:
+                        print(f"Erro ao atualizar pagina_servico_id: {e}")
+                        try:
+                            db.session.rollback()
+                        except:
+                            pass
                 
                 flash('Serviço atualizado com sucesso!', 'success')
                 return redirect(url_for('admin_servicos'))
@@ -1959,7 +2009,20 @@ def edit_servico(servico_id):
                 if result and result[0]:
                     pagina_servico_id = result[0]
             except Exception as e:
-                print(f"Erro ao buscar pagina_servico_id: {e}")
+                # Se a coluna não existe, apenas ignora (faz rollback para não abortar a transação)
+                error_str = str(e).lower()
+                if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
+                    # Coluna não existe ainda, faz rollback e continua sem pagina_servico_id
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
+                else:
+                    print(f"Erro ao buscar pagina_servico_id: {e}")
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
             
             servico_dict = {
                 'id': servico.id,
