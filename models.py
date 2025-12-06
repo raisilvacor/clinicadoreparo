@@ -321,6 +321,7 @@ class PaginaServico(db.Model):
     titulo = db.Column(db.String(200), nullable=False)  # Título exibido no menu (ex: Máquina de Lavar)
     descricao = db.Column(db.Text)  # Descrição da página
     conteudo = db.Column(db.Text)  # Conteúdo HTML da página
+    imagem = db.Column(db.String(500))  # Caminho ou ID da imagem (fallback)
     imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Imagem principal
     ordem = db.Column(db.Integer, default=1)  # Ordem no menu
     ativo = db.Column(db.Boolean, default=True)  # Se aparece no menu

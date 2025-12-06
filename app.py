@@ -1139,7 +1139,7 @@ def pagina_servico(slug):
     if pagina.imagem_id:
         imagem_url = f'/admin/paginas-servicos/imagem/{pagina.imagem_id}'
     elif pagina.imagem:
-        imagem_url = pagina.imagem
+        imagem_url = pagina.imagem if pagina.imagem.startswith('/') or pagina.imagem.startswith('http') else url_for('static', filename=pagina.imagem)
     
     pagina_data = {
         'id': pagina.id,
