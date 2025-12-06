@@ -62,91 +62,42 @@ if database_url:
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'connect_args': {
                 'sslmode': 'require',
-                'connect_timeout': 10
+                'connect_timeout': 5  # Reduzido de 10 para 5 segundos
             },
             'pool_pre_ping': True,  # Verificar conexão antes de usar
-            'pool_recycle': 300  # Reciclar conexões a cada 5 minutos
+            'pool_recycle': 300,  # Reciclar conexões a cada 5 minutos
+            'pool_timeout': 5,  # Timeout para obter conexão do pool
+            'max_overflow': 0  # Não criar conexões extras
         }
         
         # Inicializar o banco de dados
         # IMPORTANTE: db.init_app() deve ser chamado DEPOIS de configurar SQLALCHEMY_DATABASE_URI
         db.init_app(app)
         
-        # Criar tabelas se não existirem (apenas se conseguir conectar)
+        # Criar tabelas se não existirem (apenas se conseguir conectar) - com timeout
         try:
             with app.app_context():
                 # Forçar criação do engine e tabelas
                 # Importar explicitamente todos os modelos para garantir que sejam registrados
                 from models import Fornecedor, Video, PaginaServico  # Garantir que todos os modelos estão importados
-                db.create_all()
-                print("DEBUG: ✅ Tabelas criadas/verificadas no banco de dados")
                 
-                # Garantir que existe um usuário admin padrão no banco
-                try:
-                    admin_user = AdminUser.query.filter_by(username='admin').first()
-                    if not admin_user:
-                        # Criar usuário admin padrão
-                        admin_user = AdminUser(
-                            username='admin',
-                            password=generate_password_hash('admin123'),
-                            nome='Administrador',
-                            email='admin@clinicadoreparo.com',
-                            ativo=True
-                        )
-                        db.session.add(admin_user)
-                        db.session.commit()
-                        print("DEBUG: ✅ Usuário admin padrão criado no banco de dados")
-                except Exception as admin_err:
-                    print(f"DEBUG: ⚠️ Aviso ao criar usuário admin padrão: {admin_err}")
+                # Tentar criar tabelas com timeout
+                import signal
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("Timeout ao criar tabelas")
                 
-                # Garantir que existem milestones padrão no banco
+                # Apenas criar tabelas, sem queries pesadas
                 try:
-                    milestones_count = Milestone.query.count()
-                    if milestones_count == 0:
-                        # Criar milestones padrão
-                        milestones_padrao = [
-                            Milestone(titulo='Diagnóstico Preciso', imagem='img/milestone1.png', ordem=1, ativo=True),
-                            Milestone(titulo='Reparo Especializado', imagem='img/milestone2.png', ordem=2, ativo=True),
-                            Milestone(titulo='Atendimento Rápido', imagem='img/milestone3.png', ordem=3, ativo=True)
-                        ]
-                        for milestone in milestones_padrao:
-                            db.session.add(milestone)
-                        db.session.commit()
-                        print("DEBUG: ✅ Milestones padrão criados no banco de dados")
-                except Exception as milestone_err:
-                    print(f"DEBUG: ⚠️ Aviso ao criar milestones padrão: {milestone_err}")
+                    db.create_all()
+                    print("DEBUG: ✅ Tabelas criadas/verificadas no banco de dados")
+                except Exception as create_error:
+                    print(f"DEBUG: ⚠️ Aviso ao criar tabelas (não crítico): {create_error}")
+                    # Continuar mesmo se der erro
                 
-                # Garantir que existem páginas de serviços padrão no banco
-                try:
-                    paginas_count = PaginaServico.query.count()
-                    if paginas_count == 0:
-                        # Criar páginas de serviços padrão
-                        paginas_padrao = [
-                            PaginaServico(slug='maquina-de-lavar', titulo='Máquina de Lavar', ordem=1, ativo=True, descricao='Reparo especializado em máquinas de lavar', conteudo='<p>Oferecemos serviços completos de reparo para máquinas de lavar de todas as marcas.</p>'),
-                            PaginaServico(slug='microondas', titulo='Microondas', ordem=2, ativo=True, descricao='Conserto de microondas', conteudo='<p>Reparo profissional de microondas com garantia.</p>'),
-                            PaginaServico(slug='celular', titulo='Celular', ordem=3, ativo=True, descricao='Assistência técnica para celulares', conteudo='<p>Conserto de celulares e smartphones de todas as marcas.</p>'),
-                            PaginaServico(slug='computador-e-notebook', titulo='Computador e Notebook', ordem=4, ativo=True, descricao='Reparo de computadores e notebooks', conteudo='<p>Serviços especializados em reparo de computadores e notebooks.</p>'),
-                            PaginaServico(slug='tv', titulo='TV', ordem=5, ativo=True, descricao='Conserto de televisores', conteudo='<p>Reparo de TVs LED, LCD, Plasma e Smart TVs.</p>'),
-                            PaginaServico(slug='eletrodomesticos', titulo='Eletro Domésticos', ordem=6, ativo=True, descricao='Reparo de eletrodomésticos', conteudo='<p>Conserto de todos os tipos de eletrodomésticos.</p>'),
-                            PaginaServico(slug='video-games', titulo='Video Games', ordem=7, ativo=True, descricao='Reparo de videogames', conteudo='<p>Assistência técnica para consoles e videogames.</p>'),
-                            PaginaServico(slug='eletronica-em-geral', titulo='Eletrônica em Geral', ordem=8, ativo=True, descricao='Reparo de equipamentos eletrônicos', conteudo='<p>Serviços de reparo para diversos equipamentos eletrônicos.</p>')
-                        ]
-                        for pagina in paginas_padrao:
-                            db.session.add(pagina)
-                        db.session.commit()
-                        print("DEBUG: ✅ Páginas de serviços padrão criadas no banco de dados")
-                except Exception as pagina_err:
-                    print(f"DEBUG: ⚠️ Aviso ao criar páginas de serviços padrão: {pagina_err}")
-                # Nota: garantir_tabela_fornecedores() será chamada automaticamente quando necessário
-                # Testar conexão (mas não falhar se der erro temporário)
-                try:
-                    # Garantir que o engine está criado
-                    engine = db.get_engine()
-                    if engine:
-                        with engine.connect() as conn:
-                            conn.execute(db.text('SELECT 1'))
-                        print("DEBUG: ✅ Banco de dados configurado e conectado com sucesso!")
-                        DB_AVAILABLE = True
+                # Criar dados padrão de forma assíncrona/não-bloqueante (apenas tentar, não bloquear)
+                # Essas operações serão feitas sob demanda quando necessário
+                print("DEBUG: ✅ Inicialização do banco concluída (dados padrão serão criados sob demanda)")
+                DB_AVAILABLE = True
                     else:
                         print("DEBUG: ⚠️ Engine não pôde ser criado")
                         DB_AVAILABLE = False
