@@ -1825,7 +1825,15 @@ def add_servico_admin():
             flash('Serviço adicionado com sucesso!', 'success')
             return redirect(url_for('admin_servicos'))
     
-    return render_template('admin/add_servico.html')
+    # Buscar páginas de serviços ativas para o dropdown
+    paginas_servicos = []
+    if use_database():
+        try:
+            paginas_servicos = PaginaServico.query.filter_by(ativo=True).order_by(PaginaServico.ordem).all()
+        except Exception as e:
+            print(f"Erro ao carregar páginas de serviços: {e}")
+    
+    return render_template('admin/add_servico.html', paginas_servicos=paginas_servicos)
 
 @app.route('/admin/servicos/<int:servico_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -1881,10 +1889,18 @@ def edit_servico(servico_id):
                 'imagem': imagem_url,
                 'ordem': servico.ordem,
                 'ativo': servico.ativo,
-                # 'pagina_servico_id': servico.pagina_servico_id,  # TEMPORARIAMENTE COMENTADO - Descomente após executar migrate_servicos_pagina_servico.sql
+                'pagina_servico_id': None,  # TEMPORARIAMENTE None - Descomente após executar migrate_servicos_pagina_servico.sql e use: servico.pagina_servico_id
                 'data': servico.data.strftime('%Y-%m-%d %H:%M:%S') if servico.data else ''
             }
-            return render_template('admin/edit_servico.html', servico=servico_dict)
+            
+            # Buscar páginas de serviços ativas para o dropdown
+            paginas_servicos = []
+            try:
+                paginas_servicos = PaginaServico.query.filter_by(ativo=True).order_by(PaginaServico.ordem).all()
+            except Exception as e:
+                print(f"Erro ao carregar páginas de serviços: {e}")
+            
+            return render_template('admin/edit_servico.html', servico=servico_dict, paginas_servicos=paginas_servicos)
         except Exception as e:
             print(f"Erro ao editar serviço no banco: {e}")
             flash('Erro ao editar serviço. Usando arquivos JSON.', 'warning')
