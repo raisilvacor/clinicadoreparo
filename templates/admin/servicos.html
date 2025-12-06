@@ -41,7 +41,7 @@
                     {% endif %}
                 </td>
                 <td><strong>{{ servico.nome }}</strong></td>
-                <td>{{ servico.descricao[:50] }}{% if servico.descricao|length > 50 %}...{% endif %}</td>
+                <td>{% if servico.descricao %}{{ servico.descricao[:50] }}{% if servico.descricao|length > 50 %}...{% endif %}{% else %}<span class="text-muted">Sem descrição</span>{% endif %}</td>
                 <td>{{ servico.ordem or 999 }}</td>
                 <td>
                     {% if servico.ativo %}

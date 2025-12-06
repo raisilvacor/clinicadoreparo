@@ -1606,7 +1606,7 @@ def admin_servicos():
                     servico_dict = {
                         'id': s.id,
                         'nome': s.nome,
-                        'descricao': s.descricao,
+                        'descricao': s.descricao or '',  # Garantir que nunca seja None
                         'imagem': imagem_url,
                         'ordem': s.ordem,
                         'ativo': s.ativo,
