@@ -246,22 +246,22 @@ def garantir_coluna_pagina_servico_id():
         return False
     
     try:
-        from sqlalchemy import inspect
+        # Verificação rápida usando SQL direto (mais eficiente que inspect)
         engine = db.engine
-        inspector = inspect(engine)
-        
-        # Verificar se a tabela existe
-        if not inspector.has_table('servicos'):
-            _pagina_servico_id_column_exists = False
-            return False
-        
-        # Verificar se a coluna existe
-        columns = inspector.get_columns('servicos')
-        column_names = [col['name'] for col in columns]
-        
-        if 'pagina_servico_id' in column_names:
-            _pagina_servico_id_column_exists = True
-            return True
+        try:
+            with engine.connect() as conn:
+                result = conn.execute(db.text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'servicos' 
+                    AND column_name = 'pagina_servico_id'
+                """))
+                if result.fetchone():
+                    _pagina_servico_id_column_exists = True
+                    return True
+        except Exception as check_error:
+            # Se der erro na verificação, assumir que não existe e tentar criar
+            print(f"Aviso ao verificar coluna: {check_error}")
         
         # Coluna não existe, criar agora
         print("Coluna pagina_servico_id não existe. Criando...")
@@ -272,14 +272,22 @@ def garantir_coluna_pagina_servico_id():
                     ALTER TABLE servicos
                     ADD COLUMN IF NOT EXISTS pagina_servico_id INTEGER
                 """))
-                # Adicionar foreign key constraint
+                # Adicionar foreign key constraint (com IF NOT EXISTS implícito via try/except)
                 try:
                     conn.execute(db.text("""
-                        ALTER TABLE servicos
-                        ADD CONSTRAINT fk_servicos_pagina_servico
-                        FOREIGN KEY (pagina_servico_id)
-                        REFERENCES paginas_servicos(id)
-                        ON DELETE SET NULL
+                        DO $$ 
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_constraint 
+                                WHERE conname = 'fk_servicos_pagina_servico'
+                            ) THEN
+                                ALTER TABLE servicos
+                                ADD CONSTRAINT fk_servicos_pagina_servico
+                                FOREIGN KEY (pagina_servico_id)
+                                REFERENCES paginas_servicos(id)
+                                ON DELETE SET NULL;
+                            END IF;
+                        END $$;
                     """))
                 except Exception as fk_error:
                     # Se a constraint já existe, ignorar
@@ -300,8 +308,7 @@ def garantir_coluna_pagina_servico_id():
             return True
         except Exception as create_error:
             print(f"Erro ao criar coluna pagina_servico_id: {create_error}")
-            import traceback
-            traceback.print_exc()
+            # Não fazer traceback completo para evitar logs muito longos
             _pagina_servico_id_column_exists = False
             return False
     except Exception as e:
@@ -962,22 +969,32 @@ def index():
                 imagem_url = 'img/placeholder.png'
             
             # Buscar pagina_slug usando SQL direto (já que pagina_servico_id está comentado temporariamente)
+            # Verificação rápida sem criar a coluna (apenas ler)
             pagina_slug = None
-            if coluna_pagina_servico_id_existe():
-                try:
-                    result = db.session.execute(
-                        db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
-                        {'servico_id': s.id}
+            try:
+                # Tentar buscar diretamente - se a coluna não existir, apenas retorna None
+                result = db.session.execute(
+                    db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
+                    {'servico_id': s.id}
+                ).fetchone()
+                if result and result[0]:
+                    pagina_servico_id = result[0]
+                    pagina_result = db.session.execute(
+                        db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
+                        {'pagina_id': pagina_servico_id}
                     ).fetchone()
-                    if result and result[0]:
-                        pagina_servico_id = result[0]
-                        pagina_result = db.session.execute(
-                            db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
-                            {'pagina_id': pagina_servico_id}
-                        ).fetchone()
-                        if pagina_result:
-                            pagina_slug = pagina_result[0]
-                except Exception as e:
+                    if pagina_result:
+                        pagina_slug = pagina_result[0]
+            except Exception as e:
+                # Se a coluna não existe, apenas ignora (não tenta criar em rotas públicas)
+                error_str = str(e).lower()
+                if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
+                    # Coluna não existe, apenas continua sem pagina_slug
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
+                else:
                     print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
                     try:
                         db.session.rollback()
@@ -1181,22 +1198,32 @@ def servicos():
                 imagem_url = 'img/placeholder.png'
             
             # Buscar pagina_slug usando SQL direto (já que pagina_servico_id está comentado temporariamente)
+            # Verificação rápida sem criar a coluna (apenas ler)
             pagina_slug = None
-            if coluna_pagina_servico_id_existe():
-                try:
-                    result = db.session.execute(
-                        db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
-                        {'servico_id': s.id}
+            try:
+                # Tentar buscar diretamente - se a coluna não existir, apenas retorna None
+                result = db.session.execute(
+                    db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
+                    {'servico_id': s.id}
+                ).fetchone()
+                if result and result[0]:
+                    pagina_servico_id = result[0]
+                    pagina_result = db.session.execute(
+                        db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
+                        {'pagina_id': pagina_servico_id}
                     ).fetchone()
-                    if result and result[0]:
-                        pagina_servico_id = result[0]
-                        pagina_result = db.session.execute(
-                            db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
-                            {'pagina_id': pagina_servico_id}
-                        ).fetchone()
-                        if pagina_result:
-                            pagina_slug = pagina_result[0]
-                except Exception as e:
+                    if pagina_result:
+                        pagina_slug = pagina_result[0]
+            except Exception as e:
+                # Se a coluna não existe, apenas ignora (não tenta criar em rotas públicas)
+                error_str = str(e).lower()
+                if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
+                    # Coluna não existe, apenas continua sem pagina_slug
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
+                else:
                     print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
                     try:
                         db.session.rollback()
