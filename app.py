@@ -98,6 +98,23 @@ if database_url:
                         print("DEBUG: ✅ Usuário admin padrão criado no banco de dados")
                 except Exception as admin_err:
                     print(f"DEBUG: ⚠️ Aviso ao criar usuário admin padrão: {admin_err}")
+                
+                # Garantir que existem milestones padrão no banco
+                try:
+                    milestones_count = Milestone.query.count()
+                    if milestones_count == 0:
+                        # Criar milestones padrão
+                        milestones_padrao = [
+                            Milestone(titulo='Diagnóstico Preciso', imagem='img/milestone1.png', ordem=1, ativo=True),
+                            Milestone(titulo='Reparo Especializado', imagem='img/milestone2.png', ordem=2, ativo=True),
+                            Milestone(titulo='Atendimento Rápido', imagem='img/milestone3.png', ordem=3, ativo=True)
+                        ]
+                        for milestone in milestones_padrao:
+                            db.session.add(milestone)
+                        db.session.commit()
+                        print("DEBUG: ✅ Milestones padrão criados no banco de dados")
+                except Exception as milestone_err:
+                    print(f"DEBUG: ⚠️ Aviso ao criar milestones padrão: {milestone_err}")
                 # Nota: garantir_tabela_fornecedores() será chamada automaticamente quando necessário
                 # Testar conexão (mas não falhar se der erro temporário)
                 try:
@@ -4795,47 +4812,113 @@ def delete_marca(marca_id):
 @login_required
 def admin_milestones():
     """Lista todos os milestones cadastrados"""
-    init_milestones_file()
+    if use_database():
+        try:
+            milestones_db = Milestone.query.order_by(Milestone.ordem).all()
+            milestones = []
+            for m in milestones_db:
+                if m.imagem_id:
+                    imagem_url = f'/admin/milestones/imagem/{m.imagem_id}'
+                elif m.imagem:
+                    imagem_url = m.imagem
+                else:
+                    imagem_url = 'img/placeholder.png'
+                
+                milestones.append({
+                    'id': m.id,
+                    'titulo': m.titulo,
+                    'imagem': imagem_url,
+                    'ordem': m.ordem,
+                    'ativo': m.ativo
+                })
+        except Exception as e:
+            print(f"Erro ao buscar milestones do banco: {e}")
+            milestones = []
+    else:
+        # Fallback para JSON
+        init_milestones_file()
+        with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        milestones = sorted(data.get('milestones', []), key=lambda x: x.get('ordem', 999))
     
-    with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    milestones = sorted(data.get('milestones', []), key=lambda x: x.get('ordem', 999))
     return render_template('admin/milestones.html', milestones=milestones)
 
 @app.route('/admin/milestones/add', methods=['GET', 'POST'])
 @login_required
 def add_milestone():
     """Adiciona um novo milestone"""
-    init_milestones_file()
-    
     if request.method == 'POST':
-        with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Obter próximo ID
-        milestones = data.get('milestones', [])
-        novo_id = max([m.get('id', 0) for m in milestones], default=0) + 1
-        
-        # Obter próxima ordem
-        proxima_ordem = max([m.get('ordem', 0) for m in milestones], default=0) + 1
-        
-        novo_milestone = {
-            'id': novo_id,
-            'titulo': request.form.get('titulo', '').strip(),
-            'imagem': request.form.get('imagem', '').strip(),
-            'ordem': proxima_ordem,
-            'ativo': request.form.get('ativo') == 'on'
-        }
-        
-        milestones.append(novo_milestone)
-        data['milestones'] = milestones
-        
-        with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Milestone cadastrado com sucesso!', 'success')
-        return redirect(url_for('admin_milestones'))
+        if use_database():
+            try:
+                titulo = request.form.get('titulo', '').strip()
+                imagem_path = request.form.get('imagem', '').strip()
+                ordem = request.form.get('ordem', '1')
+                ativo = request.form.get('ativo') == 'on'
+                
+                if not titulo:
+                    flash('Por favor, informe o título do milestone.', 'error')
+                    return redirect(url_for('add_milestone'))
+                
+                # Extrair image_id do path se for do banco
+                imagem_id = None
+                if imagem_path.startswith('/admin/milestones/imagem/'):
+                    try:
+                        imagem_id = int(imagem_path.split('/')[-1])
+                    except:
+                        pass
+                
+                # Obter próxima ordem se não fornecida
+                if not ordem or not ordem.isdigit():
+                    ultimo_milestone = Milestone.query.order_by(Milestone.ordem.desc()).first()
+                    ordem = (ultimo_milestone.ordem + 1) if ultimo_milestone else 1
+                else:
+                    ordem = int(ordem)
+                
+                novo_milestone = Milestone(
+                    titulo=titulo,
+                    imagem=imagem_path if not imagem_id else None,
+                    imagem_id=imagem_id,
+                    ordem=ordem,
+                    ativo=ativo
+                )
+                
+                db.session.add(novo_milestone)
+                db.session.commit()
+                
+                flash('Milestone cadastrado com sucesso!', 'success')
+                return redirect(url_for('admin_milestones'))
+            except Exception as e:
+                print(f"Erro ao salvar milestone no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash(f'Erro ao salvar milestone: {str(e)}', 'error')
+        else:
+            # Fallback para JSON
+            init_milestones_file()
+            with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            milestones = data.get('milestones', [])
+            novo_id = max([m.get('id', 0) for m in milestones], default=0) + 1
+            proxima_ordem = max([m.get('ordem', 0) for m in milestones], default=0) + 1
+            
+            novo_milestone = {
+                'id': novo_id,
+                'titulo': request.form.get('titulo', '').strip(),
+                'imagem': request.form.get('imagem', '').strip(),
+                'ordem': proxima_ordem,
+                'ativo': request.form.get('ativo') == 'on'
+            }
+            
+            milestones.append(novo_milestone)
+            data['milestones'] = milestones
+            
+            with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Milestone cadastrado com sucesso!', 'success')
+            return redirect(url_for('admin_milestones'))
     
     return render_template('admin/add_milestone.html')
 
@@ -4843,48 +4926,130 @@ def add_milestone():
 @login_required
 def edit_milestone(milestone_id):
     """Edita um milestone existente"""
-    init_milestones_file()
-    
-    with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    milestones = data.get('milestones', [])
-    milestone = next((m for m in milestones if m.get('id') == milestone_id), None)
-    
-    if not milestone:
-        flash('Milestone não encontrado!', 'error')
-        return redirect(url_for('admin_milestones'))
-    
-    if request.method == 'POST':
-        milestone['titulo'] = request.form.get('titulo', '').strip()
-        milestone['imagem'] = request.form.get('imagem', '').strip()
-        milestone['ordem'] = int(request.form.get('ordem', 1))
-        milestone['ativo'] = request.form.get('ativo') == 'on'
+    if use_database():
+        try:
+            milestone = Milestone.query.get(milestone_id)
+            if not milestone:
+                flash('Milestone não encontrado!', 'error')
+                return redirect(url_for('admin_milestones'))
+            
+            if request.method == 'POST':
+                milestone.titulo = request.form.get('titulo', '').strip()
+                imagem_path = request.form.get('imagem', '').strip()
+                ordem = request.form.get('ordem', '1')
+                milestone.ativo = request.form.get('ativo') == 'on'
+                
+                if not milestone.titulo:
+                    flash('Por favor, informe o título do milestone.', 'error')
+                    return redirect(url_for('edit_milestone', milestone_id=milestone_id))
+                
+                # Extrair image_id do path se for do banco
+                imagem_id = None
+                if imagem_path.startswith('/admin/milestones/imagem/'):
+                    try:
+                        imagem_id = int(imagem_path.split('/')[-1])
+                    except:
+                        pass
+                
+                if imagem_id:
+                    milestone.imagem_id = imagem_id
+                    milestone.imagem = None
+                else:
+                    milestone.imagem = imagem_path
+                    milestone.imagem_id = None
+                
+                if ordem and ordem.isdigit():
+                    milestone.ordem = int(ordem)
+                
+                db.session.commit()
+                
+                flash('Milestone atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_milestones'))
+            
+            # Preparar dados para o template
+            if milestone.imagem_id:
+                imagem_url = f'/admin/milestones/imagem/{milestone.imagem_id}'
+            elif milestone.imagem:
+                imagem_url = milestone.imagem
+            else:
+                imagem_url = 'img/placeholder.png'
+            
+            milestone_data = {
+                'id': milestone.id,
+                'titulo': milestone.titulo,
+                'imagem': imagem_url,
+                'ordem': milestone.ordem,
+                'ativo': milestone.ativo
+            }
+            
+            return render_template('admin/edit_milestone.html', milestone=milestone_data)
+        except Exception as e:
+            print(f"Erro ao editar milestone no banco: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao editar milestone: {str(e)}', 'error')
+            return redirect(url_for('admin_milestones'))
+    else:
+        # Fallback para JSON
+        init_milestones_file()
+        with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
         
-        with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        milestones = data.get('milestones', [])
+        milestone = next((m for m in milestones if m.get('id') == milestone_id), None)
         
-        flash('Milestone atualizado com sucesso!', 'success')
-        return redirect(url_for('admin_milestones'))
-    
-    return render_template('admin/edit_milestone.html', milestone=milestone)
+        if not milestone:
+            flash('Milestone não encontrado!', 'error')
+            return redirect(url_for('admin_milestones'))
+        
+        if request.method == 'POST':
+            milestone['titulo'] = request.form.get('titulo', '').strip()
+            milestone['imagem'] = request.form.get('imagem', '').strip()
+            milestone['ordem'] = int(request.form.get('ordem', 1))
+            milestone['ativo'] = request.form.get('ativo') == 'on'
+            
+            with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Milestone atualizado com sucesso!', 'success')
+            return redirect(url_for('admin_milestones'))
+        
+        return render_template('admin/edit_milestone.html', milestone=milestone)
 
 @app.route('/admin/milestones/<int:milestone_id>/delete', methods=['POST'])
 @login_required
 def delete_milestone(milestone_id):
     """Exclui um milestone"""
-    init_milestones_file()
+    if use_database():
+        try:
+            milestone = Milestone.query.get(milestone_id)
+            if not milestone:
+                flash('Milestone não encontrado!', 'error')
+                return redirect(url_for('admin_milestones'))
+            
+            db.session.delete(milestone)
+            db.session.commit()
+            
+            flash('Milestone excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir milestone do banco: {e}")
+            db.session.rollback()
+            flash(f'Erro ao excluir milestone: {str(e)}', 'error')
+    else:
+        # Fallback para JSON
+        init_milestones_file()
+        with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        milestones = data.get('milestones', [])
+        data['milestones'] = [m for m in milestones if m.get('id') != milestone_id]
+        
+        with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        flash('Milestone excluído com sucesso!', 'success')
     
-    with open(MILESTONES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    milestones = data.get('milestones', [])
-    data['milestones'] = [m for m in milestones if m.get('id') != milestone_id]
-    
-    with open(MILESTONES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    flash('Milestone excluído com sucesso!', 'success')
     return redirect(url_for('admin_milestones'))
 
 # ==================== REPAROS REALIZADOS ====================
