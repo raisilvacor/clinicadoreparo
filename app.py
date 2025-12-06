@@ -1925,7 +1925,7 @@ def add_servico_admin():
             novo_servico = {
                 'id': max_id + 1,
                 'nome': nome,
-                'descricao': descricao,
+                'descricao': None,  # Não usar mais descrição, usar pagina_servico_id
                 'imagem': imagem,
                 'ordem': int(ordem) if ordem.isdigit() else 999,
                 'ativo': ativo,
