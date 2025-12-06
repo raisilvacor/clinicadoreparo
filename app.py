@@ -878,13 +878,32 @@ def index():
             else:
                 imagem_url = 'img/placeholder.png'
             
+            # Buscar pagina_slug usando SQL direto (já que pagina_servico_id está comentado temporariamente)
+            pagina_slug = None
+            try:
+                result = db.session.execute(
+                    db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
+                    {'servico_id': s.id}
+                ).fetchone()
+                if result and result[0]:
+                    pagina_servico_id = result[0]
+                    pagina_result = db.session.execute(
+                        db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
+                        {'pagina_id': pagina_servico_id}
+                    ).fetchone()
+                    if pagina_result:
+                        pagina_slug = pagina_result[0]
+            except Exception as e:
+                print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
+            
             servicos.append({
                 'id': s.id,
                 'nome': s.nome,
                 'descricao': s.descricao,
                 'imagem': imagem_url,
                 'ordem': s.ordem,
-                'ativo': s.ativo
+                'ativo': s.ativo,
+                'pagina_slug': pagina_slug
             })
     else:
         init_data_file()
@@ -1073,13 +1092,32 @@ def servicos():
             else:
                 imagem_url = 'img/placeholder.png'
             
+            # Buscar pagina_slug usando SQL direto (já que pagina_servico_id está comentado temporariamente)
+            pagina_slug = None
+            try:
+                result = db.session.execute(
+                    db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
+                    {'servico_id': s.id}
+                ).fetchone()
+                if result and result[0]:
+                    pagina_servico_id = result[0]
+                    pagina_result = db.session.execute(
+                        db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
+                        {'pagina_id': pagina_servico_id}
+                    ).fetchone()
+                    if pagina_result:
+                        pagina_slug = pagina_result[0]
+            except Exception as e:
+                print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
+            
             servicos.append({
                 'id': s.id,
                 'nome': s.nome,
                 'descricao': s.descricao,
                 'imagem': imagem_url,
                 'ordem': s.ordem,
-                'ativo': s.ativo
+                'ativo': s.ativo,
+                'pagina_slug': pagina_slug
             })
     else:
         init_data_file()
@@ -1755,7 +1793,7 @@ def servir_pdf(pdf_id):
 def add_servico_admin():
     if request.method == 'POST':
         nome = request.form.get('nome')
-        # pagina_servico_id = request.form.get('pagina_servico_id', '').strip()  # TEMPORARIAMENTE COMENTADO
+        pagina_servico_id = request.form.get('pagina_servico_id', '').strip()
         imagem = request.form.get('imagem', '').strip()
         ordem = request.form.get('ordem', '999')
         ativo = request.form.get('ativo') == 'on'
@@ -1769,9 +1807,9 @@ def add_servico_admin():
                 pass
         
         # Converter pagina_servico_id para int se fornecido
-        # pagina_id = None  # TEMPORARIAMENTE COMENTADO
-        # if pagina_servico_id and pagina_servico_id.isdigit():  # TEMPORARIAMENTE COMENTADO
-        #     pagina_id = int(pagina_servico_id)  # TEMPORARIAMENTE COMENTADO
+        pagina_id = None
+        if pagina_servico_id and pagina_servico_id.isdigit():
+            pagina_id = int(pagina_servico_id)
         
         if use_database():
             try:
@@ -1781,13 +1819,25 @@ def add_servico_admin():
                     descricao=None,  # Não usar mais descrição
                     imagem=imagem if not imagem_id else None,
                     imagem_id=imagem_id,
-                    # pagina_servico_id=pagina_id,  # TEMPORARIAMENTE COMENTADO - Descomente após executar migrate_servicos_pagina_servico.sql
                     ordem=int(ordem) if ordem.isdigit() else 999,
                     ativo=ativo,
                     data=datetime.now()
                 )
                 db.session.add(servico)
                 db.session.commit()
+                
+                # Atualizar pagina_servico_id usando SQL direto (já que o campo está comentado no modelo)
+                if pagina_id:
+                    try:
+                        db.session.execute(
+                            db.text("UPDATE servicos SET pagina_servico_id = :pagina_id WHERE id = :servico_id"),
+                            {'pagina_id': pagina_id, 'servico_id': servico.id}
+                        )
+                        db.session.commit()
+                    except Exception as e:
+                        print(f"Erro ao atualizar pagina_servico_id: {e}")
+                        db.session.rollback()
+                
                 flash('Serviço adicionado com sucesso!', 'success')
                 return redirect(url_for('admin_servicos'))
             except Exception as e:
@@ -1848,14 +1898,13 @@ def edit_servico(servico_id):
             if request.method == 'POST':
                 servico.nome = request.form.get('nome')
                 servico.descricao = None  # Não usar mais descrição
-                # pagina_servico_id = request.form.get('pagina_servico_id', '').strip()  # TEMPORARIAMENTE COMENTADO
+                pagina_servico_id = request.form.get('pagina_servico_id', '').strip()
                 imagem_nova = request.form.get('imagem', '').strip()
                 
                 # Converter pagina_servico_id para int se fornecido
-                # if pagina_servico_id and pagina_servico_id.isdigit():  # TEMPORARIAMENTE COMENTADO
-                #     servico.pagina_servico_id = int(pagina_servico_id)  # TEMPORARIAMENTE COMENTADO
-                # else:  # TEMPORARIAMENTE COMENTADO
-                #     servico.pagina_servico_id = None  # TEMPORARIAMENTE COMENTADO - Descomente após executar migrate_servicos_pagina_servico.sql
+                pagina_id = None
+                if pagina_servico_id and pagina_servico_id.isdigit():
+                    pagina_id = int(pagina_servico_id)
                 
                 if imagem_nova:
                     servico.imagem = imagem_nova if not imagem_nova.startswith('/admin/servicos/imagem/') else None
@@ -1871,6 +1920,24 @@ def edit_servico(servico_id):
                 servico.ativo = request.form.get('ativo') == 'on'
                 
                 db.session.commit()
+                
+                # Atualizar pagina_servico_id usando SQL direto (já que o campo está comentado no modelo)
+                try:
+                    if pagina_id:
+                        db.session.execute(
+                            db.text("UPDATE servicos SET pagina_servico_id = :pagina_id WHERE id = :servico_id"),
+                            {'pagina_id': pagina_id, 'servico_id': servico.id}
+                        )
+                    else:
+                        db.session.execute(
+                            db.text("UPDATE servicos SET pagina_servico_id = NULL WHERE id = :servico_id"),
+                            {'servico_id': servico.id}
+                        )
+                    db.session.commit()
+                except Exception as e:
+                    print(f"Erro ao atualizar pagina_servico_id: {e}")
+                    db.session.rollback()
+                
                 flash('Serviço atualizado com sucesso!', 'success')
                 return redirect(url_for('admin_servicos'))
             
@@ -1882,6 +1949,18 @@ def edit_servico(servico_id):
             else:
                 imagem_url = ''
             
+            # Buscar pagina_servico_id usando SQL direto
+            pagina_servico_id = None
+            try:
+                result = db.session.execute(
+                    db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
+                    {'servico_id': servico.id}
+                ).fetchone()
+                if result and result[0]:
+                    pagina_servico_id = result[0]
+            except Exception as e:
+                print(f"Erro ao buscar pagina_servico_id: {e}")
+            
             servico_dict = {
                 'id': servico.id,
                 'nome': servico.nome,
@@ -1889,7 +1968,7 @@ def edit_servico(servico_id):
                 'imagem': imagem_url,
                 'ordem': servico.ordem,
                 'ativo': servico.ativo,
-                'pagina_servico_id': None,  # TEMPORARIAMENTE None - Descomente após executar migrate_servicos_pagina_servico.sql e use: servico.pagina_servico_id
+                'pagina_servico_id': pagina_servico_id,
                 'data': servico.data.strftime('%Y-%m-%d %H:%M:%S') if servico.data else ''
             }
             
