@@ -1093,18 +1093,21 @@ def servicos():
 @app.route('/servico/<slug>')
 def pagina_servico(slug):
     """Rota dinâmica para páginas de serviços individuais"""
-    if use_database():
-        try:
-            pagina = PaginaServico.query.filter_by(slug=slug, ativo=True).first()
-            if not pagina:
-                flash('Página de serviço não encontrada.', 'error')
-                return redirect(url_for('servicos'))
-        except Exception as e:
-            print(f"Erro ao buscar página de serviço: {e}")
-            flash('Erro ao carregar página.', 'error')
+    # SEMPRE usar banco de dados - não há fallback para JSON
+    if not use_database():
+        flash('Sistema de páginas de serviços não disponível. Configure DATABASE_URL no Render.', 'error')
+        return redirect(url_for('servicos'))
+    
+    try:
+        pagina = PaginaServico.query.filter_by(slug=slug, ativo=True).first()
+        if not pagina:
+            flash('Página de serviço não encontrada.', 'error')
             return redirect(url_for('servicos'))
-    else:
-        flash('Sistema de páginas de serviços não disponível.', 'error')
+    except Exception as e:
+        print(f"Erro ao buscar página de serviço: {e}")
+        import traceback
+        traceback.print_exc()
+        flash('Erro ao carregar página.', 'error')
         return redirect(url_for('servicos'))
     
     # Carregar footer
@@ -6459,31 +6462,34 @@ def servir_imagem_milestone(image_id):
 @login_required
 def admin_paginas_servicos():
     """Lista todas as páginas de serviços cadastradas"""
-    if use_database():
-        try:
-            paginas_db = PaginaServico.query.order_by(PaginaServico.ordem).all()
-            paginas = []
-            for p in paginas_db:
-                if p.imagem_id:
-                    imagem_url = f'/admin/paginas-servicos/imagem/{p.imagem_id}'
-                elif hasattr(p, 'imagem') and p.imagem:
-                    imagem_url = p.imagem
-                else:
-                    imagem_url = None
-                
-                paginas.append({
-                    'id': p.id,
-                    'slug': p.slug,
-                    'titulo': p.titulo,
-                    'descricao': p.descricao or '',
-                    'imagem': imagem_url,
-                    'ordem': p.ordem,
-                    'ativo': p.ativo
-                })
-        except Exception as e:
-            print(f"Erro ao buscar páginas de serviços do banco: {e}")
-            paginas = []
-    else:
+    # SEMPRE usar banco de dados - não há fallback para JSON
+    if not use_database():
+        flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
+        return render_template('admin/paginas_servicos.html', paginas=[])
+    
+    try:
+        paginas_db = PaginaServico.query.order_by(PaginaServico.ordem).all()
+        paginas = []
+        for p in paginas_db:
+            if p.imagem_id:
+                imagem_url = f'/admin/paginas-servicos/imagem/{p.imagem_id}'
+            else:
+                imagem_url = None
+            
+            paginas.append({
+                'id': p.id,
+                'slug': p.slug,
+                'titulo': p.titulo,
+                'descricao': p.descricao or '',
+                'imagem': imagem_url,
+                'ordem': p.ordem,
+                'ativo': p.ativo
+            })
+    except Exception as e:
+        print(f"Erro ao buscar páginas de serviços do banco: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao carregar páginas: {str(e)}', 'error')
         paginas = []
     
     return render_template('admin/paginas_servicos.html', paginas=paginas)
@@ -6555,7 +6561,8 @@ def add_pagina_servico():
                 db.session.rollback()
                 flash(f'Erro ao salvar página: {str(e)}', 'error')
         else:
-            flash('Banco de dados não configurado.', 'error')
+            flash('Banco de dados não configurado. Configure DATABASE_URL no Render. As páginas devem ser salvas no banco de dados para evitar perda de dados após hibernação.', 'error')
+            return redirect(url_for('admin_paginas_servicos'))
     
     return render_template('admin/add_pagina_servico.html')
 
@@ -6657,7 +6664,7 @@ def edit_pagina_servico(pagina_id):
             flash(f'Erro ao editar página: {str(e)}', 'error')
             return redirect(url_for('admin_paginas_servicos'))
     else:
-        flash('Banco de dados não configurado.', 'error')
+        flash('Banco de dados não configurado. Configure DATABASE_URL no Render. As páginas devem ser salvas no banco de dados para evitar perda de dados após hibernação.', 'error')
         return redirect(url_for('admin_paginas_servicos'))
 
 @app.route('/admin/paginas-servicos/<int:pagina_id>/delete', methods=['POST'])
@@ -6680,7 +6687,7 @@ def delete_pagina_servico(pagina_id):
             db.session.rollback()
             flash(f'Erro ao excluir página: {str(e)}', 'error')
     else:
-        flash('Banco de dados não configurado.', 'error')
+        flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
     
     return redirect(url_for('admin_paginas_servicos'))
 
@@ -6707,46 +6714,50 @@ def upload_imagem_pagina_servico():
     file_data = file.read()
     imagem_tipo = file.mimetype
     
-    if use_database():
-        try:
-            imagem = Imagem(
-                nome=secure_filename(file.filename),
-                dados=file_data,
-                tipo_mime=imagem_tipo,
-                tamanho=file_size,
-                referencia=f'pagina_servico_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-            )
-            db.session.add(imagem)
-            db.session.commit()
-            
-            return jsonify({
-                'success': True, 
-                'path': f'/admin/paginas-servicos/imagem/{imagem.id}',
-                'image_id': imagem.id
-            })
-        except Exception as e:
-            print(f"Erro ao salvar imagem de página de serviço no banco: {e}")
-            import traceback
-            traceback.print_exc()
-            db.session.rollback()
-            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
+    # SEMPRE usar banco de dados - imagens devem ser salvas no banco para evitar perda de dados
+    if not use_database():
+        return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render. As imagens devem ser salvas no banco de dados para evitar perda de dados após hibernação.'}), 500
     
-    return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
+    try:
+        imagem = Imagem(
+            nome=secure_filename(file.filename),
+            dados=file_data,
+            tipo_mime=imagem_tipo,
+            tamanho=file_size,
+            referencia=f'pagina_servico_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        )
+        db.session.add(imagem)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'path': f'/admin/paginas-servicos/imagem/{imagem.id}',
+            'image_id': imagem.id
+        })
+    except Exception as e:
+        print(f"Erro ao salvar imagem de página de serviço no banco: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
 
 @app.route('/admin/paginas-servicos/imagem/<int:image_id>')
 def servir_imagem_pagina_servico(image_id):
     """Rota para servir imagens de páginas de serviços do banco de dados"""
-    if use_database():
-        try:
-            imagem = Imagem.query.get(image_id)
-            if imagem and imagem.dados:
-                return Response(
-                    imagem.dados,
-                    mimetype=imagem.tipo_mime,
-                    headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
-                )
-        except Exception as e:
-            print(f"Erro ao buscar imagem de página de serviço: {e}")
+    # SEMPRE usar banco de dados - imagens são salvas no banco
+    if not use_database():
+        return redirect(url_for('static', filename='img/placeholder.png'))
+    
+    try:
+        imagem = Imagem.query.get(image_id)
+        if imagem and imagem.dados:
+            return Response(
+                imagem.dados,
+                mimetype=imagem.tipo_mime,
+                headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+            )
+    except Exception as e:
+        print(f"Erro ao buscar imagem de página de serviço: {e}")
     
     return redirect(url_for('static', filename='img/placeholder.png'))
 
