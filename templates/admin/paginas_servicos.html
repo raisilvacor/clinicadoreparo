@@ -1,0 +1,100 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Páginas de Serviços - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-file-alt"></i> Gerenciar Páginas de Serviços</h1>
+        <p>Gerencie as páginas individuais de serviços exibidas no menu</p>
+    </div>
+    <a href="{{ url_for('add_pagina_servico') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Página
+    </a>
+</div>
+
+{% if paginas %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Imagem</th>
+                <th>Título</th>
+                <th>Slug</th>
+                <th>Ordem</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pagina in paginas %}
+            <tr>
+                <td>{{ pagina.id }}</td>
+                <td>
+                    {% if pagina.imagem %}
+                    <div class="image-preview-small">
+                        <img src="{{ pagina.imagem }}" alt="Imagem {{ pagina.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
+                    </div>
+                    {% else %}
+                    <span class="text-muted">Sem imagem</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ pagina.titulo }}</strong></td>
+                <td><code>{{ pagina.slug }}</code></td>
+                <td><strong>{{ pagina.ordem }}</strong></td>
+                <td>
+                    {% if pagina.ativo %}
+                    <span class="badge badge-success">Ativo</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Inativo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('pagina_servico', slug=pagina.slug) }}" class="btn btn-sm btn-info" target="_blank" title="Ver página">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('edit_pagina_servico', pagina_id=pagina.id) }}" class="btn btn-sm btn-warning" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_pagina_servico', pagina_id=pagina.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta página?');">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-file-alt"></i>
+    <p>Nenhuma página de serviço cadastrada</p>
+    <a href="{{ url_for('add_pagina_servico') }}" class="btn btn-primary">Adicionar Primeira Página</a>
+</div>
+{% endif %}
+
+<style>
+.image-preview-small {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary);
+}
+
+.image-preview-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+</style>
+{% endblock %}
+

@@ -312,3 +312,24 @@ class Video(db.Model):
             return f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg'
         return None
 
+# ==================== PÁGINAS DE SERVIÇOS ====================
+class PaginaServico(db.Model):
+    """Páginas individuais de serviços (Máquina de Lavar, Microondas, etc.)"""
+    __tablename__ = 'paginas_servicos'
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(200), unique=True, nullable=False)  # URL amigável (ex: maquina-de-lavar)
+    titulo = db.Column(db.String(200), nullable=False)  # Título exibido no menu (ex: Máquina de Lavar)
+    descricao = db.Column(db.Text)  # Descrição da página
+    conteudo = db.Column(db.Text)  # Conteúdo HTML da página
+    imagem_id = db.Column(db.Integer, db.ForeignKey('imagens.id'))  # Imagem principal
+    ordem = db.Column(db.Integer, default=1)  # Ordem no menu
+    ativo = db.Column(db.Boolean, default=True)  # Se aparece no menu
+    meta_titulo = db.Column(db.String(200))  # SEO: meta title
+    meta_descricao = db.Column(db.Text)  # SEO: meta description
+    meta_keywords = db.Column(db.String(500))  # SEO: meta keywords
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # Relacionamento
+    imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
+

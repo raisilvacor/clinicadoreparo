@@ -13,7 +13,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, Video
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, PaginaServico
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -77,7 +77,7 @@ if database_url:
             with app.app_context():
                 # Forçar criação do engine e tabelas
                 # Importar explicitamente todos os modelos para garantir que sejam registrados
-                from models import Fornecedor, Video  # Garantir que todos os modelos estão importados
+                from models import Fornecedor, Video, PaginaServico  # Garantir que todos os modelos estão importados
                 db.create_all()
                 print("DEBUG: ✅ Tabelas criadas/verificadas no banco de dados")
                 
@@ -115,6 +115,28 @@ if database_url:
                         print("DEBUG: ✅ Milestones padrão criados no banco de dados")
                 except Exception as milestone_err:
                     print(f"DEBUG: ⚠️ Aviso ao criar milestones padrão: {milestone_err}")
+                
+                # Garantir que existem páginas de serviços padrão no banco
+                try:
+                    paginas_count = PaginaServico.query.count()
+                    if paginas_count == 0:
+                        # Criar páginas de serviços padrão
+                        paginas_padrao = [
+                            PaginaServico(slug='maquina-de-lavar', titulo='Máquina de Lavar', ordem=1, ativo=True, descricao='Reparo especializado em máquinas de lavar', conteudo='<p>Oferecemos serviços completos de reparo para máquinas de lavar de todas as marcas.</p>'),
+                            PaginaServico(slug='microondas', titulo='Microondas', ordem=2, ativo=True, descricao='Conserto de microondas', conteudo='<p>Reparo profissional de microondas com garantia.</p>'),
+                            PaginaServico(slug='celular', titulo='Celular', ordem=3, ativo=True, descricao='Assistência técnica para celulares', conteudo='<p>Conserto de celulares e smartphones de todas as marcas.</p>'),
+                            PaginaServico(slug='computador-e-notebook', titulo='Computador e Notebook', ordem=4, ativo=True, descricao='Reparo de computadores e notebooks', conteudo='<p>Serviços especializados em reparo de computadores e notebooks.</p>'),
+                            PaginaServico(slug='tv', titulo='TV', ordem=5, ativo=True, descricao='Conserto de televisores', conteudo='<p>Reparo de TVs LED, LCD, Plasma e Smart TVs.</p>'),
+                            PaginaServico(slug='eletrodomesticos', titulo='Eletro Domésticos', ordem=6, ativo=True, descricao='Reparo de eletrodomésticos', conteudo='<p>Conserto de todos os tipos de eletrodomésticos.</p>'),
+                            PaginaServico(slug='video-games', titulo='Video Games', ordem=7, ativo=True, descricao='Reparo de videogames', conteudo='<p>Assistência técnica para consoles e videogames.</p>'),
+                            PaginaServico(slug='eletronica-em-geral', titulo='Eletrônica em Geral', ordem=8, ativo=True, descricao='Reparo de equipamentos eletrônicos', conteudo='<p>Serviços de reparo para diversos equipamentos eletrônicos.</p>')
+                        ]
+                        for pagina in paginas_padrao:
+                            db.session.add(pagina)
+                        db.session.commit()
+                        print("DEBUG: ✅ Páginas de serviços padrão criadas no banco de dados")
+                except Exception as pagina_err:
+                    print(f"DEBUG: ⚠️ Aviso ao criar páginas de serviços padrão: {pagina_err}")
                 # Nota: garantir_tabela_fornecedores() será chamada automaticamente quando necessário
                 # Testar conexão (mas não falhar se der erro temporário)
                 try:
@@ -1067,6 +1089,71 @@ def servicos():
         servicos = sorted(servicos, key=lambda x: x.get('ordem', 999))
     
     return render_template('servicos.html', footer=footer_data, servicos=servicos)
+
+@app.route('/servico/<slug>')
+def pagina_servico(slug):
+    """Rota dinâmica para páginas de serviços individuais"""
+    if use_database():
+        try:
+            pagina = PaginaServico.query.filter_by(slug=slug, ativo=True).first()
+            if not pagina:
+                flash('Página de serviço não encontrada.', 'error')
+                return redirect(url_for('servicos'))
+        except Exception as e:
+            print(f"Erro ao buscar página de serviço: {e}")
+            flash('Erro ao carregar página.', 'error')
+            return redirect(url_for('servicos'))
+    else:
+        flash('Sistema de páginas de serviços não disponível.', 'error')
+        return redirect(url_for('servicos'))
+    
+    # Carregar footer
+    footer_data = None
+    if use_database():
+        try:
+            footer_obj = Footer.query.first()
+            if footer_obj:
+                contato = footer_obj.contato if footer_obj.contato else {}
+                redes_sociais = footer_obj.redes_sociais if footer_obj.redes_sociais else {}
+                footer_data = {
+                    'descricao': footer_obj.descricao or '',
+                    'redes_sociais': redes_sociais,
+                    'contato': contato,
+                    'copyright': footer_obj.copyright or '',
+                    'whatsapp_float': footer_obj.whatsapp_float or ''
+                }
+        except Exception as e:
+            print(f"Erro ao carregar footer: {e}")
+    
+    if not footer_data:
+        footer_data = {
+            'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'contato': {'telefone': '', 'email': '', 'endereco': ''},
+            'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
+            'whatsapp_float': ''
+        }
+    
+    # Preparar dados da página
+    imagem_url = None
+    if pagina.imagem_id:
+        imagem_url = f'/admin/paginas-servicos/imagem/{pagina.imagem_id}'
+    elif pagina.imagem:
+        imagem_url = pagina.imagem
+    
+    pagina_data = {
+        'id': pagina.id,
+        'slug': pagina.slug,
+        'titulo': pagina.titulo,
+        'descricao': pagina.descricao or '',
+        'conteudo': pagina.conteudo or '',
+        'imagem': imagem_url,
+        'meta_titulo': pagina.meta_titulo or pagina.titulo,
+        'meta_descricao': pagina.meta_descricao or pagina.descricao or '',
+        'meta_keywords': pagina.meta_keywords or ''
+    }
+    
+    return render_template('pagina_servico.html', pagina=pagina_data, footer=footer_data)
 
 # ==================== ROTAS DA LOJA (REMOVIDO) ====================
 @app.route('/contato', methods=['GET', 'POST'])
@@ -5841,6 +5928,27 @@ def inject_tipos_servico():
     """Injeta lista fixa de tipos de serviço em todos os templates"""
     return {'tipos_servico': TIPOS_SERVICO}
 
+@app.context_processor
+def inject_paginas_servicos():
+    """Injeta páginas de serviços ativas em todos os templates para o menu"""
+    paginas_servicos_menu = []
+    
+    if use_database():
+        try:
+            paginas_db = PaginaServico.query.filter_by(ativo=True).order_by(PaginaServico.ordem).all()
+            for p in paginas_db:
+                paginas_servicos_menu.append({
+                    'id': p.id,
+                    'slug': p.slug,
+                    'titulo': p.titulo,
+                    'ordem': p.ordem
+                })
+        except Exception as e:
+            print(f"Erro ao carregar páginas de serviços do banco em inject_paginas_servicos: {e}")
+            paginas_servicos_menu = []
+    
+    return {'paginas_servicos_menu': paginas_servicos_menu}
+
 @app.template_filter('get_status_label')
 def get_status_label(status):
     """Traduz o status para português"""
@@ -6342,6 +6450,303 @@ def servir_imagem_milestone(image_id):
                 )
         except Exception as e:
             print(f"Erro ao buscar imagem de milestone: {e}")
+    
+    return redirect(url_for('static', filename='img/placeholder.png'))
+
+# ==================== PÁGINAS DE SERVIÇOS (ADMIN) ====================
+
+@app.route('/admin/paginas-servicos')
+@login_required
+def admin_paginas_servicos():
+    """Lista todas as páginas de serviços cadastradas"""
+    if use_database():
+        try:
+            paginas_db = PaginaServico.query.order_by(PaginaServico.ordem).all()
+            paginas = []
+            for p in paginas_db:
+                if p.imagem_id:
+                    imagem_url = f'/admin/paginas-servicos/imagem/{p.imagem_id}'
+                elif p.imagem:
+                    imagem_url = p.imagem
+                else:
+                    imagem_url = None
+                
+                paginas.append({
+                    'id': p.id,
+                    'slug': p.slug,
+                    'titulo': p.titulo,
+                    'descricao': p.descricao or '',
+                    'imagem': imagem_url,
+                    'ordem': p.ordem,
+                    'ativo': p.ativo
+                })
+        except Exception as e:
+            print(f"Erro ao buscar páginas de serviços do banco: {e}")
+            paginas = []
+    else:
+        paginas = []
+    
+    return render_template('admin/paginas_servicos.html', paginas=paginas)
+
+@app.route('/admin/paginas-servicos/add', methods=['GET', 'POST'])
+@login_required
+def add_pagina_servico():
+    """Adiciona uma nova página de serviço"""
+    if request.method == 'POST':
+        if use_database():
+            try:
+                slug = request.form.get('slug', '').strip().lower().replace(' ', '-')
+                titulo = request.form.get('titulo', '').strip()
+                descricao = request.form.get('descricao', '').strip()
+                conteudo = request.form.get('conteudo', '').strip()
+                imagem_path = request.form.get('imagem', '').strip()
+                ordem = request.form.get('ordem', '1')
+                ativo = request.form.get('ativo') == 'on'
+                meta_titulo = request.form.get('meta_titulo', '').strip()
+                meta_descricao = request.form.get('meta_descricao', '').strip()
+                meta_keywords = request.form.get('meta_keywords', '').strip()
+                
+                if not slug or not titulo:
+                    flash('Por favor, preencha o slug e o título.', 'error')
+                    return redirect(url_for('add_pagina_servico'))
+                
+                # Verificar se slug já existe
+                if PaginaServico.query.filter_by(slug=slug).first():
+                    flash('Este slug já está em uso. Escolha outro.', 'error')
+                    return redirect(url_for('add_pagina_servico'))
+                
+                # Extrair image_id do path se for do banco
+                imagem_id = None
+                if imagem_path.startswith('/admin/paginas-servicos/imagem/'):
+                    try:
+                        imagem_id = int(imagem_path.split('/')[-1])
+                    except:
+                        pass
+                
+                if not ordem or not ordem.isdigit():
+                    ultima_pagina = PaginaServico.query.order_by(PaginaServico.ordem.desc()).first()
+                    ordem = (ultima_pagina.ordem + 1) if ultima_pagina else 1
+                else:
+                    ordem = int(ordem)
+                
+                nova_pagina = PaginaServico(
+                    slug=slug,
+                    titulo=titulo,
+                    descricao=descricao if descricao else None,
+                    conteudo=conteudo if conteudo else None,
+                    imagem=imagem_path if not imagem_id else None,
+                    imagem_id=imagem_id,
+                    ordem=ordem,
+                    ativo=ativo,
+                    meta_titulo=meta_titulo if meta_titulo else None,
+                    meta_descricao=meta_descricao if meta_descricao else None,
+                    meta_keywords=meta_keywords if meta_keywords else None
+                )
+                
+                db.session.add(nova_pagina)
+                db.session.commit()
+                
+                flash('Página de serviço cadastrada com sucesso!', 'success')
+                return redirect(url_for('admin_paginas_servicos'))
+            except Exception as e:
+                print(f"Erro ao salvar página de serviço no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash(f'Erro ao salvar página: {str(e)}', 'error')
+        else:
+            flash('Banco de dados não configurado.', 'error')
+    
+    return render_template('admin/add_pagina_servico.html')
+
+@app.route('/admin/paginas-servicos/<int:pagina_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_pagina_servico(pagina_id):
+    """Edita uma página de serviço existente"""
+    if use_database():
+        try:
+            pagina = PaginaServico.query.get(pagina_id)
+            if not pagina:
+                flash('Página não encontrada!', 'error')
+                return redirect(url_for('admin_paginas_servicos'))
+            
+            if request.method == 'POST':
+                slug = request.form.get('slug', '').strip().lower().replace(' ', '-')
+                titulo = request.form.get('titulo', '').strip()
+                descricao = request.form.get('descricao', '').strip()
+                conteudo = request.form.get('conteudo', '').strip()
+                imagem_path = request.form.get('imagem', '').strip()
+                ordem = request.form.get('ordem', '1')
+                ativo = request.form.get('ativo') == 'on'
+                meta_titulo = request.form.get('meta_titulo', '').strip()
+                meta_descricao = request.form.get('meta_descricao', '').strip()
+                meta_keywords = request.form.get('meta_keywords', '').strip()
+                
+                if not slug or not titulo:
+                    flash('Por favor, preencha o slug e o título.', 'error')
+                    return redirect(url_for('edit_pagina_servico', pagina_id=pagina_id))
+                
+                # Verificar se slug já existe em outra página
+                pagina_existente = PaginaServico.query.filter_by(slug=slug).first()
+                if pagina_existente and pagina_existente.id != pagina_id:
+                    flash('Este slug já está em uso. Escolha outro.', 'error')
+                    return redirect(url_for('edit_pagina_servico', pagina_id=pagina_id))
+                
+                # Extrair image_id do path se for do banco
+                imagem_id = None
+                if imagem_path.startswith('/admin/paginas-servicos/imagem/'):
+                    try:
+                        imagem_id = int(imagem_path.split('/')[-1])
+                    except:
+                        pass
+                
+                pagina.slug = slug
+                pagina.titulo = titulo
+                pagina.descricao = descricao if descricao else None
+                pagina.conteudo = conteudo if conteudo else None
+                
+                if imagem_id:
+                    pagina.imagem_id = imagem_id
+                    pagina.imagem = None
+                else:
+                    pagina.imagem = imagem_path if imagem_path else None
+                    pagina.imagem_id = None
+                
+                if ordem and ordem.isdigit():
+                    pagina.ordem = int(ordem)
+                
+                pagina.ativo = ativo
+                pagina.meta_titulo = meta_titulo if meta_titulo else None
+                pagina.meta_descricao = meta_descricao if meta_descricao else None
+                pagina.meta_keywords = meta_keywords if meta_keywords else None
+                pagina.data_atualizacao = datetime.now()
+                
+                db.session.commit()
+                
+                flash('Página atualizada com sucesso!', 'success')
+                return redirect(url_for('admin_paginas_servicos'))
+            
+            # Preparar dados para o template
+            if pagina.imagem_id:
+                imagem_url = f'/admin/paginas-servicos/imagem/{pagina.imagem_id}'
+            elif pagina.imagem:
+                imagem_url = pagina.imagem
+            else:
+                imagem_url = ''
+            
+            pagina_data = {
+                'id': pagina.id,
+                'slug': pagina.slug,
+                'titulo': pagina.titulo,
+                'descricao': pagina.descricao or '',
+                'conteudo': pagina.conteudo or '',
+                'imagem': imagem_url,
+                'ordem': pagina.ordem,
+                'ativo': pagina.ativo,
+                'meta_titulo': pagina.meta_titulo or '',
+                'meta_descricao': pagina.meta_descricao or '',
+                'meta_keywords': pagina.meta_keywords or ''
+            }
+            
+            return render_template('admin/edit_pagina_servico.html', pagina=pagina_data)
+        except Exception as e:
+            print(f"Erro ao editar página de serviço: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao editar página: {str(e)}', 'error')
+            return redirect(url_for('admin_paginas_servicos'))
+    else:
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_paginas_servicos'))
+
+@app.route('/admin/paginas-servicos/<int:pagina_id>/delete', methods=['POST'])
+@login_required
+def delete_pagina_servico(pagina_id):
+    """Exclui uma página de serviço"""
+    if use_database():
+        try:
+            pagina = PaginaServico.query.get(pagina_id)
+            if not pagina:
+                flash('Página não encontrada!', 'error')
+                return redirect(url_for('admin_paginas_servicos'))
+            
+            db.session.delete(pagina)
+            db.session.commit()
+            
+            flash('Página excluída com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir página de serviço: {e}")
+            db.session.rollback()
+            flash(f'Erro ao excluir página: {str(e)}', 'error')
+    else:
+        flash('Banco de dados não configurado.', 'error')
+    
+    return redirect(url_for('admin_paginas_servicos'))
+
+@app.route('/admin/paginas-servicos/upload-imagem', methods=['POST'])
+@login_required
+def upload_imagem_pagina_servico():
+    """Upload de imagem para páginas de serviços - salva no banco de dados"""
+    if 'imagem' not in request.files:
+        return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['imagem']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP'}), 400
+    
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 5MB'}), 400
+    
+    file_data = file.read()
+    imagem_tipo = file.mimetype
+    
+    if use_database():
+        try:
+            imagem = Imagem(
+                nome=secure_filename(file.filename),
+                dados=file_data,
+                tipo_mime=imagem_tipo,
+                tamanho=file_size,
+                referencia=f'pagina_servico_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            )
+            db.session.add(imagem)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'path': f'/admin/paginas-servicos/imagem/{imagem.id}',
+                'image_id': imagem.id
+            })
+        except Exception as e:
+            print(f"Erro ao salvar imagem de página de serviço no banco: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
+    
+    return jsonify({'success': False, 'error': 'Banco de dados não configurado. Configure DATABASE_URL no Render.'}), 500
+
+@app.route('/admin/paginas-servicos/imagem/<int:image_id>')
+def servir_imagem_pagina_servico(image_id):
+    """Rota para servir imagens de páginas de serviços do banco de dados"""
+    if use_database():
+        try:
+            imagem = Imagem.query.get(image_id)
+            if imagem and imagem.dados:
+                return Response(
+                    imagem.dados,
+                    mimetype=imagem.tipo_mime,
+                    headers={'Content-Disposition': f'inline; filename={imagem.nome}'}
+                )
+        except Exception as e:
+            print(f"Erro ao buscar imagem de página de serviço: {e}")
     
     return redirect(url_for('static', filename='img/placeholder.png'))
 

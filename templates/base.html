@@ -54,7 +54,27 @@
             <ul class="nav-menu">
                 <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
                 <li><a href="{{ url_for('sobre') }}" class="nav-link">Sobre</a></li>
-                <li><a href="{{ url_for('servicos') }}" class="nav-link">Serviços</a></li>
+                <li class="nav-dropdown">
+                    <a href="{{ url_for('servicos') }}" class="nav-link">
+                        Serviços <i class="fas fa-chevron-down"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        {% if paginas_servicos_menu %}
+                            {% for pagina in paginas_servicos_menu %}
+                            <li><a href="{{ url_for('pagina_servico', slug=pagina.slug) }}">{{ pagina.titulo }}</a></li>
+                            {% endfor %}
+                        {% else %}
+                            <li><a href="{{ url_for('pagina_servico', slug='maquina-de-lavar') }}">Máquina de Lavar</a></li>
+                            <li><a href="{{ url_for('pagina_servico', slug='microondas') }}">Microondas</a></li>
+                            <li><a href="{{ url_for('pagina_servico', slug='celular') }}">Celular</a></li>
+                            <li><a href="{{ url_for('pagina_servico', slug='computador-e-notebook') }}">Computador e Notebook</a></li>
+                            <li><a href="{{ url_for('pagina_servico', slug='tv') }}">TV</a></li>
+                            <li><a href="{{ url_for('pagina_servico', slug='eletrodomesticos') }}">Eletro Domésticos</a></li>
+                            <li><a href="{{ url_for('pagina_servico', slug='video-games') }}">Video Games</a></li>
+                            <li><a href="{{ url_for('pagina_servico', slug='eletronica-em-geral') }}">Eletrônica em Geral</a></li>
+                        {% endif %}
+                    </ul>
+                </li>
                 <li><a href="{{ url_for('rastrear') }}" class="nav-link"><i class="fas fa-search"></i> Rastrear</a></li>
                 <li><a href="{{ url_for('client_login') }}" class="nav-link btn-primary">Login</a></li>
                 <li><a href="{{ url_for('contato') }}" class="nav-link btn-primary">Contato</a></li>

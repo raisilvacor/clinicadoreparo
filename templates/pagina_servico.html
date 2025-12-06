@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pagina.meta_titulo }} - Clínica do Reparo{% endblock %}
+
+{% block description %}{{ pagina.meta_descricao }}{% endblock %}
+
+{% block keywords %}{{ pagina.meta_keywords }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>{{ pagina.titulo }}</h1>
+        {% if pagina.descricao %}
+        <p class="page-subtitle">{{ pagina.descricao }}</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="page-content">
+    <div class="container">
+        <div class="content-wrapper">
+            {% if pagina.imagem %}
+            <div class="page-image">
+                <img src="{{ pagina.imagem if pagina.imagem.startswith('/') else url_for('static', filename=pagina.imagem) }}" alt="{{ pagina.titulo }}" loading="lazy">
+            </div>
+            {% endif %}
+            
+            <div class="page-body">
+                {% if pagina.conteudo %}
+                    {{ pagina.conteudo|safe }}
+                {% else %}
+                    <p>Conteúdo em breve...</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.page-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 6rem 0 3rem;
+    margin-top: 70px;
+    text-align: center;
+}
+
+.page-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.page-subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.page-content {
+    padding: 4rem 0;
+}
+
+.content-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.page-image {
+    margin-bottom: 2rem;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+.page-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.page-body {
+    line-height: 1.8;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.page-body h2 {
+    color: var(--primary-color);
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.8rem;
+}
+
+.page-body h3 {
+    color: var(--primary-dark);
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.4rem;
+}
+
+.page-body p {
+    margin-bottom: 1rem;
+}
+
+.page-body ul, .page-body ol {
+    margin: 1rem 0;
+    padding-left: 2rem;
+}
+
+.page-body li {
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        padding: 5rem 0 2rem;
+    }
+    
+    .page-header h1 {
+        font-size: 2rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1rem;
+    }
+    
+    .page-content {
+        padding: 2rem 0;
+    }
+}
+</style>
+{% endblock %}
+

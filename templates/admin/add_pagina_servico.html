@@ -1,0 +1,204 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Adicionar Página de Serviço - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-file-alt"></i> Adicionar Página de Serviço</h1>
+    <p>Cadastre uma nova página de serviço para exibir no menu</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('add_pagina_servico') }}" class="admin-form">
+        <div class="form-group">
+            <label for="slug">
+                <i class="fas fa-link"></i>
+                Slug (URL) <span class="required">*</span>
+            </label>
+            <input type="text" id="slug" name="slug" required placeholder="ex: maquina-de-lavar" pattern="[a-z0-9-]+" title="Apenas letras minúsculas, números e hífens">
+            <small class="form-help">URL amigável (será convertido automaticamente para minúsculas e hífens)</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="titulo">
+                <i class="fas fa-heading"></i>
+                Título <span class="required">*</span>
+            </label>
+            <input type="text" id="titulo" name="titulo" required placeholder="Ex: Máquina de Lavar">
+            <small class="form-help">Título que será exibido no menu</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="descricao">
+                <i class="fas fa-align-left"></i>
+                Descrição
+            </label>
+            <textarea id="descricao" name="descricao" rows="3" placeholder="Breve descrição da página"></textarea>
+            <small class="form-help">Descrição curta que aparecerá no cabeçalho da página</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="imagem">
+                <i class="fas fa-image"></i>
+                Imagem
+            </label>
+            <input type="file" id="imagem_upload" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" style="display: none;">
+            <label for="imagem_upload" class="btn btn-primary" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 10px;">
+                <i class="fas fa-upload"></i> Escolher Imagem do Computador
+            </label>
+            <input type="text" id="imagem" name="imagem" placeholder="Caminho da imagem será preenchido automaticamente após o upload" readonly>
+            <small class="form-help">O caminho da imagem será preenchido automaticamente após o upload.</small>
+            <div id="upload_status" style="margin-top: 5px;"></div>
+            <div id="image-preview" style="width: 100%; max-width: 300px; height: 300px; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8f9fa; margin-top: 0.5rem;">
+                <p style="color: #999;">Preview aparecerá aqui</p>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="conteudo">
+                <i class="fas fa-file-alt"></i>
+                Conteúdo da Página
+            </label>
+            <textarea id="conteudo" name="conteudo" rows="10" placeholder="Conteúdo HTML da página"></textarea>
+            <small class="form-help">Conteúdo HTML que será exibido na página (pode usar tags HTML)</small>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="ordem">
+                    <i class="fas fa-sort-numeric-down"></i>
+                    Ordem no Menu
+                </label>
+                <input type="number" id="ordem" name="ordem" value="1" min="1">
+                <small class="form-help">Ordem de exibição no menu (menor aparece primeiro)</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="ativo" name="ativo" checked>
+                    <span>Página ativa (aparecerá no menu)</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3><i class="fas fa-search"></i> SEO (Opcional)</h3>
+            
+            <div class="form-group">
+                <label for="meta_titulo">
+                    <i class="fas fa-heading"></i>
+                    Meta Título
+                </label>
+                <input type="text" id="meta_titulo" name="meta_titulo" placeholder="Título para SEO">
+                <small class="form-help">Título que aparecerá nos resultados de busca (se vazio, usa o título da página)</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="meta_descricao">
+                    <i class="fas fa-align-left"></i>
+                    Meta Descrição
+                </label>
+                <textarea id="meta_descricao" name="meta_descricao" rows="3" placeholder="Descrição para SEO"></textarea>
+                <small class="form-help">Descrição que aparecerá nos resultados de busca</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="meta_keywords">
+                    <i class="fas fa-tags"></i>
+                    Meta Keywords
+                </label>
+                <input type="text" id="meta_keywords" name="meta_keywords" placeholder="palavra1, palavra2, palavra3">
+                <small class="form-help">Palavras-chave separadas por vírgula</small>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Página
+            </button>
+            <a href="{{ url_for('admin_paginas_servicos') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+const inputFile = document.getElementById('imagem_upload');
+const inputImagem = document.getElementById('imagem');
+const preview = document.getElementById('image-preview');
+const uploadStatus = document.getElementById('upload_status');
+
+inputFile.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Tipo de arquivo não permitido. Use: PNG, JPG, JPEG, GIF ou WEBP</span>';
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+        uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Arquivo muito grande. Tamanho máximo: 5MB</span>';
+        return;
+    }
+    
+    uploadStatus.innerHTML = '<span style="color: #007bff;"><i class="fas fa-spinner fa-spin"></i> Enviando imagem...</span>';
+    
+    const formData = new FormData();
+    formData.append('imagem', file);
+    
+    fetch('{{ url_for("upload_imagem_pagina_servico") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            inputImagem.value = data.path;
+            uploadStatus.innerHTML = '<span style="color: green;"><i class="fas fa-check-circle"></i> Imagem enviada com sucesso!</span>';
+            
+            const img = document.createElement('img');
+            if (data.path.startsWith('/')) {
+                img.src = data.path;
+            } else {
+                img.src = '/static/' + data.path;
+            }
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            preview.innerHTML = '';
+            preview.appendChild(img);
+        } else {
+            uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> ' + (data.error || 'Erro ao enviar imagem') + '</span>';
+        }
+    })
+    .catch(error => {
+        uploadStatus.innerHTML = '<span style="color: red;"><i class="fas fa-times-circle"></i> Erro ao enviar imagem: ' + error.message + '</span>';
+    });
+});
+
+// Auto-gerar slug a partir do título
+document.getElementById('titulo').addEventListener('input', function(e) {
+    const slugInput = document.getElementById('slug');
+    if (!slugInput.value || slugInput.dataset.autoGenerated !== 'true') {
+        const slug = e.target.value.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .trim();
+        slugInput.value = slug;
+        slugInput.dataset.autoGenerated = 'true';
+    }
+});
+
+// Permitir edição manual do slug
+document.getElementById('slug').addEventListener('input', function(e) {
+    e.target.dataset.autoGenerated = 'false';
+});
+</script>
+{% endblock %}
+
