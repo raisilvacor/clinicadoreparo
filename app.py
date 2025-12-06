@@ -3223,17 +3223,38 @@ def client_login():
                     db.or_(Cliente.username == username, Cliente.email == username)
                 ).first()
                 
-                if cliente and cliente.password and check_password_hash(cliente.password, password):
-                    session['client_logged_in'] = True
-                    session['cliente_logado'] = True
-                    session['client_id'] = cliente.id
-                    session['cliente_id'] = cliente.id
-                    session['cliente_nome'] = cliente.nome
-                    session['cliente_email'] = cliente.email
-                    flash('Login realizado com sucesso!', 'success')
-                    return redirect(url_for('client_dashboard'))
-                else:
-                    flash('Usuário ou senha incorretos!', 'error')
+                if cliente and cliente.password:
+                    # Verificar senha (pode estar hasheada ou em texto plano para compatibilidade)
+                    senha_valida = False
+                    try:
+                        # Tentar verificar como hash primeiro
+                        if check_password_hash(cliente.password, password):
+                            senha_valida = True
+                    except:
+                        # Se falhar, pode ser que a senha esteja em texto plano
+                        pass
+                    
+                    # Se não passou no hash, verificar como texto plano (compatibilidade)
+                    if not senha_valida and cliente.password == password:
+                        # Senha em texto plano - hashear e atualizar no banco
+                        try:
+                            cliente.password = generate_password_hash(password)
+                            db.session.commit()
+                            senha_valida = True
+                        except Exception as hash_err:
+                            print(f"Erro ao hashear senha: {hash_err}")
+                    
+                    if senha_valida:
+                        session['client_logged_in'] = True
+                        session['cliente_logado'] = True
+                        session['client_id'] = cliente.id
+                        session['cliente_id'] = cliente.id
+                        session['cliente_nome'] = cliente.nome
+                        session['cliente_email'] = cliente.email
+                        flash('Login realizado com sucesso!', 'success')
+                        return redirect(url_for('client_dashboard'))
+                
+                flash('Usuário ou senha incorretos!', 'error')
             except Exception as e:
                 print(f"Erro ao fazer login do cliente: {e}")
                 flash('Erro ao fazer login. Tente novamente.', 'error')
