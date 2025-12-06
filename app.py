@@ -233,13 +233,13 @@ def use_database():
 # Cache para verificar se a coluna existe (evita múltiplas queries)
 _pagina_servico_id_column_exists = None
 
-def coluna_pagina_servico_id_existe():
-    """Verifica se a coluna pagina_servico_id existe na tabela servicos"""
+def garantir_coluna_pagina_servico_id():
+    """Garante que a coluna pagina_servico_id existe na tabela servicos, criando se necessário"""
     global _pagina_servico_id_column_exists
     
-    # Se já verificamos antes, retornar o resultado em cache
-    if _pagina_servico_id_column_exists is not None:
-        return _pagina_servico_id_column_exists
+    # Se já verificamos antes e existe, retornar True
+    if _pagina_servico_id_column_exists is True:
+        return True
     
     if not use_database():
         _pagina_servico_id_column_exists = False
@@ -259,12 +259,59 @@ def coluna_pagina_servico_id_existe():
         columns = inspector.get_columns('servicos')
         column_names = [col['name'] for col in columns]
         
-        _pagina_servico_id_column_exists = 'pagina_servico_id' in column_names
-        return _pagina_servico_id_column_exists
+        if 'pagina_servico_id' in column_names:
+            _pagina_servico_id_column_exists = True
+            return True
+        
+        # Coluna não existe, criar agora
+        print("Coluna pagina_servico_id não existe. Criando...")
+        try:
+            with engine.begin() as conn:
+                # Adicionar coluna
+                conn.execute(db.text("""
+                    ALTER TABLE servicos
+                    ADD COLUMN IF NOT EXISTS pagina_servico_id INTEGER
+                """))
+                # Adicionar foreign key constraint
+                try:
+                    conn.execute(db.text("""
+                        ALTER TABLE servicos
+                        ADD CONSTRAINT fk_servicos_pagina_servico
+                        FOREIGN KEY (pagina_servico_id)
+                        REFERENCES paginas_servicos(id)
+                        ON DELETE SET NULL
+                    """))
+                except Exception as fk_error:
+                    # Se a constraint já existe, ignorar
+                    if 'already exists' not in str(fk_error).lower() and 'duplicate' not in str(fk_error).lower():
+                        print(f"Aviso ao criar foreign key: {fk_error}")
+                # Criar índice
+                try:
+                    conn.execute(db.text("""
+                        CREATE INDEX IF NOT EXISTS idx_servicos_pagina_servico_id 
+                        ON servicos(pagina_servico_id)
+                    """))
+                except Exception as idx_error:
+                    # Se o índice já existe, ignorar
+                    if 'already exists' not in str(idx_error).lower() and 'duplicate' not in str(idx_error).lower():
+                        print(f"Aviso ao criar índice: {idx_error}")
+            print("✅ Coluna pagina_servico_id criada com sucesso!")
+            _pagina_servico_id_column_exists = True
+            return True
+        except Exception as create_error:
+            print(f"Erro ao criar coluna pagina_servico_id: {create_error}")
+            import traceback
+            traceback.print_exc()
+            _pagina_servico_id_column_exists = False
+            return False
     except Exception as e:
-        print(f"Erro ao verificar se coluna pagina_servico_id existe: {e}")
+        print(f"Erro ao verificar/criar coluna pagina_servico_id: {e}")
         _pagina_servico_id_column_exists = False
         return False
+
+def coluna_pagina_servico_id_existe():
+    """Verifica se a coluna pagina_servico_id existe (cria se não existir)"""
+    return garantir_coluna_pagina_servico_id()
 
 def garantir_tabela_fornecedores():
     """Garante que a tabela de fornecedores existe no banco de dados - SOLUÇÃO DEFINITIVA"""
@@ -1872,29 +1919,24 @@ def add_servico_admin():
                 db.session.add(servico)
                 db.session.commit()
                 
+                # Garantir que a coluna existe antes de tentar atualizar
+                garantir_coluna_pagina_servico_id()
+                
                 # Atualizar pagina_servico_id usando SQL direto (já que o campo está comentado no modelo)
-                if pagina_id:
+                if pagina_id and coluna_pagina_servico_id_existe():
                     try:
                         db.session.execute(
                             db.text("UPDATE servicos SET pagina_servico_id = :pagina_id WHERE id = :servico_id"),
                             {'pagina_id': pagina_id, 'servico_id': servico.id}
                         )
                         db.session.commit()
+                        print(f"✅ pagina_servico_id {pagina_id} salvo para serviço {servico.id}")
                     except Exception as e:
-                        # Se a coluna não existe, apenas ignora (a migração ainda não foi executada)
-                        error_str = str(e).lower()
-                        if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
-                            try:
-                                db.session.rollback()
-                            except:
-                                pass
-                            # Não exibe erro, apenas continua
-                        else:
-                            print(f"Erro ao atualizar pagina_servico_id: {e}")
-                            try:
-                                db.session.rollback()
-                            except:
-                                pass
+                        print(f"Erro ao atualizar pagina_servico_id: {e}")
+                        try:
+                            db.session.rollback()
+                        except:
+                            pass
                 
                 flash('Serviço adicionado com sucesso!', 'success')
                 return redirect(url_for('admin_servicos'))
@@ -1979,6 +2021,9 @@ def edit_servico(servico_id):
                 
                 db.session.commit()
                 
+                # Garantir que a coluna existe antes de tentar atualizar
+                garantir_coluna_pagina_servico_id()
+                
                 # Atualizar pagina_servico_id usando SQL direto (já que o campo está comentado no modelo)
                 if coluna_pagina_servico_id_existe():
                     try:
@@ -1987,11 +2032,13 @@ def edit_servico(servico_id):
                                 db.text("UPDATE servicos SET pagina_servico_id = :pagina_id WHERE id = :servico_id"),
                                 {'pagina_id': pagina_id, 'servico_id': servico.id}
                             )
+                            print(f"✅ pagina_servico_id {pagina_id} atualizado para serviço {servico.id}")
                         else:
                             db.session.execute(
                                 db.text("UPDATE servicos SET pagina_servico_id = NULL WHERE id = :servico_id"),
                                 {'servico_id': servico.id}
                             )
+                            print(f"✅ pagina_servico_id removido do serviço {servico.id}")
                         db.session.commit()
                     except Exception as e:
                         print(f"Erro ao atualizar pagina_servico_id: {e}")
