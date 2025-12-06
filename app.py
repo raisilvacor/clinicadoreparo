@@ -1138,7 +1138,7 @@ def pagina_servico(slug):
     imagem_url = None
     if pagina.imagem_id:
         imagem_url = f'/admin/paginas-servicos/imagem/{pagina.imagem_id}'
-    elif pagina.imagem:
+    elif hasattr(pagina, 'imagem') and pagina.imagem:
         imagem_url = pagina.imagem if pagina.imagem.startswith('/') or pagina.imagem.startswith('http') else url_for('static', filename=pagina.imagem)
     
     pagina_data = {
@@ -6466,7 +6466,7 @@ def admin_paginas_servicos():
             for p in paginas_db:
                 if p.imagem_id:
                     imagem_url = f'/admin/paginas-servicos/imagem/{p.imagem_id}'
-                elif p.imagem:
+                elif hasattr(p, 'imagem') and p.imagem:
                     imagem_url = p.imagem
                 else:
                     imagem_url = None
@@ -6534,7 +6534,7 @@ def add_pagina_servico():
                     titulo=titulo,
                     descricao=descricao if descricao else None,
                     conteudo=conteudo if conteudo else None,
-                    imagem=imagem_path if not imagem_id else None,
+                    # imagem=imagem_path if not imagem_id else None,  # Temporariamente desabilitado até migração
                     imagem_id=imagem_id,
                     ordem=ordem,
                     ativo=ativo,
@@ -6607,10 +6607,10 @@ def edit_pagina_servico(pagina_id):
                 
                 if imagem_id:
                     pagina.imagem_id = imagem_id
-                    pagina.imagem = None
-                else:
-                    pagina.imagem = imagem_path if imagem_path else None
-                    pagina.imagem_id = None
+                    # pagina.imagem = None  # Temporariamente desabilitado até migração
+                # else:
+                #     pagina.imagem = imagem_path if imagem_path else None  # Temporariamente desabilitado até migração
+                #     pagina.imagem_id = None
                 
                 if ordem and ordem.isdigit():
                     pagina.ordem = int(ordem)
@@ -6629,8 +6629,8 @@ def edit_pagina_servico(pagina_id):
             # Preparar dados para o template
             if pagina.imagem_id:
                 imagem_url = f'/admin/paginas-servicos/imagem/{pagina.imagem_id}'
-            elif pagina.imagem:
-                imagem_url = pagina.imagem
+            # elif hasattr(pagina, 'imagem') and pagina.imagem:  # Temporariamente desabilitado até migração
+            #     imagem_url = pagina.imagem
             else:
                 imagem_url = ''
             
