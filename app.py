@@ -230,6 +230,42 @@ def use_database():
     
     return False
 
+# Cache para verificar se a coluna existe (evita múltiplas queries)
+_pagina_servico_id_column_exists = None
+
+def coluna_pagina_servico_id_existe():
+    """Verifica se a coluna pagina_servico_id existe na tabela servicos"""
+    global _pagina_servico_id_column_exists
+    
+    # Se já verificamos antes, retornar o resultado em cache
+    if _pagina_servico_id_column_exists is not None:
+        return _pagina_servico_id_column_exists
+    
+    if not use_database():
+        _pagina_servico_id_column_exists = False
+        return False
+    
+    try:
+        from sqlalchemy import inspect
+        engine = db.engine
+        inspector = inspect(engine)
+        
+        # Verificar se a tabela existe
+        if not inspector.has_table('servicos'):
+            _pagina_servico_id_column_exists = False
+            return False
+        
+        # Verificar se a coluna existe
+        columns = inspector.get_columns('servicos')
+        column_names = [col['name'] for col in columns]
+        
+        _pagina_servico_id_column_exists = 'pagina_servico_id' in column_names
+        return _pagina_servico_id_column_exists
+    except Exception as e:
+        print(f"Erro ao verificar se coluna pagina_servico_id existe: {e}")
+        _pagina_servico_id_column_exists = False
+        return False
+
 def garantir_tabela_fornecedores():
     """Garante que a tabela de fornecedores existe no banco de dados - SOLUÇÃO DEFINITIVA"""
     if not use_database():
@@ -880,29 +916,21 @@ def index():
             
             # Buscar pagina_slug usando SQL direto (já que pagina_servico_id está comentado temporariamente)
             pagina_slug = None
-            try:
-                result = db.session.execute(
-                    db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
-                    {'servico_id': s.id}
-                ).fetchone()
-                if result and result[0]:
-                    pagina_servico_id = result[0]
-                    pagina_result = db.session.execute(
-                        db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
-                        {'pagina_id': pagina_servico_id}
+            if coluna_pagina_servico_id_existe():
+                try:
+                    result = db.session.execute(
+                        db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
+                        {'servico_id': s.id}
                     ).fetchone()
-                    if pagina_result:
-                        pagina_slug = pagina_result[0]
-            except Exception as e:
-                # Se a coluna não existe, apenas ignora (faz rollback para não abortar a transação)
-                error_str = str(e).lower()
-                if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
-                    # Coluna não existe ainda, faz rollback e continua sem pagina_slug
-                    try:
-                        db.session.rollback()
-                    except:
-                        pass
-                else:
+                    if result and result[0]:
+                        pagina_servico_id = result[0]
+                        pagina_result = db.session.execute(
+                            db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
+                            {'pagina_id': pagina_servico_id}
+                        ).fetchone()
+                        if pagina_result:
+                            pagina_slug = pagina_result[0]
+                except Exception as e:
                     print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
                     try:
                         db.session.rollback()
@@ -1107,29 +1135,21 @@ def servicos():
             
             # Buscar pagina_slug usando SQL direto (já que pagina_servico_id está comentado temporariamente)
             pagina_slug = None
-            try:
-                result = db.session.execute(
-                    db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
-                    {'servico_id': s.id}
-                ).fetchone()
-                if result and result[0]:
-                    pagina_servico_id = result[0]
-                    pagina_result = db.session.execute(
-                        db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
-                        {'pagina_id': pagina_servico_id}
+            if coluna_pagina_servico_id_existe():
+                try:
+                    result = db.session.execute(
+                        db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
+                        {'servico_id': s.id}
                     ).fetchone()
-                    if pagina_result:
-                        pagina_slug = pagina_result[0]
-            except Exception as e:
-                # Se a coluna não existe, apenas ignora (faz rollback para não abortar a transação)
-                error_str = str(e).lower()
-                if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
-                    # Coluna não existe ainda, faz rollback e continua sem pagina_slug
-                    try:
-                        db.session.rollback()
-                    except:
-                        pass
-                else:
+                    if result and result[0]:
+                        pagina_servico_id = result[0]
+                        pagina_result = db.session.execute(
+                            db.text("SELECT slug FROM paginas_servicos WHERE id = :pagina_id AND ativo = true"),
+                            {'pagina_id': pagina_servico_id}
+                        ).fetchone()
+                        if pagina_result:
+                            pagina_slug = pagina_result[0]
+                except Exception as e:
                     print(f"Erro ao buscar pagina_slug para serviço {s.id}: {e}")
                     try:
                         db.session.rollback()
@@ -1960,28 +1980,20 @@ def edit_servico(servico_id):
                 db.session.commit()
                 
                 # Atualizar pagina_servico_id usando SQL direto (já que o campo está comentado no modelo)
-                try:
-                    if pagina_id:
-                        db.session.execute(
-                            db.text("UPDATE servicos SET pagina_servico_id = :pagina_id WHERE id = :servico_id"),
-                            {'pagina_id': pagina_id, 'servico_id': servico.id}
-                        )
-                    else:
-                        db.session.execute(
-                            db.text("UPDATE servicos SET pagina_servico_id = NULL WHERE id = :servico_id"),
-                            {'servico_id': servico.id}
-                        )
-                    db.session.commit()
-                except Exception as e:
-                    # Se a coluna não existe, apenas ignora (a migração ainda não foi executada)
-                    error_str = str(e).lower()
-                    if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
-                        try:
-                            db.session.rollback()
-                        except:
-                            pass
-                        # Não exibe erro, apenas continua
-                    else:
+                if coluna_pagina_servico_id_existe():
+                    try:
+                        if pagina_id:
+                            db.session.execute(
+                                db.text("UPDATE servicos SET pagina_servico_id = :pagina_id WHERE id = :servico_id"),
+                                {'pagina_id': pagina_id, 'servico_id': servico.id}
+                            )
+                        else:
+                            db.session.execute(
+                                db.text("UPDATE servicos SET pagina_servico_id = NULL WHERE id = :servico_id"),
+                                {'servico_id': servico.id}
+                            )
+                        db.session.commit()
+                    except Exception as e:
                         print(f"Erro ao atualizar pagina_servico_id: {e}")
                         try:
                             db.session.rollback()
@@ -2001,23 +2013,15 @@ def edit_servico(servico_id):
             
             # Buscar pagina_servico_id usando SQL direto
             pagina_servico_id = None
-            try:
-                result = db.session.execute(
-                    db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
-                    {'servico_id': servico.id}
-                ).fetchone()
-                if result and result[0]:
-                    pagina_servico_id = result[0]
-            except Exception as e:
-                # Se a coluna não existe, apenas ignora (faz rollback para não abortar a transação)
-                error_str = str(e).lower()
-                if 'pagina_servico_id' in error_str or 'does not exist' in error_str or 'undefinedcolumn' in error_str:
-                    # Coluna não existe ainda, faz rollback e continua sem pagina_servico_id
-                    try:
-                        db.session.rollback()
-                    except:
-                        pass
-                else:
+            if coluna_pagina_servico_id_existe():
+                try:
+                    result = db.session.execute(
+                        db.text("SELECT pagina_servico_id FROM servicos WHERE id = :servico_id"),
+                        {'servico_id': servico.id}
+                    ).fetchone()
+                    if result and result[0]:
+                        pagina_servico_id = result[0]
+                except Exception as e:
                     print(f"Erro ao buscar pagina_servico_id: {e}")
                     try:
                         db.session.rollback()
