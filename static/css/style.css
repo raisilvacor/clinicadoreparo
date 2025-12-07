@@ -1280,6 +1280,38 @@ section {
         display: flex;
     }
 
+    /* Mobile dropdown menu - override desktop hover behavior */
+    .nav-dropdown:hover .dropdown-menu {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .nav-dropdown .dropdown-menu {
+        position: static;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        box-shadow: none;
+        background: var(--bg-secondary);
+        padding: 0.5rem 0;
+        margin: 0.5rem 0 0 1rem;
+        border-radius: 8px;
+        display: none;
+        min-width: auto;
+    }
+
+    .nav-dropdown.active .dropdown-menu {
+        display: block;
+    }
+
+    .nav-dropdown .nav-link {
+        cursor: pointer;
+    }
+
+    .nav-dropdown.active .nav-link i {
+        transform: rotate(180deg);
+    }
+
     .hero {
         padding: 80px 0 40px;
     }

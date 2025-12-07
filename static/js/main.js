@@ -18,6 +18,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Mobile dropdown toggle for services
+    const navDropdown = document.querySelector('.nav-dropdown');
+    const dropdownLink = navDropdown ? navDropdown.querySelector('.nav-link') : null;
+    const dropdownMenu = navDropdown ? navDropdown.querySelector('.dropdown-menu') : null;
+    
+    if (dropdownLink && dropdownMenu) {
+        // Function to check if mobile
+        function isMobile() {
+            return window.innerWidth <= 768;
+        }
+        
+        // Handle click on dropdown link
+        dropdownLink.addEventListener('click', function(e) {
+            if (isMobile()) {
+                e.preventDefault();
+                e.stopPropagation();
+                navDropdown.classList.toggle('active');
+            }
+            // On desktop, let the hover work naturally
+        });
+        
+        // Prevent dropdown from closing when clicking inside it (mobile)
+        dropdownMenu.addEventListener('click', function(e) {
+            if (isMobile()) {
+                e.stopPropagation();
+            }
+        });
+        
+        // Close dropdown when clicking outside (mobile only)
+        document.addEventListener('click', function(e) {
+            if (isMobile() && navDropdown && !navDropdown.contains(e.target)) {
+                navDropdown.classList.remove('active');
+            }
+        });
+        
+        // Handle window resize - close dropdown if switching to desktop
+        window.addEventListener('resize', function() {
+            if (!isMobile()) {
+                navDropdown.classList.remove('active');
+            }
+        });
+    }
+
     // Close flash messages
     const flashCloseButtons = document.querySelectorAll('.flash-close');
     flashCloseButtons.forEach(button => {
