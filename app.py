@@ -2332,8 +2332,8 @@ def admin_financeiro():
             traceback.print_exc()
             # Continuar com fallback para JSON
     
-    # Fallback para JSON
-    if not use_database() or len(ordens_pagas) == 0 and len(ordens_concluidas) == 0:
+    # Fallback para JSON - só usar se não estiver usando banco
+    if not use_database():
         with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
@@ -3872,10 +3872,36 @@ init_comprovantes_file()
 @login_required
 def admin_comprovantes():
     """Lista todos os comprovantes emitidos"""
-    with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    if use_database():
+        try:
+            comprovantes_db = Comprovante.query.order_by(Comprovante.data.desc()).all()
+            comprovantes = []
+            for c in comprovantes_db:
+                comprovantes.append({
+                    'id': c.id,
+                    'cliente_id': c.cliente_id,
+                    'cliente_nome': c.cliente_nome or '',
+                    'ordem_id': c.ordem_id,
+                    'numero_ordem': c.numero_ordem or '',
+                    'valor_total': float(c.valor_total) if c.valor_total else 0.00,
+                    'valor_pago': float(c.valor_pago) if c.valor_pago else 0.00,
+                    'forma_pagamento': c.forma_pagamento or '',
+                    'parcelas': c.parcelas or 1,
+                    'data': c.data.strftime('%Y-%m-%d %H:%M:%S') if c.data else '',
+                    'pdf_filename': c.pdf_filename or ''
+                })
+        except Exception as e:
+            print(f"Erro ao listar comprovantes do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            comprovantes = []
+    else:
+        # Fallback para JSON
+        with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        comprovantes = sorted(data.get('comprovantes', []), key=lambda x: x.get('data', ''), reverse=True)
     
-    comprovantes = sorted(data['comprovantes'], key=lambda x: x.get('data', ''), reverse=True)
     return render_template('admin/comprovantes.html', comprovantes=comprovantes)
 
 @app.route('/admin/comprovantes/add', methods=['GET', 'POST'])
@@ -3889,84 +3915,214 @@ def emitir_comprovante():
         forma_pagamento = request.form.get('forma_pagamento')
         parcelas = request.form.get('parcelas', '1')
         
-        # Buscar cliente e ordem
+        if use_database():
+            try:
+                # Buscar cliente e ordem do banco
+                cliente = Cliente.query.get(cliente_id)
+                if not cliente:
+                    flash('Cliente não encontrado!', 'error')
+                    return redirect(url_for('emitir_comprovante'))
+                
+                ordem = OrdemServico.query.filter_by(id=ordem_id, cliente_id=cliente_id).first()
+                if not ordem:
+                    flash('Ordem de serviço não encontrada!', 'error')
+                    return redirect(url_for('emitir_comprovante'))
+                
+                # Preparar dados para gerar PDF
+                cliente_dict = {
+                    'nome': cliente.nome,
+                    'email': cliente.email or '',
+                    'telefone': cliente.telefone or '',
+                    'cpf': cliente.cpf or '',
+                    'endereco': cliente.endereco or ''
+                }
+                
+                ordem_dict = {
+                    'id': ordem.id,
+                    'numero_ordem': ordem.numero_ordem or str(ordem.id),
+                    'servico': ordem.servico or '',
+                    'total': float(ordem.total) if ordem.total else 0.00,
+                    'status': ordem.status or 'pendente'
+                }
+                
+                # Criar comprovante temporário para gerar PDF
+                novo_comprovante_temp = {
+                    'id': 0,  # Será atualizado após salvar
+                    'cliente_id': cliente_id,
+                    'cliente_nome': cliente.nome,
+                    'ordem_id': ordem_id,
+                    'numero_ordem': ordem.numero_ordem or str(ordem_id),
+                    'valor_total': float(ordem.total) if ordem.total else 0.00,
+                    'valor_pago': valor_pago,
+                    'forma_pagamento': forma_pagamento,
+                    'parcelas': int(parcelas) if forma_pagamento == 'cartao_credito' else 1,
+                    'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'pdf_filename': None
+                }
+                
+                # Gerar PDF do comprovante
+                pdf_result = gerar_pdf_comprovante(cliente_dict, ordem_dict, novo_comprovante_temp)
+                
+                # Criar comprovante no banco
+                novo_comprovante = Comprovante(
+                    cliente_id=cliente_id,
+                    cliente_nome=cliente.nome,
+                    ordem_id=ordem_id,
+                    numero_ordem=ordem.numero_ordem or str(ordem_id),
+                    valor_total=float(ordem.total) if ordem.total else 0.00,
+                    valor_pago=valor_pago,
+                    forma_pagamento=forma_pagamento,
+                    parcelas=int(parcelas) if forma_pagamento == 'cartao_credito' else 1,
+                    data=datetime.now()
+                )
+                
+                # Atualizar PDF se gerado
+                if isinstance(pdf_result, dict):
+                    novo_comprovante.pdf_filename = pdf_result.get('pdf_filename', '')
+                    novo_comprovante.pdf_id = pdf_result.get('pdf_id')
+                elif pdf_result:
+                    novo_comprovante.pdf_filename = pdf_result
+                
+                db.session.add(novo_comprovante)
+                db.session.commit()
+                
+                # Atualizar ID do comprovante temporário para caso precise regerar PDF
+                novo_comprovante_temp['id'] = novo_comprovante.id
+                
+                flash('Comprovante emitido com sucesso!', 'success')
+                return redirect(url_for('admin_comprovantes'))
+            except Exception as e:
+                print(f"Erro ao emitir comprovante no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash('Erro ao emitir comprovante. Tente novamente.', 'error')
+                return redirect(url_for('emitir_comprovante'))
+        else:
+            # Fallback para JSON
+            with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+                clients_data = json.load(f)
+            
+            cliente = next((c for c in clients_data.get('clients', []) if c.get('id') == cliente_id), None)
+            if not cliente:
+                flash('Cliente não encontrado!', 'error')
+                return redirect(url_for('emitir_comprovante'))
+            
+            ordem = next((o for o in cliente.get('ordens', []) if o.get('id') == ordem_id), None)
+            if not ordem:
+                flash('Ordem de serviço não encontrada!', 'error')
+                return redirect(url_for('emitir_comprovante'))
+            
+            # Criar comprovante
+            with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
+                comprovantes_data = json.load(f)
+            
+            novo_comprovante = {
+                'id': len(comprovantes_data.get('comprovantes', [])) + 1,
+                'cliente_id': cliente_id,
+                'cliente_nome': cliente['nome'],
+                'ordem_id': ordem_id,
+                'numero_ordem': ordem.get('numero_ordem', ordem_id),
+                'valor_total': ordem.get('total', 0.00),
+                'valor_pago': valor_pago,
+                'forma_pagamento': forma_pagamento,
+                'parcelas': int(parcelas) if forma_pagamento == 'cartao_credito' else 1,
+                'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'pdf_filename': None
+            }
+            
+            # Gerar PDF do comprovante
+            pdf_result = gerar_pdf_comprovante(cliente, ordem, novo_comprovante)
+            if isinstance(pdf_result, dict):
+                novo_comprovante['pdf_filename'] = pdf_result.get('pdf_filename', '')
+                novo_comprovante['pdf_id'] = pdf_result.get('pdf_id')
+            else:
+                # Fallback para compatibilidade
+                novo_comprovante['pdf_filename'] = pdf_result
+            
+            # Salvar comprovante
+            if 'comprovantes' not in comprovantes_data:
+                comprovantes_data['comprovantes'] = []
+            comprovantes_data['comprovantes'].append(novo_comprovante)
+            with open(COMPROVANTES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(comprovantes_data, f, ensure_ascii=False, indent=2)
+            
+            flash('Comprovante emitido com sucesso!', 'success')
+            return redirect(url_for('admin_comprovantes'))
+    
+    # GET - Exibir formulário
+    if use_database():
+        try:
+            clientes_db = Cliente.query.all()
+            clientes = []
+            for c in clientes_db:
+                clientes.append({
+                    'id': c.id,
+                    'nome': c.nome,
+                    'email': c.email or '',
+                    'telefone': c.telefone or '',
+                    'cpf': c.cpf or '',
+                    'username': c.username or '',
+                    'ordens': []  # Será carregado via AJAX
+                })
+        except Exception as e:
+            print(f"Erro ao buscar clientes do banco: {e}")
+            clientes = []
+    else:
+        # Fallback para JSON
         with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
             clients_data = json.load(f)
         
-        cliente = next((c for c in clients_data['clients'] if c.get('id') == cliente_id), None)
-        if not cliente:
-            flash('Cliente não encontrado!', 'error')
-            return redirect(url_for('emitir_comprovante'))
-        
-        ordem = next((o for o in cliente.get('ordens', []) if o.get('id') == ordem_id), None)
-        if not ordem:
-            flash('Ordem de serviço não encontrada!', 'error')
-            return redirect(url_for('emitir_comprovante'))
-        
-        # Criar comprovante
-        with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
-            comprovantes_data = json.load(f)
-        
-        novo_comprovante = {
-            'id': len(comprovantes_data['comprovantes']) + 1,
-            'cliente_id': cliente_id,
-            'cliente_nome': cliente['nome'],
-            'ordem_id': ordem_id,
-            'numero_ordem': ordem.get('numero_ordem', ordem_id),
-            'valor_total': ordem.get('total', 0.00),
-            'valor_pago': valor_pago,
-            'forma_pagamento': forma_pagamento,
-            'parcelas': int(parcelas) if forma_pagamento == 'cartao_credito' else 1,
-            'data': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'pdf_filename': None
-        }
-        
-        # Gerar PDF do comprovante
-        pdf_result = gerar_pdf_comprovante(cliente, ordem, novo_comprovante)
-        if isinstance(pdf_result, dict):
-            novo_comprovante['pdf_filename'] = pdf_result.get('pdf_filename', '')
-            novo_comprovante['pdf_id'] = pdf_result.get('pdf_id')
-        else:
-            # Fallback para compatibilidade
-            novo_comprovante['pdf_filename'] = pdf_result
-        
-        # Salvar comprovante
-        comprovantes_data['comprovantes'].append(novo_comprovante)
-        with open(COMPROVANTES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(comprovantes_data, f, ensure_ascii=False, indent=2)
-        
-        flash('Comprovante emitido com sucesso!', 'success')
-        return redirect(url_for('admin_comprovantes'))
+        clientes = clients_data.get('clients', [])
     
-    # GET - Exibir formulário
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        clients_data = json.load(f)
-    
-    return render_template('admin/emitir_comprovante.html', clientes=clients_data['clients'])
+    return render_template('admin/emitir_comprovante.html', clientes=clientes)
 
 @app.route('/admin/comprovantes/<int:cliente_id>/ordens')
 @login_required
 def get_ordens_cliente(cliente_id):
     """Retorna ordens de um cliente em JSON"""
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
-    if not cliente:
-        return jsonify({'error': 'Cliente não encontrado'}), 404
-    
-    ordens = cliente.get('ordens', [])
-    ordens_data = []
-    for ordem in ordens:
-        ordens_data.append({
-            'id': ordem.get('id'),
-            'numero_ordem': ordem.get('numero_ordem', ordem.get('id')),
-            'servico': ordem.get('servico', ''),
-            'total': ordem.get('total', 0.00),
-            'status': ordem.get('status', 'pendente')
-        })
-    
-    return jsonify({'ordens': ordens_data})
+    if use_database():
+        try:
+            cliente = Cliente.query.get(cliente_id)
+            if not cliente:
+                return jsonify({'error': 'Cliente não encontrado'}), 404
+            
+            ordens_db = OrdemServico.query.filter_by(cliente_id=cliente_id).all()
+            ordens_data = []
+            for ordem in ordens_db:
+                ordens_data.append({
+                    'id': ordem.id,
+                    'numero_ordem': ordem.numero_ordem or str(ordem.id),
+                    'servico': ordem.servico or '',
+                    'total': float(ordem.total) if ordem.total else 0.00,
+                    'status': ordem.status or 'pendente'
+                })
+            
+            return jsonify({'ordens': ordens_data})
+        except Exception as e:
+            print(f"Erro ao buscar ordens do cliente: {e}")
+            return jsonify({'error': 'Erro ao buscar ordens'}), 500
+    else:
+        # Fallback para JSON
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        cliente = next((c for c in data.get('clients', []) if c.get('id') == cliente_id), None)
+        if not cliente:
+            return jsonify({'error': 'Cliente não encontrado'}), 404
+        
+        ordens = cliente.get('ordens', [])
+        ordens_data = []
+        for ordem in ordens:
+            ordens_data.append({
+                'id': ordem.get('id'),
+                'numero_ordem': ordem.get('numero_ordem', ordem.get('id')),
+                'servico': ordem.get('servico', ''),
+                'total': ordem.get('total', 0.00),
+                'status': ordem.get('status', 'pendente')
+            })
+        
+        return jsonify({'ordens': ordens_data})
 
 def gerar_pdf_comprovante(cliente, ordem, comprovante):
     """Gera PDF do comprovante de pagamento e salva no banco de dados"""
@@ -4247,20 +4403,49 @@ def edit_comprovante(comprovante_id):
 @login_required
 def delete_comprovante(comprovante_id):
     """Excluir comprovante"""
-    with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    comprovante = next((c for c in data['comprovantes'] if c.get('id') == comprovante_id), None)
-    if comprovante:
-        # Remover comprovante (PDF já está no banco de dados, não precisa deletar do filesystem)
-        data['comprovantes'] = [c for c in data['comprovantes'] if c.get('id') != comprovante_id]
-        
-        with open(COMPROVANTES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Comprovante excluído com sucesso!', 'success')
+    if use_database():
+        try:
+            comprovante = Comprovante.query.get(comprovante_id)
+            if not comprovante:
+                flash('Comprovante não encontrado!', 'error')
+                return redirect(url_for('admin_comprovantes'))
+            
+            # Deletar PDF do banco se existir
+            if comprovante.pdf_id:
+                try:
+                    pdf_doc = PDFDocument.query.get(comprovante.pdf_id)
+                    if pdf_doc:
+                        db.session.delete(pdf_doc)
+                except Exception as e:
+                    print(f"Erro ao deletar PDF: {e}")
+            
+            # Deletar comprovante
+            db.session.delete(comprovante)
+            db.session.commit()
+            
+            flash('Comprovante excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir comprovante do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao excluir comprovante: {str(e)}', 'error')
     else:
-        flash('Comprovante não encontrado!', 'error')
+        # Fallback para JSON
+        with open(COMPROVANTES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        comprovante = next((c for c in data.get('comprovantes', []) if c.get('id') == comprovante_id), None)
+        if comprovante:
+            # Remover comprovante (PDF já está no banco de dados, não precisa deletar do filesystem)
+            data['comprovantes'] = [c for c in data.get('comprovantes', []) if c.get('id') != comprovante_id]
+            
+            with open(COMPROVANTES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Comprovante excluído com sucesso!', 'success')
+        else:
+            flash('Comprovante não encontrado!', 'error')
     
     return redirect(url_for('admin_comprovantes'))
 
