@@ -72,11 +72,18 @@
     border-radius: 12px;
     overflow: hidden;
     box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 1920px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .page-image img {
     width: 100%;
-    height: auto;
+    max-width: 1920px;
+    height: 600px;
+    object-fit: cover;
+    object-position: center;
     display: block;
 }
 
@@ -128,6 +135,18 @@
     
     .page-content {
         padding: 2rem 0;
+    }
+    
+    .page-image img {
+        height: 300px;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 1920px) and (min-width: 769px) {
+    .page-image img {
+        aspect-ratio: 1920 / 600;
+        height: auto;
     }
 }
 </style>
