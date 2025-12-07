@@ -524,12 +524,12 @@ section {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    cursor: pointer;
+    cursor: default;
 }
 
 .service-card-link:hover .service-card,
 .service-card:hover {
-    transform: translateY(-10px);
+    transform: none;
     box-shadow: none;
 }
 
@@ -551,7 +551,7 @@ section {
 }
 
 .service-card:hover .service-image img {
-    transform: scale(1.05);
+    transform: none;
 }
 
 .service-card h3 {

@@ -251,18 +251,20 @@
         <div class="services-grid">
             {% if servicos %}
                 {% for servico in servicos %}
-                <a href="{% if servico.pagina_slug %}{{ url_for('pagina_servico', slug=servico.pagina_slug) }}{% elif primeira_pagina_servico_slug %}{{ url_for('pagina_servico', slug=primeira_pagina_servico_slug) }}{% else %}{{ url_for('index') }}{% endif %}" class="service-card-link">
-                    <div class="service-card">
-                        <div class="service-image">
-                            {% if servico.imagem and servico.imagem.startswith('/admin/servicos/imagem/') %}
-                                <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
-                            {% else %}
-                                <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
-                            {% endif %}
-                        </div>
-                        <h3>{{ servico.nome }}</h3>
+                <div class="service-card">
+                    <div class="service-image">
+                        {% if servico.imagem and servico.imagem.startswith('/admin/servicos/imagem/') %}
+                            <img src="{{ servico.imagem }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        {% else %}
+                            <img src="{{ url_for('static', filename=servico.imagem) }}" alt="{{ servico.nome }}" loading="lazy" data-fallback="{{ url_for('static', filename='img/placeholder.png') }}">
+                        {% endif %}
                     </div>
-                </a>
+                    <h3>{{ servico.nome }}</h3>
+                    <a href="{% if servico.pagina_slug %}{{ url_for('pagina_servico', slug=servico.pagina_slug) }}{% elif primeira_pagina_servico_slug %}{{ url_for('pagina_servico', slug=primeira_pagina_servico_slug) }}{% else %}{{ url_for('index') }}{% endif %}" class="btn-saiba-mais">
+                        Saiba mais
+                        <i class="fas fa-external-link-alt"></i>
+                    </a>
+                </div>
                 {% endfor %}
             {% else %}
                 <!-- Fallback para serviços padrão se não houver serviços cadastrados -->
@@ -1091,6 +1093,53 @@ body {
     .map-container iframe {
         height: 300px;
     }
+}
+
+/* Botão Saiba Mais */
+.btn-saiba-mais {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-dark);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    margin: 1rem 1.5rem 1.5rem;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-saiba-mais:hover {
+    background: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(33, 95, 151, 0.3);
+}
+
+.btn-saiba-mais i {
+    font-size: 0.875rem;
+}
+
+.services-preview .service-card {
+    display: flex;
+    flex-direction: column;
+    cursor: default;
+}
+
+.services-preview .service-card .service-image {
+    cursor: default;
+}
+
+.services-preview .service-card:hover .service-image img {
+    transform: none;
+}
+
+.services-preview .service-card:hover {
+    transform: none;
+    box-shadow: none;
 }
 
 /* Why Choose Section */
