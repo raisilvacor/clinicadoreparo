@@ -4311,23 +4311,62 @@ init_fidelidade_file()
 @login_required
 def admin_fidelidade():
     """Página do Clube Clínica do Reparo"""
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        clients_data = json.load(f)
+    if use_database():
+        try:
+            # Buscar cupons do banco
+            cupons_db = Cupom.query.order_by(Cupom.data_emissao.desc()).all()
+            cupons = []
+            for c in cupons_db:
+                cupons.append({
+                    'id': c.id,
+                    'cliente_id': c.cliente_id,
+                    'cliente_nome': c.cliente_nome or 'Cliente não encontrado',
+                    'desconto_percentual': float(c.desconto_percentual) if c.desconto_percentual else 0,
+                    'usado': c.usado or False,
+                    'ordem_id': c.ordem_id,
+                    'data_emissao': c.data_emissao.strftime('%Y-%m-%d %H:%M:%S') if c.data_emissao else '',
+                    'data_uso': c.data_uso.strftime('%Y-%m-%d %H:%M:%S') if c.data_uso else None
+                })
+            
+            # Buscar clientes do banco
+            clientes_db = Cliente.query.all()
+            clientes = []
+            for c in clientes_db:
+                clientes.append({
+                    'id': c.id,
+                    'nome': c.nome,
+                    'email': c.email or '',
+                    'telefone': c.telefone or '',
+                    'cpf': c.cpf or '',
+                    'username': c.username or ''
+                })
+        except Exception as e:
+            print(f"Erro ao buscar cupons/clientes do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            cupons = []
+            clientes = []
+    else:
+        # Fallback para JSON
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            clients_data = json.load(f)
+        
+        with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+            fidelidade_data = json.load(f)
+        
+        cupons = sorted(fidelidade_data.get('cupons', []), key=lambda x: x.get('data_emissao', ''), reverse=True)
+        
+        # Adicionar nome do cliente em cada cupom
+        for cupom in cupons:
+            cliente = next((c for c in clients_data.get('clients', []) if c.get('id') == cupom.get('cliente_id')), None)
+            if cliente:
+                cupom['cliente_nome'] = cliente['nome']
+            else:
+                cupom['cliente_nome'] = 'Cliente não encontrado'
+        
+        clientes = clients_data.get('clients', [])
     
-    with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
-        fidelidade_data = json.load(f)
-    
-    cupons = sorted(fidelidade_data['cupons'], key=lambda x: x.get('data_emissao', ''), reverse=True)
-    
-    # Adicionar nome do cliente em cada cupom
-    for cupom in cupons:
-        cliente = next((c for c in clients_data['clients'] if c.get('id') == cupom.get('cliente_id')), None)
-        if cliente:
-            cupom['cliente_nome'] = cliente['nome']
-        else:
-            cupom['cliente_nome'] = 'Cliente não encontrado'
-    
-    return render_template('admin/fidelidade.html', clientes=clients_data['clients'], cupons=cupons)
+    return render_template('admin/fidelidade.html', clientes=clientes, cupons=cupons)
 
 @app.route('/admin/fidelidade/emitir', methods=['POST'])
 @login_required
@@ -4341,119 +4380,261 @@ def emitir_cupom_desconto():
         flash('Desconto deve ser entre 1% e 100%!', 'error')
         return redirect(url_for('admin_fidelidade'))
     
-    # Buscar cliente
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        clients_data = json.load(f)
+    if use_database():
+        try:
+            # Buscar cliente no banco
+            cliente = Cliente.query.get(cliente_id)
+            if not cliente:
+                flash('Cliente não encontrado!', 'error')
+                return redirect(url_for('admin_fidelidade'))
+            
+            # Criar cupom no banco
+            novo_cupom = Cupom(
+                cliente_id=cliente_id,
+                cliente_nome=cliente.nome,
+                desconto_percentual=desconto_percentual,
+                usado=False,
+                ordem_id=None,
+                data_emissao=datetime.now(),
+                data_uso=None
+            )
+            db.session.add(novo_cupom)
+            db.session.commit()
+            
+            flash(f'Cupom de {desconto_percentual}% de desconto emitido para {cliente.nome} com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao emitir cupom no banco: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash('Erro ao emitir cupom. Tente novamente.', 'error')
+    else:
+        # Fallback para JSON
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            clients_data = json.load(f)
+        
+        cliente = next((c for c in clients_data.get('clients', []) if c.get('id') == cliente_id), None)
+        if not cliente:
+            flash('Cliente não encontrado!', 'error')
+            return redirect(url_for('admin_fidelidade'))
+        
+        # Criar cupom
+        with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+            fidelidade_data = json.load(f)
+        
+        novo_cupom = {
+            'id': len(fidelidade_data.get('cupons', [])) + 1,
+            'cliente_id': cliente_id,
+            'cliente_nome': cliente['nome'],
+            'desconto_percentual': desconto_percentual,
+            'usado': False,
+            'ordem_id': None,
+            'data_emissao': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'data_uso': None
+        }
+        
+        if 'cupons' not in fidelidade_data:
+            fidelidade_data['cupons'] = []
+        fidelidade_data['cupons'].append(novo_cupom)
+        
+        with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(fidelidade_data, f, ensure_ascii=False, indent=2)
+        
+        flash(f'Cupom de {desconto_percentual}% de desconto emitido para {cliente["nome"]} com sucesso!', 'success')
     
-    cliente = next((c for c in clients_data['clients'] if c.get('id') == cliente_id), None)
-    if not cliente:
-        flash('Cliente não encontrado!', 'error')
-        return redirect(url_for('admin_fidelidade'))
-    
-    # Criar cupom
-    with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
-        fidelidade_data = json.load(f)
-    
-    novo_cupom = {
-        'id': len(fidelidade_data['cupons']) + 1,
-        'cliente_id': cliente_id,
-        'cliente_nome': cliente['nome'],
-        'desconto_percentual': desconto_percentual,
-        'usado': False,
-        'ordem_id': None,
-        'data_emissao': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'data_uso': None
-    }
-    
-    fidelidade_data['cupons'].append(novo_cupom)
-    
-    with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(fidelidade_data, f, ensure_ascii=False, indent=2)
-    
-    flash(f'Cupom de {desconto_percentual}% de desconto emitido para {cliente["nome"]} com sucesso!', 'success')
     return redirect(url_for('admin_fidelidade'))
 
 @app.route('/admin/fidelidade/<int:cupom_id>')
 @login_required
 def view_cupom_detalhes(cupom_id):
     """Retorna detalhes do cupom em JSON para modal"""
-    with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    cupom = next((c for c in data['cupons'] if c.get('id') == cupom_id), None)
-    if not cupom:
-        return jsonify({'error': 'Cupom não encontrado'}), 404
-    
-    # Buscar dados do cliente
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        clients_data = json.load(f)
-    
-    cliente = next((c for c in clients_data['clients'] if c.get('id') == cupom.get('cliente_id')), None)
-    if cliente:
-        cupom['cliente_nome'] = cliente['nome']
-        cupom['cliente_email'] = cliente.get('email', '')
-    
-    return jsonify(cupom)
+    if use_database():
+        try:
+            cupom = Cupom.query.get(cupom_id)
+            if not cupom:
+                return jsonify({'error': 'Cupom não encontrado'}), 404
+            
+            cupom_dict = {
+                'id': cupom.id,
+                'cliente_id': cupom.cliente_id,
+                'cliente_nome': cupom.cliente_nome or '',
+                'desconto_percentual': float(cupom.desconto_percentual) if cupom.desconto_percentual else 0,
+                'usado': cupom.usado or False,
+                'ordem_id': cupom.ordem_id,
+                'data_emissao': cupom.data_emissao.strftime('%Y-%m-%d %H:%M:%S') if cupom.data_emissao else '',
+                'data_uso': cupom.data_uso.strftime('%Y-%m-%d %H:%M:%S') if cupom.data_uso else None
+            }
+            
+            # Buscar dados do cliente
+            cliente = Cliente.query.get(cupom.cliente_id)
+            if cliente:
+                cupom_dict['cliente_nome'] = cliente.nome
+                cupom_dict['cliente_email'] = cliente.email or ''
+            
+            return jsonify(cupom_dict)
+        except Exception as e:
+            print(f"Erro ao buscar cupom: {e}")
+            return jsonify({'error': 'Erro ao buscar cupom'}), 500
+    else:
+        # Fallback para JSON
+        with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        cupom = next((c for c in data.get('cupons', []) if c.get('id') == cupom_id), None)
+        if not cupom:
+            return jsonify({'error': 'Cupom não encontrado'}), 404
+        
+        # Buscar dados do cliente
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            clients_data = json.load(f)
+        
+        cliente = next((c for c in clients_data.get('clients', []) if c.get('id') == cupom.get('cliente_id')), None)
+        if cliente:
+            cupom['cliente_nome'] = cliente['nome']
+            cupom['cliente_email'] = cliente.get('email', '')
+        
+        return jsonify(cupom)
 
 @app.route('/admin/fidelidade/<int:cupom_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_cupom(cupom_id):
     """Editar cupom de desconto"""
-    with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    cupom = next((c for c in data['cupons'] if c.get('id') == cupom_id), None)
-    if not cupom:
-        flash('Cupom não encontrado!', 'error')
-        return redirect(url_for('admin_fidelidade'))
-    
-    if cupom.get('usado'):
-        flash('Não é possível editar um cupom já utilizado!', 'error')
-        return redirect(url_for('admin_fidelidade'))
-    
-    if request.method == 'POST':
-        desconto_percentual = float(request.form.get('desconto_percentual'))
+    if use_database():
+        try:
+            cupom = Cupom.query.get(cupom_id)
+            if not cupom:
+                flash('Cupom não encontrado!', 'error')
+                return redirect(url_for('admin_fidelidade'))
+            
+            if cupom.usado:
+                flash('Não é possível editar um cupom já utilizado!', 'error')
+                return redirect(url_for('admin_fidelidade'))
+            
+            if request.method == 'POST':
+                desconto_percentual = float(request.form.get('desconto_percentual'))
+                
+                # Validar desconto
+                if desconto_percentual <= 0 or desconto_percentual > 100:
+                    flash('Desconto deve ser entre 1% e 100%!', 'error')
+                    return redirect(url_for('edit_cupom', cupom_id=cupom_id))
+                
+                # Atualizar cupom
+                cupom.desconto_percentual = desconto_percentual
+                db.session.commit()
+                
+                flash('Cupom atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_fidelidade'))
+            
+            # GET - Exibir formulário
+            cupom_dict = {
+                'id': cupom.id,
+                'cliente_id': cupom.cliente_id,
+                'cliente_nome': cupom.cliente_nome or '',
+                'desconto_percentual': float(cupom.desconto_percentual) if cupom.desconto_percentual else 0,
+                'usado': cupom.usado or False,
+                'ordem_id': cupom.ordem_id,
+                'data_emissao': cupom.data_emissao.strftime('%Y-%m-%d %H:%M:%S') if cupom.data_emissao else '',
+                'data_uso': cupom.data_uso.strftime('%Y-%m-%d %H:%M:%S') if cupom.data_uso else None
+            }
+            
+            # Buscar clientes do banco
+            clientes_db = Cliente.query.all()
+            clientes = []
+            for c in clientes_db:
+                clientes.append({
+                    'id': c.id,
+                    'nome': c.nome,
+                    'email': c.email or ''
+                })
+            
+            cliente = next((c for c in clientes if c.get('id') == cupom.cliente_id), None)
+            
+            return render_template('admin/edit_cupom.html', cupom=cupom_dict, cliente=cliente, clientes=clientes)
+        except Exception as e:
+            print(f"Erro ao editar cupom: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash('Erro ao editar cupom. Tente novamente.', 'error')
+            return redirect(url_for('admin_fidelidade'))
+    else:
+        # Fallback para JSON
+        with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
         
-        # Validar desconto
-        if desconto_percentual <= 0 or desconto_percentual > 100:
-            flash('Desconto deve ser entre 1% e 100%!', 'error')
-            return redirect(url_for('edit_cupom', cupom_id=cupom_id))
+        cupom = next((c for c in data.get('cupons', []) if c.get('id') == cupom_id), None)
+        if not cupom:
+            flash('Cupom não encontrado!', 'error')
+            return redirect(url_for('admin_fidelidade'))
         
-        # Atualizar cupom
-        cupom['desconto_percentual'] = desconto_percentual
+        if cupom.get('usado'):
+            flash('Não é possível editar um cupom já utilizado!', 'error')
+            return redirect(url_for('admin_fidelidade'))
         
-        with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        if request.method == 'POST':
+            desconto_percentual = float(request.form.get('desconto_percentual'))
+            
+            # Validar desconto
+            if desconto_percentual <= 0 or desconto_percentual > 100:
+                flash('Desconto deve ser entre 1% e 100%!', 'error')
+                return redirect(url_for('edit_cupom', cupom_id=cupom_id))
+            
+            # Atualizar cupom
+            cupom['desconto_percentual'] = desconto_percentual
+            
+            with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            flash('Cupom atualizado com sucesso!', 'success')
+            return redirect(url_for('admin_fidelidade'))
         
-        flash('Cupom atualizado com sucesso!', 'success')
-        return redirect(url_for('admin_fidelidade'))
-    
-    # GET - Exibir formulário
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        clients_data = json.load(f)
-    
-    cliente = next((c for c in clients_data['clients'] if c.get('id') == cupom.get('cliente_id')), None)
-    
-    return render_template('admin/edit_cupom.html', cupom=cupom, cliente=cliente, clientes=clients_data['clients'])
+        # GET - Exibir formulário
+        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
+            clients_data = json.load(f)
+        
+        cliente = next((c for c in clients_data.get('clients', []) if c.get('id') == cupom.get('cliente_id')), None)
+        
+        return render_template('admin/edit_cupom.html', cupom=cupom, cliente=cliente, clientes=clients_data.get('clients', []))
 
 @app.route('/admin/fidelidade/<int:cupom_id>/delete', methods=['POST'])
 @login_required
 def delete_cupom(cupom_id):
     """Excluir cupom de desconto"""
-    with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    cupom = next((c for c in data['cupons'] if c.get('id') == cupom_id), None)
-    if cupom:
-        if cupom.get('usado'):
-            flash('Não é possível excluir um cupom já utilizado!', 'error')
-        else:
-            data['cupons'] = [c for c in data['cupons'] if c.get('id') != cupom_id]
-            with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            flash('Cupom excluído com sucesso!', 'success')
+    if use_database():
+        try:
+            cupom = Cupom.query.get(cupom_id)
+            if not cupom:
+                flash('Cupom não encontrado!', 'error')
+                return redirect(url_for('admin_fidelidade'))
+            
+            if cupom.usado:
+                flash('Não é possível excluir um cupom já utilizado!', 'error')
+            else:
+                db.session.delete(cupom)
+                db.session.commit()
+                flash('Cupom excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir cupom do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao excluir cupom: {str(e)}', 'error')
     else:
-        flash('Cupom não encontrado!', 'error')
+        # Fallback para JSON
+        with open(FIDELIDADE_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        cupom = next((c for c in data.get('cupons', []) if c.get('id') == cupom_id), None)
+        if cupom:
+            if cupom.get('usado'):
+                flash('Não é possível excluir um cupom já utilizado!', 'error')
+            else:
+                data['cupons'] = [c for c in data.get('cupons', []) if c.get('id') != cupom_id]
+                with open(FIDELIDADE_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                flash('Cupom excluído com sucesso!', 'success')
+        else:
+            flash('Cupom não encontrado!', 'error')
     
     return redirect(url_for('admin_fidelidade'))
 
