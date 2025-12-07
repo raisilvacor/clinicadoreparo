@@ -55,9 +55,9 @@
                 <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
                 <li><a href="{{ url_for('sobre') }}" class="nav-link">Sobre</a></li>
                 <li class="nav-dropdown">
-                    <a href="{% if primeira_pagina_servico_slug %}{{ url_for('pagina_servico', slug=primeira_pagina_servico_slug) }}{% else %}{{ url_for('index') }}{% endif %}" class="nav-link">
+                    <span class="nav-link dropdown-trigger" style="cursor: pointer;">
                         Serviços <i class="fas fa-chevron-down"></i>
-                    </a>
+                    </span>
                     <ul class="dropdown-menu">
                         {% if paginas_servicos_menu %}
                             {% for pagina in paginas_servicos_menu %}

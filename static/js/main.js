@@ -18,46 +18,46 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Mobile dropdown toggle for services
+    // Dropdown toggle for services (mobile and desktop)
     const navDropdown = document.querySelector('.nav-dropdown');
-    const dropdownLink = navDropdown ? navDropdown.querySelector('.nav-link') : null;
+    const dropdownTrigger = navDropdown ? navDropdown.querySelector('.dropdown-trigger, .nav-link') : null;
     const dropdownMenu = navDropdown ? navDropdown.querySelector('.dropdown-menu') : null;
     
-    if (dropdownLink && dropdownMenu) {
+    if (dropdownTrigger && dropdownMenu) {
         // Function to check if mobile
         function isMobile() {
             return window.innerWidth <= 768;
         }
         
-        // Handle click on dropdown link
-        dropdownLink.addEventListener('click', function(e) {
+        // Handle click on dropdown trigger
+        dropdownTrigger.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
             if (isMobile()) {
-                e.preventDefault();
-                e.stopPropagation();
+                // On mobile, toggle dropdown
+                navDropdown.classList.toggle('active');
+            } else {
+                // On desktop, toggle dropdown (alternative to hover)
                 navDropdown.classList.toggle('active');
             }
-            // On desktop, let the hover work naturally
         });
         
-        // Prevent dropdown from closing when clicking inside it (mobile)
+        // Prevent dropdown from closing when clicking inside it
         dropdownMenu.addEventListener('click', function(e) {
-            if (isMobile()) {
-                e.stopPropagation();
-            }
+            e.stopPropagation();
         });
         
-        // Close dropdown when clicking outside (mobile only)
+        // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
-            if (isMobile() && navDropdown && !navDropdown.contains(e.target)) {
+            if (navDropdown && !navDropdown.contains(e.target)) {
                 navDropdown.classList.remove('active');
             }
         });
         
-        // Handle window resize - close dropdown if switching to desktop
+        // Handle window resize - close dropdown if switching between mobile/desktop
         window.addEventListener('resize', function() {
-            if (!isMobile()) {
-                navDropdown.classList.remove('active');
-            }
+            navDropdown.classList.remove('active');
         });
     }
 
