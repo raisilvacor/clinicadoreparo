@@ -20,45 +20,52 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Dropdown toggle for services (mobile and desktop)
     const navDropdown = document.querySelector('.nav-dropdown');
-    const dropdownTrigger = navDropdown ? navDropdown.querySelector('.dropdown-trigger, .nav-link') : null;
-    const dropdownMenu = navDropdown ? navDropdown.querySelector('.dropdown-menu') : null;
     
-    if (dropdownTrigger && dropdownMenu) {
-        // Function to check if mobile
-        function isMobile() {
-            return window.innerWidth <= 768;
-        }
+    if (navDropdown) {
+        const dropdownTrigger = navDropdown.querySelector('.dropdown-trigger') || navDropdown.querySelector('.nav-link');
+        const dropdownMenu = navDropdown.querySelector('.dropdown-menu');
         
-        // Handle click on dropdown trigger
-        dropdownTrigger.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
+        if (dropdownTrigger && dropdownMenu) {
+            // Function to check if mobile
+            function isMobile() {
+                return window.innerWidth <= 768;
+            }
             
-            if (isMobile()) {
-                // On mobile, toggle dropdown
-                navDropdown.classList.toggle('active');
-            } else {
-                // On desktop, toggle dropdown (alternative to hover)
-                navDropdown.classList.toggle('active');
-            }
-        });
-        
-        // Prevent dropdown from closing when clicking inside it
-        dropdownMenu.addEventListener('click', function(e) {
-            e.stopPropagation();
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            if (navDropdown && !navDropdown.contains(e.target)) {
-                navDropdown.classList.remove('active');
-            }
-        });
-        
-        // Handle window resize - close dropdown if switching between mobile/desktop
-        window.addEventListener('resize', function() {
-            navDropdown.classList.remove('active');
-        });
+            // Handle click on dropdown trigger
+            dropdownTrigger.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Toggle dropdown
+                const isActive = navDropdown.classList.contains('active');
+                if (isActive) {
+                    navDropdown.classList.remove('active');
+                } else {
+                    navDropdown.classList.add('active');
+                }
+            });
+            
+            // Prevent dropdown from closing when clicking inside it
+            dropdownMenu.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+            
+            // Close dropdown when clicking outside (but not immediately to allow menu click)
+            document.addEventListener('click', function(e) {
+                if (navDropdown && !navDropdown.contains(e.target)) {
+                    navDropdown.classList.remove('active');
+                }
+            });
+            
+            // Handle window resize - close dropdown if switching between mobile/desktop
+            let resizeTimer;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    navDropdown.classList.remove('active');
+                }, 250);
+            });
+        }
     }
 
     // Close flash messages
