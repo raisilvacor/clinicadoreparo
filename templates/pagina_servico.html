@@ -16,15 +16,15 @@
     </div>
 </section>
 
+{% if pagina.imagem %}
+<section class="page-image-full">
+    <img src="{{ pagina.imagem if pagina.imagem.startswith('/') else url_for('static', filename=pagina.imagem) }}" alt="{{ pagina.titulo }}" loading="lazy">
+</section>
+{% endif %}
+
 <section class="page-content">
     <div class="container">
         <div class="content-wrapper">
-            {% if pagina.imagem %}
-            <div class="page-image">
-                <img src="{{ pagina.imagem if pagina.imagem.startswith('/') else url_for('static', filename=pagina.imagem) }}" alt="{{ pagina.titulo }}" loading="lazy">
-            </div>
-            {% endif %}
-            
             <div class="page-body">
                 {% if pagina.conteudo %}
                     {{ pagina.conteudo|safe }}
@@ -67,21 +67,18 @@
     margin: 0 auto;
 }
 
-.page-image {
-    margin-bottom: 2rem;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: var(--shadow-lg);
+.page-image-full {
     width: 100%;
-    max-width: 1920px;
-    margin-left: auto;
-    margin-right: auto;
+    height: 600px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
 }
 
-.page-image img {
+.page-image-full img {
     width: 100%;
-    max-width: 1920px;
-    height: 600px;
+    height: 100%;
     object-fit: cover;
     object-position: center;
     display: block;
@@ -137,16 +134,8 @@
         padding: 2rem 0;
     }
     
-    .page-image img {
+    .page-image-full {
         height: 300px;
-        max-width: 100%;
-    }
-}
-
-@media (max-width: 1920px) and (min-width: 769px) {
-    .page-image img {
-        aspect-ratio: 1920 / 600;
-        height: auto;
     }
 }
 </style>
