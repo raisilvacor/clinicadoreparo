@@ -142,6 +142,8 @@ TIPOS_SERVICO = [
     'Conserto de Microondas',
     'Conserto de Maquina de Lavar',
     'Conserto de Aparelhos de Som',
+    'Ar-condicionado',
+    'Geladeira',
     'Outros Aparelhos Eletronicos'
 ]
 
