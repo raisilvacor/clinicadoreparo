@@ -497,7 +497,7 @@ section {
     background: white;
     border-radius: 0;
     padding: 0;
-    box-shadow: var(--shadow-lg);
+    box-shadow: none;
     transition: all 0.3s ease;
     border: 1px solid var(--border-color);
     overflow: hidden;
@@ -509,7 +509,7 @@ section {
 .service-card-link:hover .service-card,
 .service-card:hover {
     transform: translateY(-10px);
-    box-shadow: var(--shadow-xl);
+    box-shadow: none;
 }
 
 .service-image {
