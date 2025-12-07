@@ -451,6 +451,44 @@
     </div>
 </section>
 
+<section class="why-choose-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Por que chamar a Clínica do Reparo?</h2>
+        </div>
+        <div class="why-choose-grid">
+            <div class="why-choose-item">
+                <div class="why-choose-icon">
+                    <i class="fas fa-cog"></i>
+                </div>
+                <h3>Uso de peças de confiança!</h3>
+                <p>Maior durabilidade e desempenho, aumentando a vida útil do aparelho.</p>
+            </div>
+            <div class="why-choose-item">
+                <div class="why-choose-icon">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h3>Segurança ao receber nossos técnicos!</h3>
+                <p>Profissionais identificados por uniforme.</p>
+            </div>
+            <div class="why-choose-item">
+                <div class="why-choose-icon">
+                    <i class="fas fa-hand-sparkles"></i>
+                </div>
+                <h3>Profissionais higiênicos</h3>
+                <p>Que seguem todos os protocolos de saúde.</p>
+            </div>
+            <div class="why-choose-item">
+                <div class="why-choose-icon">
+                    <i class="fas fa-broom"></i>
+                </div>
+                <h3>Organização na prestação de serviço</h3>
+                <p>Entregamos o ambiente limpo e organizado!</p>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section class="brands-section">
     <div class="container">
         <div class="section-header">
@@ -1052,6 +1090,73 @@ body {
 @media (max-width: 480px) {
     .map-container iframe {
         height: 300px;
+    }
+}
+
+/* Why Choose Section */
+.why-choose-section {
+    padding: 5rem 0;
+    background: var(--bg-secondary);
+}
+
+.why-choose-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.why-choose-item {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid var(--border-color);
+}
+
+.why-choose-item:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+}
+
+.why-choose-icon {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+}
+
+.why-choose-icon i {
+    font-size: 2rem;
+    color: white;
+}
+
+.why-choose-item h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.why-choose-item p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .why-choose-section {
+        padding: 3rem 0;
+    }
+    
+    .why-choose-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
     }
 }
 
