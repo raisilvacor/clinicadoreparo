@@ -48,9 +48,9 @@
 <body>
     <nav class="navbar">
         <div class="container">
-            <div class="nav-brand">
+            <a href="{{ url_for('index') }}" class="nav-brand" title="Ir para a página inicial">
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Clínica do Reparo - Assistência Técnica em Barueri" class="logo-img">
-            </div>
+            </a>
             <ul class="nav-menu">
                 <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
                 <li><a href="{{ url_for('sobre') }}" class="nav-link">Sobre</a></li>
@@ -109,7 +109,10 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Clínica do Reparo - Assistência Técnica em Barueri" class="footer-logo" width="150" height="50" loading="lazy">
+                    <a href="{{ url_for('index') }}" title="Ir para a página inicial">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Clínica do Reparo - Assistência Técnica em Barueri" class="footer-logo" width="150" height="50" loading="lazy">
+                    </a>
+                    </a>
                     <p>{{ footer.descricao if footer else 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.' }}</p>
                     <div class="social-links">
                         {% if footer and footer.redes_sociais.facebook %}

@@ -68,6 +68,12 @@ body {
     font-size: 1.5rem;
     font-weight: 800;
     color: var(--primary-color);
+    text-decoration: none;
+    transition: opacity 0.3s ease;
+}
+
+.nav-brand:hover {
+    opacity: 0.8;
 }
 
 .nav-brand i {
@@ -1071,6 +1077,16 @@ section {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+.footer-section > a:first-child {
+    display: inline-block;
+    transition: opacity 0.3s ease;
+    text-decoration: none;
+}
+
+.footer-section > a:first-child:hover {
+    opacity: 0.8;
 }
 
 .footer-logo {
