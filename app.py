@@ -6351,27 +6351,65 @@ def agendamento():
             return redirect(url_for('agendamento'))
         
         # Salvar agendamento
-        init_agendamentos_file()
-        with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
-            agendamentos_data = json.load(f)
-        
-        novo_agendamento = {
-            'id': len(agendamentos_data['agendamentos']) + 1,
-            'nome': nome,
-            'telefone': telefone,
-            'email': email,
-            'data_agendamento': data_agendamento,
-            'hora_agendamento': hora_agendamento,
-            'tipo_servico': tipo_servico,
-            'observacoes': observacoes,
-            'status': 'pendente',
-            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        agendamentos_data['agendamentos'].append(novo_agendamento)
-        
-        with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
+        if use_database():
+            try:
+                # Converter data_agendamento para formato date
+                from datetime import datetime as dt
+                try:
+                    data_agendamento_obj = dt.strptime(data_agendamento, '%Y-%m-%d').date()
+                except:
+                    data_agendamento_obj = dt.now().date()
+                
+                novo_agendamento = Agendamento(
+                    nome=nome,
+                    telefone=telefone,
+                    email=email if email else None,
+                    data_agendamento=data_agendamento_obj,
+                    hora_agendamento=hora_agendamento,
+                    tipo_servico=tipo_servico,
+                    observacoes=observacoes if observacoes else None,
+                    status='pendente',
+                    data_criacao=datetime.now()
+                )
+                db.session.add(novo_agendamento)
+                db.session.commit()
+                
+                # Para mensagem de notificação
+                data_criacao_str = novo_agendamento.data_criacao.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception as e:
+                print(f"Erro ao salvar agendamento no banco: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash('Erro ao salvar agendamento. Tente novamente.', 'error')
+                return redirect(url_for('agendamento'))
+        else:
+            # Fallback para JSON
+            init_agendamentos_file()
+            with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+                agendamentos_data = json.load(f)
+            
+            novo_agendamento = {
+                'id': len(agendamentos_data.get('agendamentos', [])) + 1,
+                'nome': nome,
+                'telefone': telefone,
+                'email': email,
+                'data_agendamento': data_agendamento,
+                'hora_agendamento': hora_agendamento,
+                'tipo_servico': tipo_servico,
+                'observacoes': observacoes,
+                'status': 'pendente',
+                'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            if 'agendamentos' not in agendamentos_data:
+                agendamentos_data['agendamentos'] = []
+            agendamentos_data['agendamentos'].append(novo_agendamento)
+            
+            with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
+            
+            data_criacao_str = novo_agendamento['data_criacao']
         
         # Enviar notificação WhatsApp
         mensagem = f"🔔 *NOVO AGENDAMENTO*\n\n"
@@ -6384,7 +6422,7 @@ def agendamento():
         mensagem += f"🔧 *Serviço:* {tipo_servico}\n"
         if observacoes:
             mensagem += f"📝 *Observações:* {observacoes}\n"
-        mensagem += f"\n_Agendamento criado em {novo_agendamento['data_criacao']}_"
+        mensagem += f"\n_Agendamento criado em {data_criacao_str}_"
         
         resultado = enviar_notificacao_whatsapp(mensagem)
         
@@ -6409,12 +6447,37 @@ def agendamento():
 @login_required
 def admin_agendamentos():
     """Lista todos os agendamentos"""
-    init_agendamentos_file()
-    with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
-        agendamentos_data = json.load(f)
-    
-    agendamentos = sorted(agendamentos_data.get('agendamentos', []), 
-                         key=lambda x: x.get('data_criacao', ''), reverse=True)
+    if use_database():
+        try:
+            agendamentos_db = Agendamento.query.order_by(Agendamento.data_criacao.desc()).all()
+            # Converter para formato similar ao JSON para compatibilidade com template
+            agendamentos = []
+            for ag in agendamentos_db:
+                agendamentos.append({
+                    'id': ag.id,
+                    'nome': ag.nome,
+                    'telefone': ag.telefone,
+                    'email': ag.email or '',
+                    'data_agendamento': ag.data_agendamento.strftime('%Y-%m-%d') if ag.data_agendamento else '',
+                    'hora_agendamento': ag.hora_agendamento or '',
+                    'tipo_servico': ag.tipo_servico or '',
+                    'observacoes': ag.observacoes or '',
+                    'status': ag.status or 'pendente',
+                    'data_criacao': ag.data_criacao.strftime('%Y-%m-%d %H:%M:%S') if ag.data_criacao else ''
+                })
+        except Exception as e:
+            print(f"Erro ao listar agendamentos do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            agendamentos = []
+    else:
+        # Fallback para JSON
+        init_agendamentos_file()
+        with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+            agendamentos_data = json.load(f)
+        
+        agendamentos = sorted(agendamentos_data.get('agendamentos', []), 
+                             key=lambda x: x.get('data_criacao', ''), reverse=True)
     
     return render_template('admin/agendamentos.html', agendamentos=agendamentos)
 
@@ -6424,21 +6487,38 @@ def atualizar_status_agendamento(agendamento_id):
     """Atualiza status do agendamento"""
     novo_status = request.form.get('status', 'pendente')
     
-    init_agendamentos_file()
-    with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
-        agendamentos_data = json.load(f)
-    
-    agendamento = next((a for a in agendamentos_data['agendamentos'] if a.get('id') == agendamento_id), None)
-    if agendamento:
-        agendamento['status'] = novo_status
-        agendamento['data_atualizacao'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
-        
-        flash('Status do agendamento atualizado com sucesso!', 'success')
+    if use_database():
+        try:
+            agendamento = Agendamento.query.get(agendamento_id)
+            if agendamento:
+                agendamento.status = novo_status
+                db.session.commit()
+                flash('Status do agendamento atualizado com sucesso!', 'success')
+            else:
+                flash('Agendamento não encontrado!', 'error')
+        except Exception as e:
+            print(f"Erro ao atualizar status do agendamento: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash('Erro ao atualizar status do agendamento.', 'error')
     else:
-        flash('Agendamento não encontrado!', 'error')
+        # Fallback para JSON
+        init_agendamentos_file()
+        with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+            agendamentos_data = json.load(f)
+        
+        agendamento = next((a for a in agendamentos_data.get('agendamentos', []) if a.get('id') == agendamento_id), None)
+        if agendamento:
+            agendamento['status'] = novo_status
+            agendamento['data_atualizacao'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
+            
+            flash('Status do agendamento atualizado com sucesso!', 'success')
+        else:
+            flash('Agendamento não encontrado!', 'error')
     
     return redirect(url_for('admin_agendamentos'))
 
@@ -6446,26 +6526,51 @@ def atualizar_status_agendamento(agendamento_id):
 @login_required
 def reenviar_notificacao_agendamento(agendamento_id):
     """Reenvia notificação WhatsApp de um agendamento"""
-    init_agendamentos_file()
-    with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
-        agendamentos_data = json.load(f)
-    
-    agendamento = next((a for a in agendamentos_data['agendamentos'] if a.get('id') == agendamento_id), None)
-    if not agendamento:
-        return jsonify({'success': False, 'error': 'Agendamento não encontrado'}), 404
-    
-    # Montar mensagem
-    mensagem = f"🔔 *NOVO AGENDAMENTO*\n\n"
-    mensagem += f"👤 *Cliente:* {agendamento['nome']}\n"
-    mensagem += f"📞 *Telefone:* {agendamento['telefone']}\n"
-    if agendamento.get('email'):
-        mensagem += f"📧 *E-mail:* {agendamento['email']}\n"
-    mensagem += f"📅 *Data:* {agendamento['data_agendamento']}\n"
-    mensagem += f"⏰ *Hora:* {agendamento['hora_agendamento']}\n"
-    mensagem += f"🔧 *Serviço:* {agendamento['tipo_servico']}\n"
-    if agendamento.get('observacoes'):
-        mensagem += f"📝 *Observações:* {agendamento['observacoes']}\n"
-    mensagem += f"\n_Agendamento criado em {agendamento['data_criacao']}_"
+    if use_database():
+        try:
+            agendamento = Agendamento.query.get(agendamento_id)
+            if not agendamento:
+                return jsonify({'success': False, 'error': 'Agendamento não encontrado'}), 404
+            
+            # Montar mensagem
+            mensagem = f"🔔 *NOVO AGENDAMENTO*\n\n"
+            mensagem += f"👤 *Cliente:* {agendamento.nome}\n"
+            mensagem += f"📞 *Telefone:* {agendamento.telefone or ''}\n"
+            if agendamento.email:
+                mensagem += f"📧 *E-mail:* {agendamento.email}\n"
+            mensagem += f"📅 *Data:* {agendamento.data_agendamento.strftime('%Y-%m-%d') if agendamento.data_agendamento else ''}\n"
+            mensagem += f"⏰ *Hora:* {agendamento.hora_agendamento or ''}\n"
+            mensagem += f"🔧 *Serviço:* {agendamento.tipo_servico or ''}\n"
+            if agendamento.observacoes:
+                mensagem += f"📝 *Observações:* {agendamento.observacoes}\n"
+            mensagem += f"\n_Agendamento criado em {agendamento.data_criacao.strftime('%Y-%m-%d %H:%M:%S') if agendamento.data_criacao else ''}_"
+        except Exception as e:
+            print(f"Erro ao buscar agendamento: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'error': 'Erro ao buscar agendamento'}), 500
+    else:
+        # Fallback para JSON
+        init_agendamentos_file()
+        with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+            agendamentos_data = json.load(f)
+        
+        agendamento = next((a for a in agendamentos_data.get('agendamentos', []) if a.get('id') == agendamento_id), None)
+        if not agendamento:
+            return jsonify({'success': False, 'error': 'Agendamento não encontrado'}), 404
+        
+        # Montar mensagem
+        mensagem = f"🔔 *NOVO AGENDAMENTO*\n\n"
+        mensagem += f"👤 *Cliente:* {agendamento['nome']}\n"
+        mensagem += f"📞 *Telefone:* {agendamento['telefone']}\n"
+        if agendamento.get('email'):
+            mensagem += f"📧 *E-mail:* {agendamento['email']}\n"
+        mensagem += f"📅 *Data:* {agendamento['data_agendamento']}\n"
+        mensagem += f"⏰ *Hora:* {agendamento['hora_agendamento']}\n"
+        mensagem += f"🔧 *Serviço:* {agendamento['tipo_servico']}\n"
+        if agendamento.get('observacoes'):
+            mensagem += f"📝 *Observações:* {agendamento['observacoes']}\n"
+        mensagem += f"\n_Agendamento criado em {agendamento['data_criacao']}_"
     
     resultado = enviar_notificacao_whatsapp(mensagem)
     
@@ -6481,16 +6586,36 @@ def reenviar_notificacao_agendamento(agendamento_id):
 @login_required
 def delete_agendamento(agendamento_id):
     """Exclui um agendamento"""
-    init_agendamentos_file()
-    with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
-        agendamentos_data = json.load(f)
+    if use_database():
+        try:
+            agendamento = Agendamento.query.get(agendamento_id)
+            if not agendamento:
+                flash('Agendamento não encontrado!', 'error')
+                return redirect(url_for('admin_agendamentos'))
+            
+            db.session.delete(agendamento)
+            db.session.commit()
+            
+            flash('Agendamento excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir agendamento do banco: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao excluir agendamento: {str(e)}', 'error')
+    else:
+        # Fallback para JSON
+        init_agendamentos_file()
+        with open(AGENDAMENTOS_FILE, 'r', encoding='utf-8') as f:
+            agendamentos_data = json.load(f)
+        
+        agendamentos_data['agendamentos'] = [a for a in agendamentos_data.get('agendamentos', []) if a.get('id') != agendamento_id]
+        
+        with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
+        
+        flash('Agendamento excluído com sucesso!', 'success')
     
-    agendamentos_data['agendamentos'] = [a for a in agendamentos_data['agendamentos'] if a.get('id') != agendamento_id]
-    
-    with open(AGENDAMENTOS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(agendamentos_data, f, ensure_ascii=False, indent=2)
-    
-    flash('Agendamento excluído com sucesso!', 'success')
     return redirect(url_for('admin_agendamentos'))
 
 
