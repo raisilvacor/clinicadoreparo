@@ -765,6 +765,16 @@
     color: white;
 }
 
+.badge-info {
+    background: #3b82f6;
+    color: white;
+}
+
+.badge-danger {
+    background: #ef4444;
+    color: white;
+}
+
 /* Action Buttons */
 .action-buttons {
     display: flex;

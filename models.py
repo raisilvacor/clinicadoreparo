@@ -277,17 +277,30 @@ class ReparoRealizado(db.Model):
 
 # ==================== VÍDEOS ====================
 class Video(db.Model):
-    """Vídeos do YouTube cadastrados"""
+    """Vídeos cadastrados (upload direto ou YouTube)"""
     __tablename__ = 'videos'
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(200), nullable=False)
-    link_youtube = db.Column(db.String(500), nullable=False)  # Link completo do YouTube
+    link_youtube = db.Column(db.String(500))  # Link do YouTube (opcional, para compatibilidade)
+    # Campos para upload direto de vídeo
+    video_data = db.Column(db.LargeBinary)  # Dados binários do vídeo
+    video_filename = db.Column(db.String(200))  # Nome do arquivo original
+    video_mime_type = db.Column(db.String(50))  # video/mp4, video/webm, etc
+    video_size = db.Column(db.Integer)  # Tamanho em bytes
+    thumbnail_data = db.Column(db.LargeBinary)  # Thumbnail gerada ou enviada
+    thumbnail_mime_type = db.Column(db.String(50))  # image/jpeg, image/png
     ordem = db.Column(db.Integer, default=1)  # Ordem de exibição
     ativo = db.Column(db.Boolean, default=True)
     data_criacao = db.Column(db.DateTime, default=datetime.now)
     
+    def is_uploaded_video(self):
+        """Verifica se é um vídeo enviado diretamente (não YouTube)"""
+        return self.video_data is not None
+    
     def get_video_id(self):
-        """Extrai o ID do vídeo do link do YouTube"""
+        """Extrai o ID do vídeo do link do YouTube (apenas se for vídeo do YouTube)"""
+        if not self.link_youtube:
+            return None
         import re
         # Suporta diferentes formatos de link do YouTube
         patterns = [
@@ -301,17 +314,33 @@ class Video(db.Model):
         return None
     
     def get_embed_url(self):
-        """Retorna a URL de embed do YouTube"""
+        """Retorna a URL de embed do YouTube (apenas se for vídeo do YouTube)"""
+        if not self.link_youtube:
+            return None
         video_id = self.get_video_id()
         if video_id:
             return f'https://www.youtube.com/embed/{video_id}'
         return None
     
     def get_thumbnail_url(self):
-        """Retorna a URL da thumbnail do YouTube"""
+        """Retorna a URL da thumbnail do YouTube (apenas se for vídeo do YouTube)"""
+        if not self.link_youtube:
+            return None
         video_id = self.get_video_id()
         if video_id:
             return f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg'
+        return None
+    
+    def get_video_url(self):
+        """Retorna a URL para servir o vídeo enviado diretamente"""
+        if self.is_uploaded_video():
+            return f'/media/video/{self.id}'
+        return None
+    
+    def get_thumbnail_url_upload(self):
+        """Retorna a URL para servir a thumbnail do vídeo enviado"""
+        if self.is_uploaded_video() and self.thumbnail_data:
+            return f'/media/video/{self.id}/thumbnail'
         return None
 
 # ==================== PÁGINAS DE SERVIÇOS ====================

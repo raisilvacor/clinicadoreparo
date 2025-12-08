@@ -6,7 +6,7 @@
 <div class="admin-header">
     <div>
         <h1><i class="fas fa-video"></i> Gerenciar Vídeos</h1>
-        <p>Gerencie os vídeos do YouTube exibidos na página inicial</p>
+        <p>Gerencie os vídeos (uploads ou YouTube) exibidos na página inicial</p>
     </div>
     <a href="{{ url_for('add_video') }}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Adicionar Vídeo
@@ -21,7 +21,8 @@
                 <th>ID</th>
                 <th>Thumbnail</th>
                 <th>Título</th>
-                <th>Link YouTube</th>
+                <th>Tipo</th>
+                <th>Fonte</th>
                 <th>Ordem</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -42,9 +43,24 @@
                 </td>
                 <td><strong>{{ video.titulo }}</strong></td>
                 <td>
-                    <a href="{{ video.link_youtube }}" target="_blank" rel="noopener noreferrer" class="link-external">
-                        <i class="fab fa-youtube"></i> Ver no YouTube
-                    </a>
+                    {% if video.is_uploaded %}
+                        <span class="badge badge-info">
+                            <i class="fas fa-file-video"></i> Upload
+                        </span>
+                    {% else %}
+                        <span class="badge badge-danger">
+                            <i class="fab fa-youtube"></i> YouTube
+                        </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if video.is_uploaded %}
+                        <span class="text-muted">{{ video.video_filename or 'Arquivo enviado' }}</span>
+                    {% else %}
+                        <a href="{{ video.link_youtube }}" target="_blank" rel="noopener noreferrer" class="link-external">
+                            <i class="fab fa-youtube"></i> Ver no YouTube
+                        </a>
+                    {% endif %}
                 </td>
                 <td><strong>{{ video.ordem }}</strong></td>
                 <td>
@@ -75,7 +91,7 @@
 <div class="empty-state">
     <i class="fas fa-video"></i>
     <h3>Nenhum vídeo cadastrado</h3>
-    <p>Comece adicionando seu primeiro vídeo do YouTube</p>
+    <p>Comece adicionando seu primeiro vídeo (upload ou YouTube)</p>
     <a href="{{ url_for('add_video') }}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Adicionar Primeiro Vídeo
     </a>

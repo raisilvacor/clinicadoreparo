@@ -5,11 +5,11 @@
 {% block content %}
 <div class="admin-header">
     <h1><i class="fas fa-video"></i> Adicionar Vídeo</h1>
-    <p>Cadastre um novo vídeo do YouTube para exibir na página inicial</p>
+    <p>Cadastre um novo vídeo (upload direto ou link do YouTube)</p>
 </div>
 
 <div class="admin-form-card">
-    <form method="POST" action="{{ url_for('add_video') }}" class="admin-form">
+    <form method="POST" action="{{ url_for('add_video') }}" enctype="multipart/form-data" class="admin-form">
         <div class="form-group">
             <label for="titulo">
                 <i class="fas fa-heading"></i>
@@ -20,12 +20,48 @@
         </div>
         
         <div class="form-group">
+            <label>
+                <i class="fas fa-upload"></i>
+                Tipo de Vídeo
+            </label>
+            <div class="video-type-selector">
+                <label class="radio-label">
+                    <input type="radio" name="tipo_video" value="upload" id="tipo_upload" checked onchange="toggleVideoType()">
+                    <span>Enviar Vídeo do Computador</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="tipo_video" value="youtube" id="tipo_youtube" onchange="toggleVideoType()">
+                    <span>Link do YouTube</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-group" id="upload-section">
+            <label for="video_file">
+                <i class="fas fa-file-video"></i>
+                Arquivo de Vídeo <span class="required" id="required-video">*</span>
+            </label>
+            <input type="file" id="video_file" name="video_file" accept="video/mp4,video/webm,video/ogv,video/quicktime,video/x-msvideo" onchange="updateFileInfo(this)">
+            <small class="form-help">Formatos aceitos: MP4, WEBM, OGV, MOV, AVI. Tamanho máximo: 100MB</small>
+            <div id="file-info" style="margin-top: 0.5rem; color: var(--text-secondary);"></div>
+        </div>
+        
+        <div class="form-group" id="youtube-section" style="display: none;">
             <label for="link_youtube">
                 <i class="fab fa-youtube"></i>
-                Link do YouTube <span class="required">*</span>
+                Link do YouTube <span class="required" id="required-youtube" style="display: none;">*</span>
             </label>
-            <input type="url" id="link_youtube" name="link_youtube" required placeholder="https://www.youtube.com/watch?v=... ou https://youtu.be/...">
+            <input type="url" id="link_youtube" name="link_youtube" placeholder="https://www.youtube.com/watch?v=... ou https://youtu.be/...">
             <small class="form-help">Cole aqui o link completo do vídeo do YouTube</small>
+        </div>
+        
+        <div class="form-group" id="thumbnail-section">
+            <label for="thumbnail_file">
+                <i class="fas fa-image"></i>
+                Thumbnail (Opcional)
+            </label>
+            <input type="file" id="thumbnail_file" name="thumbnail_file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+            <small class="form-help">Imagem de preview do vídeo. Se não enviar, será gerada automaticamente (apenas para uploads)</small>
         </div>
         
         <div class="form-row">
@@ -56,5 +92,55 @@
         </div>
     </form>
 </div>
+
+<script>
+function toggleVideoType() {
+    const tipoUpload = document.getElementById('tipo_upload').checked;
+    const uploadSection = document.getElementById('upload-section');
+    const youtubeSection = document.getElementById('youtube-section');
+    const thumbnailSection = document.getElementById('thumbnail-section');
+    const requiredVideo = document.getElementById('required-video');
+    const requiredYoutube = document.getElementById('required-youtube');
+    const videoFile = document.getElementById('video_file');
+    const linkYoutube = document.getElementById('link_youtube');
+    
+    if (tipoUpload) {
+        uploadSection.style.display = 'block';
+        youtubeSection.style.display = 'none';
+        thumbnailSection.style.display = 'block';
+        requiredVideo.style.display = 'inline';
+        requiredYoutube.style.display = 'none';
+        videoFile.required = true;
+        linkYoutube.required = false;
+        linkYoutube.value = '';
+    } else {
+        uploadSection.style.display = 'none';
+        youtubeSection.style.display = 'block';
+        thumbnailSection.style.display = 'none';
+        requiredVideo.style.display = 'none';
+        requiredYoutube.style.display = 'inline';
+        videoFile.required = false;
+        videoFile.value = '';
+        linkYoutube.required = true;
+    }
+}
+
+function updateFileInfo(input) {
+    const fileInfo = document.getElementById('file-info');
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        fileInfo.textContent = `Arquivo selecionado: ${file.name} (${sizeMB} MB)`;
+        if (file.size > 100 * 1024 * 1024) {
+            fileInfo.style.color = 'red';
+            fileInfo.textContent += ' - Arquivo muito grande!';
+        } else {
+            fileInfo.style.color = 'var(--text-secondary)';
+        }
+    } else {
+        fileInfo.textContent = '';
+    }
+}
+</script>
 {% endblock %}
 

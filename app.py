@@ -98,6 +98,12 @@ if database_url:
                     except Exception as col_error:
                         print(f"DEBUG: ⚠️ Aviso ao criar coluna custos_adicionais (não crítico): {col_error}")
                     
+                    # Garantir que as colunas de vídeo existem
+                    try:
+                        garantir_colunas_video()
+                    except Exception as col_error:
+                        print(f"DEBUG: ⚠️ Aviso ao criar colunas de vídeo (não crítico): {col_error}")
+                    
                     # Limpar constraint de pedidos da loja antiga (se existir)
                     try:
                         with db.engine.connect() as temp_conn:
@@ -146,7 +152,9 @@ AGENDAMENTOS_FILE = 'data/agendamentos.json'
 
 # Configurações de upload
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'ogv', 'mov', 'avi'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
 
 # Lista fixa de tipos de serviço
 TIPOS_SERVICO = [
@@ -165,6 +173,9 @@ TIPOS_SERVICO = [
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_video_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
 
 # ==================== FUNÇÕES AUXILIARES ====================
 
@@ -282,6 +293,77 @@ def coluna_pagina_servico_id_existe():
 
 # Cache para verificar se a coluna custos_adicionais existe
 _custos_adicionais_column_exists = None
+
+def garantir_colunas_video():
+    """Garante que as colunas de vídeo upload existem na tabela videos"""
+    global _video_columns_exist
+    if _video_columns_exist:
+        return True
+    
+    if not use_database():
+        return False
+    
+    try:
+        engine = db.get_engine()
+        with engine.connect() as conn:
+            # Verificar se as colunas já existem
+            result = conn.execute(db.text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'videos' 
+                AND column_name IN ('video_data', 'video_filename', 'video_mime_type', 'video_size', 'thumbnail_data', 'thumbnail_mime_type')
+            """))
+            existing_columns = {row[0] for row in result}
+            
+            # Verificar se link_youtube é nullable
+            result_nullable = conn.execute(db.text("""
+                SELECT is_nullable 
+                FROM information_schema.columns 
+                WHERE table_name = 'videos' 
+                AND column_name = 'link_youtube'
+            """))
+            nullable_result = result_nullable.fetchone()
+            link_youtube_nullable = nullable_result and nullable_result[0] == 'YES' if nullable_result else False
+            
+            columns_to_add = []
+            if 'video_data' not in existing_columns:
+                columns_to_add.append("ADD COLUMN IF NOT EXISTS video_data BYTEA")
+            if 'video_filename' not in existing_columns:
+                columns_to_add.append("ADD COLUMN IF NOT EXISTS video_filename VARCHAR(200)")
+            if 'video_mime_type' not in existing_columns:
+                columns_to_add.append("ADD COLUMN IF NOT EXISTS video_mime_type VARCHAR(50)")
+            if 'video_size' not in existing_columns:
+                columns_to_add.append("ADD COLUMN IF NOT EXISTS video_size INTEGER")
+            if 'thumbnail_data' not in existing_columns:
+                columns_to_add.append("ADD COLUMN IF NOT EXISTS thumbnail_data BYTEA")
+            if 'thumbnail_mime_type' not in existing_columns:
+                columns_to_add.append("ADD COLUMN IF NOT EXISTS thumbnail_mime_type VARCHAR(50)")
+            
+            if columns_to_add:
+                with conn.begin():
+                    conn.execute(db.text(f"""
+                        ALTER TABLE videos
+                        {', '.join(columns_to_add)}
+                    """))
+                    print(f"✅ Colunas de vídeo criadas: {', '.join([c.split()[-1] for c in columns_to_add])}")
+            
+            # Tornar link_youtube nullable se ainda não for
+            if not link_youtube_nullable:
+                with conn.begin():
+                    conn.execute(db.text("ALTER TABLE videos ALTER COLUMN link_youtube DROP NOT NULL"))
+                    print("✅ Coluna link_youtube agora é nullable")
+            
+            _video_columns_exist = True
+            return True
+    except Exception as e:
+        error_str = str(e).lower()
+        if 'already exists' in error_str or 'duplicate' in error_str or 'exists' in error_str:
+            _video_columns_exist = True
+            return True
+        print(f"Erro ao verificar/criar colunas de vídeo: {e}")
+        return False
+
+_video_columns_exist = False
 
 def garantir_coluna_custos_adicionais():
     """Garante que a coluna custos_adicionais existe na tabela orcamentos_ar_condicionado, criando se necessário"""
@@ -1077,19 +1159,24 @@ def index():
     # Carregar vídeos do YouTube (últimos 6)
     if use_database():
         try:
+            garantir_colunas_video()
             videos_db = Video.query.filter_by(ativo=True).order_by(Video.ordem, Video.data_criacao.desc()).limit(6).all()
         except Exception as e:
             print(f"Erro ao carregar vídeos do banco: {e}")
             videos_db = []
         videos = []
         for v in videos_db:
+            is_upload = v.is_uploaded_video()
             videos.append({
                 'id': v.id,
                 'titulo': v.titulo,
                 'link_youtube': v.link_youtube,
                 'video_id': v.get_video_id(),
                 'embed_url': v.get_embed_url(),
-                'thumbnail_url': v.get_thumbnail_url(),
+                'thumbnail_url': v.get_thumbnail_url() if not is_upload else v.get_thumbnail_url_upload(),
+                'video_url': v.get_video_url() if is_upload else None,
+                'is_uploaded': is_upload,
+                'video_mime_type': v.video_mime_type if is_upload else None,
                 'ordem': v.ordem
             })
     else:
@@ -6427,21 +6514,103 @@ def servir_imagem_reparo(image_id):
 
 # ==================== VÍDEOS ====================
 
+@app.route('/media/video/<int:video_id>')
+def servir_video(video_id):
+    """Rota para servir vídeos do banco de dados"""
+    if use_database():
+        try:
+            video = Video.query.get(video_id)
+            if video and video.video_data:
+                # Suportar range requests para streaming
+                range_header = request.headers.get('Range', None)
+                if range_header:
+                    return servir_video_com_range(video, range_header)
+                else:
+                    return Response(
+                        video.video_data,
+                        mimetype=video.video_mime_type or 'video/mp4',
+                        headers={
+                            'Content-Disposition': f'inline; filename={video.video_filename or "video.mp4"}',
+                            'Accept-Ranges': 'bytes',
+                            'Content-Length': str(video.video_size or len(video.video_data))
+                        }
+                    )
+        except Exception as e:
+            print(f"Erro ao buscar vídeo: {e}")
+    
+    # Fallback: retornar 404
+    return Response('Vídeo não encontrado', status=404, mimetype='text/plain')
+
+def servir_video_com_range(video, range_header):
+    """Serve vídeo com suporte a range requests para streaming"""
+    try:
+        video_data = video.video_data
+        video_size = video.video_size or len(video_data)
+        
+        # Parse range header (ex: "bytes=0-1023")
+        byte_start = 0
+        byte_end = video_size - 1
+        
+        range_match = range_header.replace('bytes=', '').split('-')
+        if range_match[0]:
+            byte_start = int(range_match[0])
+        if len(range_match) > 1 and range_match[1]:
+            byte_end = int(range_match[1])
+        
+        chunk_size = byte_end - byte_start + 1
+        chunk = video_data[byte_start:byte_end + 1]
+        
+        return Response(
+            chunk,
+            status=206,  # Partial Content
+            mimetype=video.video_mime_type or 'video/mp4',
+            headers={
+                'Content-Range': f'bytes {byte_start}-{byte_end}/{video_size}',
+                'Accept-Ranges': 'bytes',
+                'Content-Length': str(chunk_size)
+            }
+        )
+    except Exception as e:
+        print(f"Erro ao servir vídeo com range: {e}")
+        return Response('Erro ao servir vídeo', status=500)
+
+@app.route('/media/video/<int:video_id>/thumbnail')
+def servir_video_thumbnail(video_id):
+    """Rota para servir thumbnails de vídeos do banco de dados"""
+    if use_database():
+        try:
+            video = Video.query.get(video_id)
+            if video and video.thumbnail_data:
+                return Response(
+                    video.thumbnail_data,
+                    mimetype=video.thumbnail_mime_type or 'image/jpeg',
+                    headers={'Content-Disposition': f'inline; filename=thumbnail.jpg'}
+                )
+        except Exception as e:
+            print(f"Erro ao buscar thumbnail: {e}")
+    
+    # Fallback: retornar placeholder
+    return redirect(url_for('static', filename='img/placeholder.png'))
+
 @app.route('/admin/videos')
 @login_required
 def admin_videos():
     """Lista todos os vídeos cadastrados"""
+    garantir_colunas_video()
     if use_database():
         try:
             videos_db = Video.query.order_by(Video.ordem, Video.data_criacao.desc()).all()
             videos = []
             for v in videos_db:
+                is_upload = v.is_uploaded_video()
                 videos.append({
                     'id': v.id,
                     'titulo': v.titulo,
                     'link_youtube': v.link_youtube,
                     'video_id': v.get_video_id(),
-                    'thumbnail_url': v.get_thumbnail_url(),
+                    'thumbnail_url': v.get_thumbnail_url() if not is_upload else v.get_thumbnail_url_upload(),
+                    'video_url': v.get_video_url() if is_upload else None,
+                    'is_uploaded': is_upload,
                     'ordem': v.ordem,
                     'ativo': v.ativo,
                     'data_criacao': v.data_criacao
@@ -6457,30 +6626,29 @@ def admin_videos():
 @app.route('/admin/videos/add', methods=['GET', 'POST'])
 @login_required
 def add_video():
-    """Adiciona um novo vídeo"""
+    """Adiciona um novo vídeo (upload ou YouTube)"""
+    garantir_colunas_video()
     if request.method == 'POST':
         titulo = request.form.get('titulo', '').strip()
         link_youtube = request.form.get('link_youtube', '').strip()
         ordem = request.form.get('ordem', '1')
         ativo = request.form.get('ativo') == 'on'
+        video_file = request.files.get('video_file')
+        thumbnail_file = request.files.get('thumbnail_file')
         
         if not titulo:
             flash('Por favor, informe o título do vídeo.', 'error')
             return redirect(url_for('add_video'))
         
-        if not link_youtube:
-            flash('Por favor, informe o link do YouTube.', 'error')
+        # Verificar se é upload de vídeo ou link do YouTube
+        is_upload = video_file and video_file.filename
+        
+        if not is_upload and not link_youtube:
+            flash('Por favor, envie um arquivo de vídeo OU informe o link do YouTube.', 'error')
             return redirect(url_for('add_video'))
         
         if use_database():
             try:
-                # Validar se o link é válido
-                video_temp = Video()
-                video_temp.link_youtube = link_youtube
-                if not video_temp.get_video_id():
-                    flash('Link do YouTube inválido. Use um link válido do YouTube.', 'error')
-                    return redirect(url_for('add_video'))
-                
                 # Obter próxima ordem se não especificada
                 if not ordem or not ordem.isdigit():
                     ultimo_video = Video.query.order_by(Video.ordem.desc()).first()
@@ -6490,10 +6658,47 @@ def add_video():
                 
                 novo_video = Video(
                     titulo=titulo,
-                    link_youtube=link_youtube,
                     ordem=ordem,
                     ativo=ativo
                 )
+                
+                if is_upload:
+                    # Processar upload de vídeo
+                    if not allowed_video_file(video_file.filename):
+                        flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
+                        return redirect(url_for('add_video'))
+                    
+                    # Verificar tamanho
+                    video_file.seek(0, os.SEEK_END)
+                    video_size = video_file.tell()
+                    video_file.seek(0)
+                    if video_size > MAX_VIDEO_SIZE:
+                        flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
+                        return redirect(url_for('add_video'))
+                    
+                    video_data = video_file.read()
+                    novo_video.video_data = video_data
+                    novo_video.video_filename = secure_filename(video_file.filename)
+                    novo_video.video_mime_type = video_file.mimetype or 'video/mp4'
+                    novo_video.video_size = video_size
+                    
+                    # Processar thumbnail opcional
+                    if thumbnail_file and thumbnail_file.filename:
+                        if allowed_file(thumbnail_file.filename):
+                            thumbnail_file.seek(0, os.SEEK_END)
+                            thumbnail_size = thumbnail_file.tell()
+                            thumbnail_file.seek(0)
+                            if thumbnail_size <= MAX_FILE_SIZE:
+                                novo_video.thumbnail_data = thumbnail_file.read()
+                                novo_video.thumbnail_mime_type = thumbnail_file.mimetype or 'image/jpeg'
+                else:
+                    # Processar link do YouTube
+                    novo_video.link_youtube = link_youtube
+                    video_temp = Video()
+                    video_temp.link_youtube = link_youtube
+                    if not video_temp.get_video_id():
+                        flash('Link do YouTube inválido. Use um link válido do YouTube.', 'error')
+                        return redirect(url_for('add_video'))
                 
                 db.session.add(novo_video)
                 db.session.commit()
@@ -6516,6 +6721,7 @@ def add_video():
 @login_required
 def edit_video(video_id):
     """Edita um vídeo existente"""
+    garantir_colunas_video()
     if use_database():
         try:
             video = Video.query.get(video_id)
@@ -6528,23 +6734,66 @@ def edit_video(video_id):
                 link_youtube = request.form.get('link_youtube', '').strip()
                 ordem = request.form.get('ordem', '1')
                 video.ativo = request.form.get('ativo') == 'on'
+                video_file = request.files.get('video_file')
+                thumbnail_file = request.files.get('thumbnail_file')
+                substituir_video = request.form.get('substituir_video') == 'on'
+                substituir_thumbnail = request.form.get('substituir_thumbnail') == 'on'
                 
                 if not video.titulo:
                     flash('Por favor, informe o título do vídeo.', 'error')
                     return redirect(url_for('edit_video', video_id=video_id))
                 
-                if not link_youtube:
-                    flash('Por favor, informe o link do YouTube.', 'error')
-                    return redirect(url_for('edit_video', video_id=video_id))
+                # Se for substituir vídeo ou adicionar novo upload
+                if substituir_video and video_file and video_file.filename:
+                    if not allowed_video_file(video_file.filename):
+                        flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    
+                    video_file.seek(0, os.SEEK_END)
+                    video_size = video_file.tell()
+                    video_file.seek(0)
+                    if video_size > MAX_VIDEO_SIZE:
+                        flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    
+                    video_data = video_file.read()
+                    video.video_data = video_data
+                    video.video_filename = secure_filename(video_file.filename)
+                    video.video_mime_type = video_file.mimetype or 'video/mp4'
+                    video.video_size = video_size
+                    video.link_youtube = None  # Remover link do YouTube se estava usando
+                elif link_youtube and not video.is_uploaded_video():
+                    # Atualizar link do YouTube (apenas se não tiver vídeo enviado)
+                    video_temp = Video()
+                    video_temp.link_youtube = link_youtube
+                    if not video_temp.get_video_id():
+                        flash('Link do YouTube inválido. Use um link válido do YouTube.', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    video.link_youtube = link_youtube
+                elif link_youtube and substituir_video:
+                    # Trocar vídeo enviado por link do YouTube
+                    video_temp = Video()
+                    video_temp.link_youtube = link_youtube
+                    if not video_temp.get_video_id():
+                        flash('Link do YouTube inválido. Use um link válido do YouTube.', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    video.link_youtube = link_youtube
+                    video.video_data = None
+                    video.video_filename = None
+                    video.video_mime_type = None
+                    video.video_size = None
+                    video.thumbnail_data = None
+                    video.thumbnail_mime_type = None
                 
-                # Validar link
-                video_temp = Video()
-                video_temp.link_youtube = link_youtube
-                if not video_temp.get_video_id():
-                    flash('Link do YouTube inválido. Use um link válido do YouTube.', 'error')
-                    return redirect(url_for('edit_video', video_id=video_id))
-                
-                video.link_youtube = link_youtube
+                # Processar thumbnail se solicitado
+                if substituir_thumbnail and thumbnail_file and thumbnail_file.filename:
+                    if allowed_file(thumbnail_file.filename):
+                        thumbnail_file.seek(0, os.SEEK_END)
+                        thumbnail_size = thumbnail_file.tell()
+                        thumbnail_file.seek(0)
+                        if thumbnail_size <= MAX_FILE_SIZE:
+                            video.thumbnail_data = thumbnail_file.read()
+                            video.thumbnail_mime_type = thumbnail_file.mimetype or 'image/jpeg'
                 
                 if ordem and ordem.isdigit():
                     video.ordem = int(ordem)
@@ -6554,12 +6803,17 @@ def edit_video(video_id):
                 flash('Vídeo atualizado com sucesso!', 'success')
                 return redirect(url_for('admin_videos'))
             
+            # GET - carregar dados
+            is_upload = video.is_uploaded_video()
             video_data = {
                 'id': video.id,
                 'titulo': video.titulo,
                 'link_youtube': video.link_youtube,
                 'video_id': video.get_video_id(),
-                'thumbnail_url': video.get_thumbnail_url(),
+                'thumbnail_url': video.get_thumbnail_url() if not is_upload else video.get_thumbnail_url_upload(),
+                'video_url': video.get_video_url() if is_upload else None,
+                'is_uploaded': is_upload,
+                'video_filename': video.video_filename,
                 'ordem': video.ordem,
                 'ativo': video.ativo
             }
@@ -6630,19 +6884,24 @@ def todos_videos():
     # Carregar todos os vídeos
     if use_database():
         try:
+            garantir_colunas_video()
             videos_db = Video.query.filter_by(ativo=True).order_by(Video.ordem, Video.data_criacao.desc()).all()
         except Exception as e:
             print(f"Erro ao carregar vídeos do banco: {e}")
             videos_db = []
         videos = []
         for v in videos_db:
+            is_upload = v.is_uploaded_video()
             videos.append({
                 'id': v.id,
                 'titulo': v.titulo,
                 'link_youtube': v.link_youtube,
                 'video_id': v.get_video_id(),
                 'embed_url': v.get_embed_url(),
-                'thumbnail_url': v.get_thumbnail_url(),
+                'thumbnail_url': v.get_thumbnail_url() if not is_upload else v.get_thumbnail_url_upload(),
+                'video_url': v.get_video_url() if is_upload else None,
+                'is_uploaded': is_upload,
+                'video_mime_type': v.video_mime_type if is_upload else None,
                 'ordem': v.ordem
             })
     else:
