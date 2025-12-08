@@ -6,7 +6,7 @@
 <div class="admin-header">
     <div>
         <h1><i class="fas fa-video"></i> Gerenciar Vídeos</h1>
-        <p>Gerencie os vídeos (uploads ou YouTube) exibidos na página inicial</p>
+        <p>Gerencie os vídeos enviados diretamente do computador</p>
     </div>
     <a href="{{ url_for('add_video') }}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Adicionar Vídeo
@@ -19,10 +19,9 @@
         <thead>
             <tr>
                 <th>ID</th>
-                <th>Thumbnail</th>
+                <th>Preview</th>
                 <th>Título</th>
-                <th>Tipo</th>
-                <th>Fonte</th>
+                <th>Arquivo</th>
                 <th>Ordem</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -34,33 +33,14 @@
                 <td>{{ video.id }}</td>
                 <td>
                     <div class="video-preview">
-                        {% if video.video_id %}
-                        <img src="https://img.youtube.com/vi/{{ video.video_id }}/maxresdefault.jpg" alt="Thumbnail {{ video.id }}" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
-                        {% else %}
-                        <img src="{{ video.thumbnail_url or url_for('static', filename='img/placeholder.png') }}" alt="Thumbnail {{ video.id }}">
-                        {% endif %}
+                        <video controls preload="metadata" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px;">
+                            <source src="{{ video.video_url }}" type="{{ video.video_mime_type }}">
+                        </video>
                     </div>
                 </td>
                 <td><strong>{{ video.titulo }}</strong></td>
                 <td>
-                    {% if video.is_uploaded %}
-                        <span class="badge badge-info">
-                            <i class="fas fa-file-video"></i> Upload
-                        </span>
-                    {% else %}
-                        <span class="badge badge-danger">
-                            <i class="fab fa-youtube"></i> YouTube
-                        </span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if video.is_uploaded %}
-                        <span class="text-muted">{{ video.video_filename or 'Arquivo enviado' }}</span>
-                    {% else %}
-                        <a href="{{ video.link_youtube }}" target="_blank" rel="noopener noreferrer" class="link-external">
-                            <i class="fab fa-youtube"></i> Ver no YouTube
-                        </a>
-                    {% endif %}
+                    <span class="text-muted">{{ video.video_filename or 'Arquivo de vídeo' }}</span>
                 </td>
                 <td><strong>{{ video.ordem }}</strong></td>
                 <td>
@@ -91,7 +71,7 @@
 <div class="empty-state">
     <i class="fas fa-video"></i>
     <h3>Nenhum vídeo cadastrado</h3>
-    <p>Comece adicionando seu primeiro vídeo (upload ou YouTube)</p>
+    <p>Comece adicionando seu primeiro vídeo enviando diretamente do computador</p>
     <a href="{{ url_for('add_video') }}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Adicionar Primeiro Vídeo
     </a>

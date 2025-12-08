@@ -20,96 +20,29 @@
         </div>
         
         <div class="form-group">
-            <label>Tipo Atual</label>
+            <label>Vídeo Atual</label>
             <div class="current-video-info">
-                {% if video.is_uploaded %}
-                    <p><i class="fas fa-file-video"></i> Vídeo enviado: <strong>{{ video.video_filename or 'Arquivo de vídeo' }}</strong></p>
-                {% else %}
-                    <p><i class="fab fa-youtube"></i> Vídeo do YouTube: <a href="{{ video.link_youtube }}" target="_blank">{{ video.link_youtube }}</a></p>
-                {% endif %}
+                <p><i class="fas fa-file-video"></i> <strong>{{ video.video_filename or 'Arquivo de vídeo' }}</strong></p>
+                <video controls style="width: 100%; max-width: 560px; border-radius: 8px; background: #000;" preload="metadata">
+                    <source src="{{ video.video_url }}" type="{{ video.video_mime_type }}">
+                    Seu navegador não suporta a tag de vídeo.
+                </video>
             </div>
         </div>
         
         <div class="form-group">
             <label>
                 <i class="fas fa-exchange-alt"></i>
-                Opções de Alteração
-            </label>
-            <div class="video-options">
-                {% if video.is_uploaded %}
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="substituir_video" name="substituir_video" onchange="toggleSubstituir()">
-                        <span>Substituir vídeo enviado por novo arquivo</span>
-                    </label>
-                    <div id="substituir-section" style="display: none; margin-top: 1rem;">
-                        <input type="file" id="video_file" name="video_file" accept="video/mp4,video/webm,video/ogv,video/quicktime,video/x-msvideo">
-                        <small class="form-help">Formatos aceitos: MP4, WEBM, OGV, MOV, AVI. Tamanho máximo: 100MB</small>
-                        <div style="margin-top: 1rem;">
-                            <label class="radio-label">
-                                <input type="radio" name="novo_tipo" value="upload" checked onchange="toggleNovoTipo()">
-                                <span>Manter como upload</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="novo_tipo" value="youtube" onchange="toggleNovoTipo()">
-                                <span>Trocar por link do YouTube</span>
-                            </label>
-                        </div>
-                    </div>
-                {% else %}
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="substituir_video" name="substituir_video" onchange="toggleSubstituir()">
-                        <span>Trocar por vídeo enviado do computador</span>
-                    </label>
-                    <div id="substituir-section" style="display: none; margin-top: 1rem;">
-                        <input type="file" id="video_file" name="video_file" accept="video/mp4,video/webm,video/ogv,video/quicktime,video/x-msvideo">
-                        <small class="form-help">Formatos aceitos: MP4, WEBM, OGV, MOV, AVI. Tamanho máximo: 100MB</small>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-        
-        <div class="form-group">
-            <label for="link_youtube">
-                <i class="fab fa-youtube"></i>
-                Link do YouTube
-            </label>
-            <input type="url" id="link_youtube" name="link_youtube" value="{{ video.link_youtube or '' }}" placeholder="https://www.youtube.com/watch?v=... ou https://youtu.be/...">
-            <small class="form-help">Atualize o link do YouTube (apenas se for vídeo do YouTube)</small>
-        </div>
-        
-        <div class="form-group">
-            <label>Preview do Vídeo</label>
-            <div class="video-preview-large">
-                {% if video.is_uploaded %}
-                    {% if video.thumbnail_url %}
-                        <img src="{{ video.thumbnail_url }}" alt="Thumbnail do vídeo" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
-                    {% else %}
-                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #000; color: white;">
-                            <i class="fas fa-file-video" style="font-size: 3rem;"></i>
-                        </div>
-                    {% endif %}
-                {% else %}
-                    {% if video.video_id %}
-                        <img src="https://img.youtube.com/vi/{{ video.video_id }}/maxresdefault.jpg" alt="Thumbnail do vídeo" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
-                    {% else %}
-                        <img src="{{ video.thumbnail_url or url_for('static', filename='img/placeholder.png') }}" alt="Thumbnail do vídeo">
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
-        
-        <div class="form-group">
-            <label for="thumbnail_file">
-                <i class="fas fa-image"></i>
-                Thumbnail (Opcional)
+                Substituir Vídeo
             </label>
             <label class="checkbox-label">
-                <input type="checkbox" id="substituir_thumbnail" name="substituir_thumbnail" onchange="toggleThumbnail()">
-                <span>Substituir thumbnail</span>
+                <input type="checkbox" id="substituir_video" name="substituir_video" onchange="toggleSubstituir()">
+                <span>Substituir vídeo por novo arquivo</span>
             </label>
-            <div id="thumbnail-section" style="display: none; margin-top: 1rem;">
-                <input type="file" id="thumbnail_file" name="thumbnail_file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
-                <small class="form-help">Imagem de preview do vídeo</small>
+            <div id="substituir-section" style="display: none; margin-top: 1rem;">
+                <input type="file" id="video_file" name="video_file" accept="video/mp4,video/webm,video/ogv,video/quicktime,video/x-msvideo" onchange="updateFileInfo(this)">
+                <small class="form-help">Formatos aceitos: MP4, WEBM, OGV, MOV, AVI. Tamanho máximo: 100MB</small>
+                <div id="file-info" style="margin-top: 0.5rem; color: var(--text-secondary);"></div>
             </div>
         </div>
         
@@ -149,42 +82,27 @@ function toggleSubstituir() {
     section.style.display = checkbox.checked ? 'block' : 'none';
 }
 
-function toggleNovoTipo() {
-    const novoYoutube = document.querySelector('input[name="novo_tipo"][value="youtube"]').checked;
-    const linkYoutube = document.getElementById('link_youtube');
-    if (novoYoutube) {
-        linkYoutube.required = true;
+function updateFileInfo(input) {
+    const fileInfo = document.getElementById('file-info');
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        fileInfo.textContent = `Arquivo selecionado: ${file.name} (${sizeMB} MB)`;
+        if (file.size > 100 * 1024 * 1024) {
+            fileInfo.style.color = 'red';
+            fileInfo.textContent += ' - Arquivo muito grande!';
+        } else {
+            fileInfo.style.color = 'var(--text-secondary)';
+        }
     } else {
-        linkYoutube.required = false;
+        fileInfo.textContent = '';
     }
-}
-
-function toggleThumbnail() {
-    const checkbox = document.getElementById('substituir_thumbnail');
-    const section = document.getElementById('thumbnail-section');
-    section.style.display = checkbox.checked ? 'block' : 'none';
 }
 </script>
 {% endblock %}
 
 {% block styles %}
 <style>
-.video-preview-large {
-    width: 100%;
-    max-width: 560px;
-    aspect-ratio: 16/9;
-    overflow: hidden;
-    border-radius: 8px;
-    background: #f5f5f5;
-    border: 1px solid var(--border-color);
-}
-
-.video-preview-large img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
 .current-video-info {
     padding: 1rem;
     background: var(--bg-secondary);
@@ -193,20 +111,8 @@ function toggleThumbnail() {
 }
 
 .current-video-info p {
-    margin: 0;
+    margin: 0 0 1rem 0;
     color: var(--text-primary);
-}
-
-.radio-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.radio-label input[type="radio"] {
-    margin: 0;
 }
 </style>
 {% endblock %}
-

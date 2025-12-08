@@ -20,25 +20,11 @@
         <div class="videos-page-grid">
             {% for video in videos %}
             <div class="video-page-item">
-                <div class="video-page-thumbnail" onclick="abrirVideoModal('{{ video.video_url or video.embed_url }}', '{{ video.titulo|e }}', '{{ 'upload' if video.is_uploaded else 'youtube' }}', '{{ video.video_mime_type or '' }}')">
-                    {% if video.is_uploaded %}
-                        {% if video.thumbnail_url %}
-                            <img src="{{ video.thumbnail_url }}" alt="{{ video.titulo }}" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
-                        {% else %}
-                            <div style="width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; color: white;">
-                                <i class="fas fa-file-video" style="font-size: 3rem;"></i>
-                            </div>
-                        {% endif %}
-                    {% else %}
-                        {% if video.video_id %}
-                            <img src="https://img.youtube.com/vi/{{ video.video_id }}/maxresdefault.jpg" alt="{{ video.titulo }}" loading="lazy" onerror="this.src='{{ url_for('static', filename='img/placeholder.png') }}'">
-                        {% else %}
-                            <img src="{{ video.thumbnail_url or url_for('static', filename='img/placeholder.png') }}" alt="{{ video.titulo }}" loading="lazy">
-                        {% endif %}
-                    {% endif %}
-                    <div class="video-play-button">
-                        <i class="fas fa-play"></i>
-                    </div>
+                <div class="video-page-thumbnail">
+                    <video controls preload="metadata" style="width: 100%; height: 100%; object-fit: cover;">
+                        <source src="{{ video.video_url }}" type="{{ video.video_mime_type }}">
+                        Seu navegador não suporta a tag de vídeo.
+                    </video>
                 </div>
                 <h3>{{ video.titulo }}</h3>
             </div>
@@ -47,19 +33,6 @@
     </div>
 </section>
 
-<!-- Modal para exibir vídeo -->
-<div id="video-modal" class="video-modal" onclick="fecharVideoModal()">
-    <div class="video-modal-content" onclick="event.stopPropagation()">
-        <span class="video-modal-close" onclick="fecharVideoModal()">&times;</span>
-        <div class="video-modal-iframe-container">
-            <iframe id="video-modal-iframe" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="display: none;"></iframe>
-            <video id="video-modal-player" controls style="width: 100%; height: 100%; display: none;">
-                Seu navegador não suporta a tag de vídeo.
-            </video>
-        </div>
-        <h3 id="video-modal-title"></h3>
-    </div>
-</div>
 {% else %}
 <section class="empty-state-section">
     <div class="container">
@@ -127,41 +100,6 @@
     aspect-ratio: 16/9;
     overflow: hidden;
     background: #000;
-    cursor: pointer;
-}
-
-.video-page-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
-}
-
-.video-page-item:hover .video-page-thumbnail img {
-    transform: scale(1.05);
-}
-
-.video-play-button {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 70px;
-    height: 70px;
-    background: rgba(255, 0, 0, 0.9);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 2rem;
-    transition: all 0.3s ease;
-    z-index: 2;
-}
-
-.video-page-thumbnail:hover .video-play-button {
-    background: rgba(255, 0, 0, 1);
-    transform: translate(-50%, -50%) scale(1.1);
 }
 
 .video-page-item h3 {
@@ -172,73 +110,6 @@
     font-weight: 600;
 }
 
-/* Video Modal */
-.video-modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.9);
-    z-index: 10000;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-}
-
-.video-modal.active {
-    display: flex;
-}
-
-.video-modal-content {
-    position: relative;
-    max-width: 90%;
-    max-height: 90%;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    max-width: 900px;
-}
-
-.video-modal-iframe-container {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16/9;
-    background: #000;
-}
-
-.video-modal-iframe-container iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-
-.video-modal-close {
-    position: absolute;
-    top: -40px;
-    right: 0;
-    color: white;
-    font-size: 3rem;
-    cursor: pointer;
-    line-height: 1;
-    z-index: 10001;
-    transition: color 0.3s ease;
-}
-
-.video-modal-close:hover {
-    color: #ff6b6b;
-}
-
-.video-modal-content h3 {
-    padding: 1.5rem;
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 1.3rem;
-}
 
 /* Empty State */
 .empty-state-section {
@@ -283,16 +154,6 @@
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 1.5rem;
     }
-    
-    .video-modal-content {
-        max-width: 95%;
-        max-height: 95%;
-    }
-    
-    .video-modal-close {
-        top: -30px;
-        font-size: 2.5rem;
-    }
 }
 
 @media (max-width: 640px) {
@@ -302,55 +163,5 @@
 }
 </style>
 
-<script>
-function abrirVideoModal(videoUrl, titulo, tipo, mimeType) {
-    const modal = document.getElementById('video-modal');
-    const iframe = document.getElementById('video-modal-iframe');
-    const videoPlayer = document.getElementById('video-modal-player');
-    const title = document.getElementById('video-modal-title');
-    
-    // Esconder ambos
-    iframe.style.display = 'none';
-    videoPlayer.style.display = 'none';
-    
-    if (tipo === 'upload') {
-        // Vídeo enviado - usar tag <video>
-        videoPlayer.src = videoUrl;
-        if (mimeType) {
-            videoPlayer.type = mimeType;
-        }
-        videoPlayer.style.display = 'block';
-        videoPlayer.load();
-        videoPlayer.play();
-    } else {
-        // YouTube - usar iframe
-        iframe.src = videoUrl + '?autoplay=1';
-        iframe.style.display = 'block';
-    }
-    
-    title.textContent = titulo;
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-function fecharVideoModal() {
-    const modal = document.getElementById('video-modal');
-    const iframe = document.getElementById('video-modal-iframe');
-    const videoPlayer = document.getElementById('video-modal-player');
-    
-    iframe.src = '';
-    videoPlayer.pause();
-    videoPlayer.src = '';
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
-}
-
-// Fechar com ESC
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        fecharVideoModal();
-    }
-});
-</script>
 {% endblock %}
 
