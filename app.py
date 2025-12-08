@@ -2409,6 +2409,51 @@ def delete_cliente(cliente_id):
             flash('Cliente não encontrado!', 'error')
             return redirect(url_for('admin_clientes'))
         
+        # Verificar se há pedidos relacionados (tabela pedidos)
+        try:
+            with db.engine.connect() as conn:
+                result = conn.execute(db.text("""
+                    SELECT COUNT(*) FROM pedidos WHERE cliente_id = :cliente_id
+                """), {'cliente_id': cliente_id})
+                count_pedidos = result.scalar()
+                
+                if count_pedidos > 0:
+                    flash(f'Não é possível excluir o cliente. Existem {count_pedidos} pedido(s) associado(s) a este cliente. Exclua os pedidos primeiro.', 'error')
+                    return redirect(url_for('admin_clientes'))
+        except Exception as check_error:
+            # Se a tabela pedidos não existir, continuar
+            print(f"Aviso ao verificar pedidos: {check_error}")
+        
+        # Verificar se há ordens de serviço relacionadas
+        ordens_count = OrdemServico.query.filter_by(cliente_id=cliente_id).count()
+        if ordens_count > 0:
+            flash(f'Não é possível excluir o cliente. Existem {ordens_count} ordem(ns) de serviço associada(s) a este cliente. Exclua as ordens primeiro.', 'error')
+            return redirect(url_for('admin_clientes'))
+        
+        # Verificar se há comprovantes relacionados
+        comprovantes_count = Comprovante.query.filter_by(cliente_id=cliente_id).count()
+        if comprovantes_count > 0:
+            flash(f'Não é possível excluir o cliente. Existem {comprovantes_count} comprovante(s) associado(s) a este cliente. Exclua os comprovantes primeiro.', 'error')
+            return redirect(url_for('admin_clientes'))
+        
+        # Verificar se há cupons relacionados
+        cupons_count = Cupom.query.filter_by(cliente_id=cliente_id).count()
+        if cupons_count > 0:
+            flash(f'Não é possível excluir o cliente. Existem {cupons_count} cupom(ns) associado(s) a este cliente. Exclua os cupons primeiro.', 'error')
+            return redirect(url_for('admin_clientes'))
+        
+        # Verificar se há orçamentos de ar-condicionado relacionados
+        try:
+            from models import OrcamentoArCondicionado
+            orcamentos_count = OrcamentoArCondicionado.query.filter_by(cliente_id=cliente_id).count()
+            if orcamentos_count > 0:
+                flash(f'Não é possível excluir o cliente. Existem {orcamentos_count} orçamento(s) de ar-condicionado associado(s) a este cliente. Exclua os orçamentos primeiro.', 'error')
+                return redirect(url_for('admin_clientes'))
+        except:
+            pass
+        
+        # Se chegou aqui, pode excluir o cliente
+        # As ordens de serviço serão deletadas automaticamente devido ao cascade='all, delete-orphan'
         db.session.delete(cliente)
         db.session.commit()
         flash('Cliente excluído com sucesso!', 'success')
@@ -2417,7 +2462,13 @@ def delete_cliente(cliente_id):
         import traceback
         traceback.print_exc()
         db.session.rollback()
-        flash(f'Erro ao excluir cliente: {str(e)}', 'error')
+        
+        # Mensagem mais amigável para erro de foreign key
+        error_msg = str(e)
+        if 'foreign key' in error_msg.lower() or 'violates foreign key' in error_msg.lower():
+            flash('Não é possível excluir o cliente. Existem registros relacionados (pedidos, ordens, comprovantes, etc.) que precisam ser excluídos primeiro.', 'error')
+        else:
+            flash(f'Erro ao excluir cliente: {str(e)}', 'error')
     
     return redirect(url_for('admin_clientes'))
 
