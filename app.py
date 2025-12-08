@@ -2409,39 +2409,80 @@ def delete_cliente(cliente_id):
             flash('Cliente não encontrado!', 'error')
             return redirect(url_for('admin_clientes'))
         
-        # Verificar se há ordens de serviço relacionadas
+        # Verificar se há registros relacionados e coletar informações
         ordens_count = OrdemServico.query.filter_by(cliente_id=cliente_id).count()
-        if ordens_count > 0:
-            flash(f'Não é possível excluir o cliente. Existem {ordens_count} ordem(ns) de serviço associada(s) a este cliente. Exclua as ordens primeiro.', 'error')
-            return redirect(url_for('admin_clientes'))
-        
-        # Verificar se há comprovantes relacionados
         comprovantes_count = Comprovante.query.filter_by(cliente_id=cliente_id).count()
-        if comprovantes_count > 0:
-            flash(f'Não é possível excluir o cliente. Existem {comprovantes_count} comprovante(s) associado(s) a este cliente. Exclua os comprovantes primeiro.', 'error')
-            return redirect(url_for('admin_clientes'))
-        
-        # Verificar se há cupons relacionados
         cupons_count = Cupom.query.filter_by(cliente_id=cliente_id).count()
-        if cupons_count > 0:
-            flash(f'Não é possível excluir o cliente. Existem {cupons_count} cupom(ns) associado(s) a este cliente. Exclua os cupons primeiro.', 'error')
-            return redirect(url_for('admin_clientes'))
         
-        # Verificar se há orçamentos de ar-condicionado relacionados
+        orcamentos_count = 0
         try:
             from models import OrcamentoArCondicionado
             orcamentos_count = OrcamentoArCondicionado.query.filter_by(cliente_id=cliente_id).count()
-            if orcamentos_count > 0:
-                flash(f'Não é possível excluir o cliente. Existem {orcamentos_count} orçamento(s) de ar-condicionado associado(s) a este cliente. Exclua os orçamentos primeiro.', 'error')
-                return redirect(url_for('admin_clientes'))
         except:
             pass
         
-        # Se chegou aqui, pode excluir o cliente
-        # As ordens de serviço serão deletadas automaticamente devido ao cascade='all, delete-orphan'
+        # Excluir registros relacionados em cascata antes de excluir o cliente
+        
+        # Excluir orçamentos de ar-condicionado relacionados (e seus PDFs)
+        if orcamentos_count > 0:
+            try:
+                from models import OrcamentoArCondicionado
+                orcamentos = OrcamentoArCondicionado.query.filter_by(cliente_id=cliente_id).all()
+                for orcamento in orcamentos:
+                    # Deletar PDF associado se existir
+                    if orcamento.pdf_id:
+                        try:
+                            pdf_doc = PDFDocument.query.get(orcamento.pdf_id)
+                            if pdf_doc:
+                                db.session.delete(pdf_doc)
+                        except:
+                            pass
+                    db.session.delete(orcamento)
+            except Exception as e:
+                print(f"Erro ao excluir orçamentos: {e}")
+        
+        # Excluir cupons relacionados
+        if cupons_count > 0:
+            Cupom.query.filter_by(cliente_id=cliente_id).delete()
+        
+        # Excluir comprovantes relacionados (e seus PDFs)
+        if comprovantes_count > 0:
+            comprovantes = Comprovante.query.filter_by(cliente_id=cliente_id).all()
+            for comprovante in comprovantes:
+                # Deletar PDF associado se existir
+                if comprovante.pdf_id:
+                    try:
+                        pdf_doc = PDFDocument.query.get(comprovante.pdf_id)
+                        if pdf_doc:
+                            db.session.delete(pdf_doc)
+                    except:
+                        pass
+                db.session.delete(comprovante)
+        
+        # Excluir ordens de serviço relacionadas (e seus PDFs)
+        # As ordens serão deletadas automaticamente devido ao cascade, mas vamos garantir que os PDFs também sejam deletados
+        if ordens_count > 0:
+            ordens = OrdemServico.query.filter_by(cliente_id=cliente_id).all()
+            for ordem in ordens:
+                if ordem.pdf_id:
+                    try:
+                        pdf_doc = PDFDocument.query.get(ordem.pdf_id)
+                        if pdf_doc:
+                            db.session.delete(pdf_doc)
+                    except:
+                        pass
+                db.session.delete(ordem)
+        
+        # Agora pode excluir o cliente
         db.session.delete(cliente)
         db.session.commit()
-        flash('Cliente excluído com sucesso!', 'success')
+        
+        # Mensagem informando quantos registros foram excluídos
+        total_excluidos = ordens_count + comprovantes_count + cupons_count + orcamentos_count
+        if total_excluidos > 0:
+            flash(f'Cliente e {total_excluidos} registro(s) relacionado(s) foram excluídos com sucesso!', 'success')
+        else:
+            flash('Cliente excluído com sucesso!', 'success')
     except Exception as e:
         print(f"Erro ao excluir cliente: {e}")
         import traceback
