@@ -86,19 +86,17 @@ if database_url:
                     db.create_all()
                     print("DEBUG: ✅ Tabelas criadas/verificadas no banco de dados")
                     
-                    # Garantir que a coluna pagina_servico_id existe (importante para funcionalidade completa)
+                    # Garantir que as colunas necessárias existem (importante para funcionalidade completa)
                     try:
                         garantir_coluna_pagina_servico_id()
                     except Exception as col_error:
                         print(f"DEBUG: ⚠️ Aviso ao criar coluna pagina_servico_id (não crítico): {col_error}")
                     
-                    # Garantir que a coluna custos_adicionais existe
                     try:
                         garantir_coluna_custos_adicionais()
                     except Exception as col_error:
                         print(f"DEBUG: ⚠️ Aviso ao criar coluna custos_adicionais (não crítico): {col_error}")
                     
-                    # Garantir que as colunas de vídeo existem
                     try:
                         garantir_colunas_video()
                     except Exception as col_error:
@@ -201,8 +199,13 @@ def use_database():
     
     return False
 
+# ==================== FUNÇÕES DE GARANTIA DE COLUNAS ====================
+# Definidas antes da inicialização do banco para poderem ser chamadas durante a inicialização
+
 # Cache para verificar se a coluna existe (evita múltiplas queries)
 _pagina_servico_id_column_exists = None
+_custos_adicionais_column_exists = None
+_video_columns_exist = False
 
 def garantir_coluna_pagina_servico_id():
     """Garante que a coluna pagina_servico_id existe na tabela servicos, criando se necessário (otimizado)"""
@@ -291,9 +294,6 @@ def coluna_pagina_servico_id_existe():
     """Verifica se a coluna pagina_servico_id existe (cria se não existir)"""
     return garantir_coluna_pagina_servico_id()
 
-# Cache para verificar se a coluna custos_adicionais existe
-_custos_adicionais_column_exists = None
-
 def garantir_colunas_video():
     """Garante que as colunas de vídeo upload existem na tabela videos"""
     global _video_columns_exist
@@ -305,56 +305,86 @@ def garantir_colunas_video():
     
     try:
         engine = db.get_engine()
-        with engine.connect() as conn:
-            # Verificar se as colunas já existem
-            result = conn.execute(db.text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'videos' 
-                AND column_name IN ('video_data', 'video_filename', 'video_mime_type', 'video_size', 'thumbnail_data', 'thumbnail_mime_type')
-            """))
-            existing_columns = {row[0] for row in result}
-            
-            # Verificar se link_youtube é nullable
-            result_nullable = conn.execute(db.text("""
-                SELECT is_nullable 
-                FROM information_schema.columns 
-                WHERE table_name = 'videos' 
-                AND column_name = 'link_youtube'
-            """))
-            nullable_result = result_nullable.fetchone()
-            link_youtube_nullable = nullable_result and nullable_result[0] == 'YES' if nullable_result else False
-            
-            columns_to_add = []
-            if 'video_data' not in existing_columns:
-                columns_to_add.append("ADD COLUMN IF NOT EXISTS video_data BYTEA")
-            if 'video_filename' not in existing_columns:
-                columns_to_add.append("ADD COLUMN IF NOT EXISTS video_filename VARCHAR(200)")
-            if 'video_mime_type' not in existing_columns:
-                columns_to_add.append("ADD COLUMN IF NOT EXISTS video_mime_type VARCHAR(50)")
-            if 'video_size' not in existing_columns:
-                columns_to_add.append("ADD COLUMN IF NOT EXISTS video_size INTEGER")
-            if 'thumbnail_data' not in existing_columns:
-                columns_to_add.append("ADD COLUMN IF NOT EXISTS thumbnail_data BYTEA")
-            if 'thumbnail_mime_type' not in existing_columns:
-                columns_to_add.append("ADD COLUMN IF NOT EXISTS thumbnail_mime_type VARCHAR(50)")
-            
-            if columns_to_add:
-                with conn.begin():
+        # Primeiro, verificar se as colunas já existem (sem transação)
+        existing_columns = set()
+        link_youtube_nullable = False
+        
+        try:
+            with engine.connect() as conn:
+                # Verificar se as colunas já existem
+                result = conn.execute(db.text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'videos' 
+                    AND column_name IN ('video_data', 'video_filename', 'video_mime_type', 'video_size', 'thumbnail_data', 'thumbnail_mime_type')
+                """))
+                existing_columns = {row[0] for row in result}
+                
+                # Verificar se link_youtube é nullable
+                result_nullable = conn.execute(db.text("""
+                    SELECT is_nullable 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'videos' 
+                    AND column_name = 'link_youtube'
+                """))
+                nullable_result = result_nullable.fetchone()
+                link_youtube_nullable = nullable_result and nullable_result[0] == 'YES' if nullable_result else False
+        except Exception as check_error:
+            print(f"Aviso ao verificar colunas de vídeo: {check_error}")
+            # Se der erro na verificação, tentar criar de qualquer forma
+        
+        columns_to_add = []
+        if 'video_data' not in existing_columns:
+            columns_to_add.append("ADD COLUMN IF NOT EXISTS video_data BYTEA")
+        if 'video_filename' not in existing_columns:
+            columns_to_add.append("ADD COLUMN IF NOT EXISTS video_filename VARCHAR(200)")
+        if 'video_mime_type' not in existing_columns:
+            columns_to_add.append("ADD COLUMN IF NOT EXISTS video_mime_type VARCHAR(50)")
+        if 'video_size' not in existing_columns:
+            columns_to_add.append("ADD COLUMN IF NOT EXISTS video_size INTEGER")
+        if 'thumbnail_data' not in existing_columns:
+            columns_to_add.append("ADD COLUMN IF NOT EXISTS thumbnail_data BYTEA")
+        if 'thumbnail_mime_type' not in existing_columns:
+            columns_to_add.append("ADD COLUMN IF NOT EXISTS thumbnail_mime_type VARCHAR(50)")
+        
+        # Se todas as colunas já existem e link_youtube é nullable, retornar
+        if not columns_to_add and link_youtube_nullable:
+            _video_columns_exist = True
+            return True
+        
+        # Criar colunas usando begin() diretamente (nova transação, fora do contexto anterior)
+        if columns_to_add:
+            try:
+                # Usar engine.begin() diretamente para nova transação
+                with engine.begin() as conn:
                     conn.execute(db.text(f"""
                         ALTER TABLE videos
                         {', '.join(columns_to_add)}
                     """))
                     print(f"✅ Colunas de vídeo criadas: {', '.join([c.split()[-1] for c in columns_to_add])}")
-            
-            # Tornar link_youtube nullable se ainda não for
-            if not link_youtube_nullable:
-                with conn.begin():
+            except Exception as create_error:
+                error_str = str(create_error).lower()
+                if 'already exists' in error_str or 'duplicate' in error_str or 'exists' in error_str:
+                    pass  # Já existe, continuar
+                else:
+                    print(f"Aviso ao criar colunas de vídeo: {create_error}")
+        
+        # Tornar link_youtube nullable se ainda não for
+        if not link_youtube_nullable:
+            try:
+                # Usar engine.begin() diretamente para nova transação
+                with engine.begin() as conn:
                     conn.execute(db.text("ALTER TABLE videos ALTER COLUMN link_youtube DROP NOT NULL"))
                     print("✅ Coluna link_youtube agora é nullable")
-            
-            _video_columns_exist = True
-            return True
+            except Exception as alter_error:
+                error_str = str(alter_error).lower()
+                if 'already exists' in error_str or 'duplicate' in error_str or 'column' in error_str or 'does not exist' in error_str:
+                    pass  # Pode já estar nullable ou não existir
+                else:
+                    print(f"Aviso ao tornar link_youtube nullable: {alter_error}")
+        
+        _video_columns_exist = True
+        return True
     except Exception as e:
         error_str = str(e).lower()
         if 'already exists' in error_str or 'duplicate' in error_str or 'exists' in error_str:
@@ -362,8 +392,6 @@ def garantir_colunas_video():
             return True
         print(f"Erro ao verificar/criar colunas de vídeo: {e}")
         return False
-
-_video_columns_exist = False
 
 def garantir_coluna_custos_adicionais():
     """Garante que a coluna custos_adicionais existe na tabela orcamentos_ar_condicionado, criando se necessário"""
