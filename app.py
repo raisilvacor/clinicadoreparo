@@ -8046,8 +8046,14 @@ def gerar_pdf_orcamento_ar(orçamento):
         ['Acréscimo por Acesso', f"R$ {orçamento.valor_acesso:.2f}"],
     ]
     
-    if orçamento.valor_material_adicional > 0:
-        valores_data.append(['Material Adicional', f"R$ {float(orçamento.valor_material_adicional):.2f}"])
+    # Adicionar material adicional se houver
+    if orçamento.material_adicional and orçamento.valor_material_adicional > 0:
+        descricao_material = orçamento.material_adicional
+        if descricao_material == 'Kit Convencional (3m de tubulação)':
+            descricao_material = 'Kit Convencional (3m de tubulação)'
+        elif descricao_material == 'Tubulação extra acima de 3m':
+            descricao_material = 'Tubulação extra acima de 3m'
+        valores_data.append([descricao_material, f"R$ {float(orçamento.valor_material_adicional):.2f}"])
     
     valores_data.append(['TOTAL', f"R$ {orçamento.valor_total:.2f}"])
     
