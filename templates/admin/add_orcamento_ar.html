@@ -136,6 +136,36 @@
         </div>
         
         <div class="section-divider">
+            <h3><i class="fas fa-list"></i> Custos Adicionais (Opcional)</h3>
+        </div>
+        
+        <div id="custos_adicionais_container">
+            <div class="custo-adicional-item" data-index="0">
+                <div class="form-row" style="align-items: flex-end;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>
+                            <i class="fas fa-tag"></i>
+                            Item
+                        </label>
+                        <input type="text" name="custo_adicional_item[]" class="custo-item-input" placeholder="Nome do item" onchange="calcularPreco()">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>
+                            <i class="fas fa-dollar-sign"></i>
+                            Valor (R$)
+                        </label>
+                        <input type="number" name="custo_adicional_valor[]" class="custo-valor-input" step="0.01" min="0" placeholder="0.00" onchange="calcularPreco()">
+                    </div>
+                    <div class="form-group" style="width: auto; margin-left: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="adicionarCustoAdicional()" title="Adicionar item">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section-divider">
             <h3><i class="fas fa-calculator"></i> Resumo do Orçamento</h3>
         </div>
         
@@ -152,6 +182,11 @@
                 <tr>
                     <td style="padding: 8px; font-weight: bold;">Material Adicional:</td>
                     <td style="padding: 8px; text-align: right;" id="valor_material_display">R$ 0,00</td>
+                </tr>
+                <tbody id="custos_adicionais_display"></tbody>
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">Subtotal Custos Adicionais:</td>
+                    <td style="padding: 8px; text-align: right;" id="valor_custos_adicionais_display">R$ 0,00</td>
                 </tr>
                 <tr style="border-top: 2px solid #215f97; font-size: 1.2em;">
                     <td style="padding: 12px 8px; font-weight: bold; color: #215f97;">TOTAL:</td>
@@ -201,6 +236,53 @@
 
 {% block scripts %}
 <script>
+let custosAdicionaisIndex = 0;
+
+function adicionarCustoAdicional() {
+    custosAdicionaisIndex++;
+    const container = document.getElementById('custos_adicionais_container');
+    const novoItem = document.createElement('div');
+    novoItem.className = 'custo-adicional-item';
+    novoItem.setAttribute('data-index', custosAdicionaisIndex);
+    
+    novoItem.innerHTML = `
+        <div class="form-row" style="align-items: flex-end; margin-top: 1rem;">
+            <div class="form-group" style="flex: 1;">
+                <label>
+                    <i class="fas fa-tag"></i>
+                    Item
+                </label>
+                <input type="text" name="custo_adicional_item[]" class="custo-item-input" placeholder="Nome do item" onchange="calcularPreco()">
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label>
+                    <i class="fas fa-dollar-sign"></i>
+                    Valor (R$)
+                </label>
+                <input type="number" name="custo_adicional_valor[]" class="custo-valor-input" step="0.01" min="0" placeholder="0.00" onchange="calcularPreco()">
+            </div>
+            <div class="form-group" style="width: auto; margin-left: 1rem;">
+                <button type="button" class="btn btn-secondary" onclick="adicionarCustoAdicional()" title="Adicionar item">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div class="form-group" style="width: auto; margin-left: 0.5rem;">
+                <button type="button" class="btn btn-danger" onclick="removerCustoAdicional(this)" title="Remover item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(novoItem);
+}
+
+function removerCustoAdicional(button) {
+    const item = button.closest('.custo-adicional-item');
+    item.remove();
+    calcularPreco();
+}
+
 function calcularPreco() {
     const tipoServico = document.getElementById('tipo_servico').value;
     const potenciaBtu = parseInt(document.getElementById('potencia_btu').value) || 0;
@@ -208,8 +290,23 @@ function calcularPreco() {
     const materialAdicional = document.getElementById('material_adicional').value;
     const valorMaterialAdicional = parseFloat(document.getElementById('valor_material_adicional').value) || 0;
     
+    // Calcular custos adicionais
+    const custosAdicionais = [];
+    const itemsInputs = document.querySelectorAll('.custo-item-input');
+    const valoresInputs = document.querySelectorAll('.custo-valor-input');
+    
+    let valorCustosAdicionais = 0.00;
+    for (let i = 0; i < itemsInputs.length; i++) {
+        const item = itemsInputs[i].value.trim();
+        const valor = parseFloat(valoresInputs[i].value) || 0;
+        if (item && valor > 0) {
+            custosAdicionais.push({item: item, valor: valor});
+            valorCustosAdicionais += valor;
+        }
+    }
+    
     if (!tipoServico || !potenciaBtu || !tipoAcesso) {
-        atualizarResumo(0, 0, 0, 0);
+        atualizarResumo(0, 0, 0, 0, custosAdicionais);
         return;
     }
     
@@ -281,9 +378,9 @@ function calcularPreco() {
     }
     
     // Calcular total
-    const valorTotal = valorBase + valorAcesso + valorMaterial;
+    const valorTotal = valorBase + valorAcesso + valorMaterial + valorCustosAdicionais;
     
-    atualizarResumo(valorBase, valorAcesso, valorMaterial, valorTotal);
+    atualizarResumo(valorBase, valorAcesso, valorMaterial, valorTotal, custosAdicionais);
 }
 
 function toggleMaterialAdicional() {
@@ -301,10 +398,27 @@ function toggleMaterialAdicional() {
     calcularPreco();
 }
 
-function atualizarResumo(valorBase, valorAcesso, valorMaterial, valorTotal) {
+function atualizarResumo(valorBase, valorAcesso, valorMaterial, valorTotal, custosAdicionais = []) {
     document.getElementById('valor_base_display').textContent = formatarMoeda(valorBase);
     document.getElementById('valor_acesso_display').textContent = formatarMoeda(valorAcesso);
     document.getElementById('valor_material_display').textContent = formatarMoeda(valorMaterial);
+    
+    // Atualizar custos adicionais
+    const custosDisplay = document.getElementById('custos_adicionais_display');
+    custosDisplay.innerHTML = '';
+    
+    let valorTotalCustos = 0.00;
+    custosAdicionais.forEach(function(custo) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="padding: 8px;">${custo.item}:</td>
+            <td style="padding: 8px; text-align: right;">${formatarMoeda(custo.valor)}</td>
+        `;
+        custosDisplay.appendChild(tr);
+        valorTotalCustos += custo.valor;
+    });
+    
+    document.getElementById('valor_custos_adicionais_display').textContent = formatarMoeda(valorTotalCustos);
     document.getElementById('valor_total_display').textContent = formatarMoeda(valorTotal);
 }
 

@@ -349,6 +349,7 @@ class OrcamentoArCondicionado(db.Model):
     modelo_aparelho = db.Column(db.String(100))
     material_adicional = db.Column(db.String(100))  # Kit Convencional, Tubulação extra
     valor_material_adicional = db.Column(db.Numeric(10, 2), default=0)
+    custos_adicionais = db.Column(JSON)  # Lista de custos adicionais: [{"item": "Nome", "valor": 100.00}, ...]
     valor_base = db.Column(db.Numeric(10, 2), nullable=False)
     valor_acesso = db.Column(db.Numeric(10, 2), default=0)  # Valor do acréscimo por acesso
     valor_total = db.Column(db.Numeric(10, 2), nullable=False)

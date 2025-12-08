@@ -7859,7 +7859,7 @@ Sitemap: {base_url}/sitemap.xml
 
 # ==================== ORÇAMENTO AR-CONDICIONADO ====================
 
-def calcular_preco_orcamento_ar(tipo_servico, potencia_btu, tipo_acesso, material_adicional=None, valor_material_adicional=0):
+def calcular_preco_orcamento_ar(tipo_servico, potencia_btu, tipo_acesso, material_adicional=None, valor_material_adicional=0, custos_adicionais=None):
     """Calcula o preço do orçamento de ar-condicionado baseado nas regras fornecidas"""
     
     # Tabela de preços base por tipo de serviço e BTU (Acesso Fácil)
@@ -7923,13 +7923,21 @@ def calcular_preco_orcamento_ar(tipo_servico, potencia_btu, tipo_acesso, materia
     if material_adicional == 'Kit Convencional (3m de tubulação)':
         valor_material = 250.00
     
+    # Calcular custos adicionais
+    valor_custos_adicionais = 0.00
+    if custos_adicionais:
+        for custo in custos_adicionais:
+            if isinstance(custo, dict) and 'valor' in custo:
+                valor_custos_adicionais += float(custo.get('valor', 0))
+    
     # Calcular total
-    valor_total = valor_base + valor_acesso + valor_material
+    valor_total = valor_base + valor_acesso + valor_material + valor_custos_adicionais
     
     return {
         'valor_base': round(valor_base, 2),
         'valor_acesso': round(valor_acesso, 2),
         'valor_material': round(valor_material, 2),
+        'valor_custos_adicionais': round(valor_custos_adicionais, 2),
         'valor_total': round(valor_total, 2)
     }
 
@@ -8055,6 +8063,12 @@ def gerar_pdf_orcamento_ar(orçamento):
             descricao_material = 'Tubulação extra acima de 3m'
         valores_data.append([descricao_material, f"R$ {float(orçamento.valor_material_adicional):.2f}"])
     
+    # Adicionar custos adicionais se houver
+    if orçamento.custos_adicionais:
+        for custo in orçamento.custos_adicionais:
+            if isinstance(custo, dict) and custo.get('item') and custo.get('valor'):
+                valores_data.append([custo['item'], f"R$ {float(custo['valor']):.2f}"])
+    
     valores_data.append(['TOTAL', f"R$ {orçamento.valor_total:.2f}"])
     
     valores_table = Table(valores_data, colWidths=[12*cm, 5*cm])
@@ -8147,7 +8161,24 @@ def add_orcamento_ar():
             if material_adicional == 'Tubulação extra acima de 3m' and valor_material_adicional:
                 valor_material = float(valor_material_adicional)
             
-            calculo = calcular_preco_orcamento_ar(tipo_servico, potencia_btu, tipo_acesso, material_adicional, valor_material)
+            # Processar custos adicionais
+            custos_adicionais = []
+            custos_itens = request.form.getlist('custo_adicional_item[]')
+            custos_valores = request.form.getlist('custo_adicional_valor[]')
+            
+            for i in range(len(custos_itens)):
+                item = custos_itens[i].strip()
+                valor = custos_valores[i].strip()
+                if item and valor:
+                    try:
+                        custos_adicionais.append({
+                            'item': item,
+                            'valor': float(valor)
+                        })
+                    except:
+                        pass
+            
+            calculo = calcular_preco_orcamento_ar(tipo_servico, potencia_btu, tipo_acesso, material_adicional, valor_material, custos_adicionais if custos_adicionais else None)
             
             # Criar orçamento
             orcamento = OrcamentoArCondicionado(
@@ -8160,6 +8191,7 @@ def add_orcamento_ar():
                 modelo_aparelho=modelo_aparelho if modelo_aparelho else None,
                 material_adicional=material_adicional,
                 valor_material_adicional=valor_material,
+                custos_adicionais=custos_adicionais if custos_adicionais else None,
                 valor_base=calculo['valor_base'],
                 valor_acesso=calculo['valor_acesso'],
                 valor_total=calculo['valor_total'],
@@ -8276,10 +8308,28 @@ def edit_orcamento_ar(orcamento_id):
             if material_adicional == 'Tubulação extra acima de 3m' and valor_material_adicional:
                 valor_material = float(valor_material_adicional)
             
-            calculo = calcular_preco_orcamento_ar(orcamento.tipo_servico, orcamento.potencia_btu, orcamento.tipo_acesso, material_adicional, valor_material)
+            # Processar custos adicionais
+            custos_adicionais = []
+            custos_itens = request.form.getlist('custo_adicional_item[]')
+            custos_valores = request.form.getlist('custo_adicional_valor[]')
+            
+            for i in range(len(custos_itens)):
+                item = custos_itens[i].strip()
+                valor = custos_valores[i].strip()
+                if item and valor:
+                    try:
+                        custos_adicionais.append({
+                            'item': item,
+                            'valor': float(valor)
+                        })
+                    except:
+                        pass
+            
+            calculo = calcular_preco_orcamento_ar(orcamento.tipo_servico, orcamento.potencia_btu, orcamento.tipo_acesso, material_adicional, valor_material, custos_adicionais if custos_adicionais else None)
             
             orcamento.material_adicional = material_adicional
             orcamento.valor_material_adicional = valor_material
+            orcamento.custos_adicionais = custos_adicionais if custos_adicionais else None
             orcamento.valor_base = calculo['valor_base']
             orcamento.valor_acesso = calculo['valor_acesso']
             orcamento.valor_total = calculo['valor_total']
@@ -8323,6 +8373,7 @@ def edit_orcamento_ar(orcamento_id):
             'modelo_aparelho': orcamento.modelo_aparelho or '',
             'material_adicional': orcamento.material_adicional or '',
             'valor_material_adicional': float(orcamento.valor_material_adicional) if orcamento.valor_material_adicional else 0.00,
+            'custos_adicionais': orcamento.custos_adicionais if orcamento.custos_adicionais else [],
             'status': orcamento.status or 'pendente',
             'prazo_estimado': orcamento.prazo_estimado or ''
         }
