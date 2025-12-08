@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 import os
 import random
+import time
 from functools import wraps
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -62,12 +63,17 @@ if database_url:
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'connect_args': {
                 'sslmode': 'require',
-                'connect_timeout': 5  # Reduzido de 10 para 5 segundos
+                'connect_timeout': 30,  # Aumentado para 30 segundos para uploads grandes
+                'keepalives': 1,
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5
             },
             'pool_pre_ping': True,  # Verificar conexão antes de usar
-            'pool_recycle': 300,  # Reciclar conexões a cada 5 minutos
-            'pool_timeout': 5,  # Timeout para obter conexão do pool
-            'max_overflow': 0  # Não criar conexões extras
+            'pool_recycle': 3600,  # Reciclar conexões a cada 1 hora
+            'pool_timeout': 30,  # Timeout para obter conexão do pool (aumentado)
+            'max_overflow': 5,  # Permitir conexões extras para operações longas
+            'pool_size': 10  # Tamanho do pool de conexões
         }
         
         # Inicializar o banco de dados
@@ -6847,15 +6853,42 @@ def add_manual():
                 pdf_size=pdf_size
             )
             
-            db.session.add(novo_manual)
-            db.session.commit()
-            
-            flash('Manual cadastrado com sucesso!', 'success')
-            return redirect(url_for('admin_manuais'))
+            # Tentar adicionar com tratamento de erro melhorado para arquivos grandes
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    db.session.add(novo_manual)
+                    # Usar flush() primeiro para detectar erros antes do commit
+                    db.session.flush()
+                    db.session.commit()
+                    flash('Manual cadastrado com sucesso!', 'success')
+                    return redirect(url_for('admin_manuais'))
+                except Exception as commit_error:
+                    db.session.rollback()
+                    error_str = str(commit_error).lower()
+                    # Se for erro de conexão SSL/EOF e ainda temos tentativas, tentar novamente
+                    if ('ssl' in error_str or 'eof' in error_str or 'connection' in error_str) and attempt < max_retries - 1:
+                        print(f"Erro de conexão no upload (tentativa {attempt + 1}/{max_retries}): {commit_error}")
+                        time.sleep(1)  # Aguardar 1 segundo antes de tentar novamente
+                        # Recriar o objeto manual para nova tentativa
+                        novo_manual = Manual(
+                            titulo=titulo,
+                            pdf_data=pdf_data,
+                            pdf_filename=secure_filename(pdf_file.filename),
+                            pdf_size=pdf_size
+                        )
+                        continue
+                    else:
+                        # Se não for erro de conexão ou esgotaram as tentativas, lançar o erro
+                        raise commit_error
         except Exception as e:
             print(f"Erro ao cadastrar manual: {e}")
             db.session.rollback()
-            flash(f'Erro ao cadastrar manual: {str(e)}', 'error')
+            error_msg = str(e)
+            if 'ssl' in error_msg.lower() or 'eof' in error_msg.lower():
+                flash('Erro ao enviar arquivo: conexão interrompida. O arquivo pode ser muito grande. Tente novamente ou use um arquivo menor.', 'error')
+            else:
+                flash(f'Erro ao cadastrar manual: {error_msg}', 'error')
             return redirect(url_for('add_manual'))
     
     return render_template('admin/add_manual.html')
@@ -6899,14 +6932,34 @@ def edit_manual(manual_id):
                     return redirect(url_for('edit_manual', manual_id=manual_id))
                 
                 pdf_data = pdf_file.read()
-                manual.pdf_data = pdf_data
-                manual.pdf_filename = secure_filename(pdf_file.filename)
-                manual.pdf_size = pdf_size
-                manual.data_atualizacao = datetime.now()
-            
-            db.session.commit()
-            flash('Manual atualizado com sucesso!', 'success')
-            return redirect(url_for('admin_manuais'))
+                # Tentar atualizar com tratamento de erro melhorado para arquivos grandes
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        manual.pdf_data = pdf_data
+                        manual.pdf_filename = secure_filename(pdf_file.filename)
+                        manual.pdf_size = pdf_size
+                        manual.data_atualizacao = datetime.now()
+                        db.session.flush()
+                        db.session.commit()
+                        flash('Manual atualizado com sucesso!', 'success')
+                        return redirect(url_for('admin_manuais'))
+                    except Exception as commit_error:
+                        db.session.rollback()
+                        error_str = str(commit_error).lower()
+                        # Se for erro de conexão SSL/EOF e ainda temos tentativas, tentar novamente
+                        if ('ssl' in error_str or 'eof' in error_str or 'connection' in error_str) and attempt < max_retries - 1:
+                            print(f"Erro de conexão no upload (tentativa {attempt + 1}/{max_retries}): {commit_error}")
+                            import time
+                            time.sleep(1)  # Aguardar 1 segundo antes de tentar novamente
+                            continue
+                        else:
+                            raise commit_error
+            else:
+                # Apenas atualizar título, sem alterar arquivo
+                db.session.commit()
+                flash('Manual atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_manuais'))
         
         return render_template('admin/edit_manual.html', manual=manual)
     except Exception as e:
