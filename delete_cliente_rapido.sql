@@ -18,7 +18,32 @@ DECLARE
 BEGIN
     RAISE NOTICE 'Deletando cliente ID: %', v_cliente_id;
     
-    -- 1. Deletar PDFs de orçamentos de ar-condicionado
+    -- 1. Deletar itens_pedido relacionados aos pedidos do cliente (se tabela existir)
+    BEGIN
+        DELETE FROM itens_pedido 
+        WHERE pedido_id IN (
+            SELECT id FROM pedidos WHERE cliente_id = v_cliente_id
+        );
+        GET DIAGNOSTICS v_count = ROW_COUNT;
+        RAISE NOTICE 'Deletados % item(ns) de pedido(s)', v_count;
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'Tabela itens_pedido não existe (ignorando)';
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Erro ao deletar itens_pedido: %', SQLERRM;
+    END;
+    
+    -- 2. Deletar pedidos do cliente (se tabela existir)
+    BEGIN
+        DELETE FROM pedidos WHERE cliente_id = v_cliente_id;
+        GET DIAGNOSTICS v_count = ROW_COUNT;
+        RAISE NOTICE 'Deletados % pedido(s) da loja antiga', v_count;
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'Tabela pedidos não existe (ignorando)';
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Erro ao deletar pedidos: %', SQLERRM;
+    END;
+    
+    -- 3. Deletar PDFs de orçamentos de ar-condicionado
     DELETE FROM pdf_documents 
     WHERE id IN (
         SELECT pdf_id FROM orcamentos_ar_condicionado 
@@ -27,12 +52,12 @@ BEGIN
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE NOTICE 'Deletados % PDF(s) de orçamentos', v_count;
     
-    -- 2. Deletar orçamentos de ar-condicionado
+    -- 4. Deletar orçamentos de ar-condicionado
     DELETE FROM orcamentos_ar_condicionado WHERE cliente_id = v_cliente_id;
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE NOTICE 'Deletados % orçamento(s) de ar-condicionado', v_count;
     
-    -- 3. Deletar PDFs de comprovantes
+    -- 5. Deletar PDFs de comprovantes
     DELETE FROM pdf_documents 
     WHERE id IN (
         SELECT pdf_id FROM comprovantes 
@@ -41,17 +66,17 @@ BEGIN
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE NOTICE 'Deletados % PDF(s) de comprovantes', v_count;
     
-    -- 4. Deletar comprovantes
+    -- 6. Deletar comprovantes
     DELETE FROM comprovantes WHERE cliente_id = v_cliente_id;
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE NOTICE 'Deletados % comprovante(s)', v_count;
     
-    -- 5. Deletar cupons
+    -- 7. Deletar cupons
     DELETE FROM cupons WHERE cliente_id = v_cliente_id;
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE NOTICE 'Deletados % cupom(ns)', v_count;
     
-    -- 6. Deletar PDFs de ordens de serviço
+    -- 8. Deletar PDFs de ordens de serviço
     DELETE FROM pdf_documents 
     WHERE id IN (
         SELECT pdf_id FROM ordens_servico 
@@ -60,12 +85,12 @@ BEGIN
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE NOTICE 'Deletados % PDF(s) de ordens', v_count;
     
-    -- 7. Deletar ordens de serviço
+    -- 9. Deletar ordens de serviço
     DELETE FROM ordens_servico WHERE cliente_id = v_cliente_id;
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE NOTICE 'Deletados % ordem(ns) de serviço', v_count;
     
-    -- 8. Obter email do cliente e deletar agendamentos relacionados
+    -- 10. Obter email do cliente e deletar agendamentos relacionados
     SELECT email INTO v_email FROM clientes WHERE id = v_cliente_id;
     IF v_email IS NOT NULL AND v_email != '' THEN
         DELETE FROM agendamentos WHERE email = v_email;
@@ -73,7 +98,7 @@ BEGIN
         RAISE NOTICE 'Deletados % agendamento(s) relacionados', v_count;
     END IF;
     
-    -- 9. Remover constraint de pedidos se existir (para clientes da loja antiga)
+    -- 11. Remover constraint de pedidos se existir (para clientes da loja antiga)
     BEGIN
         ALTER TABLE clientes DROP CONSTRAINT IF EXISTS pedidos_cliente_id_fkey CASCADE;
         RAISE NOTICE 'Constraint de pedidos removida (se existia)';
@@ -81,7 +106,7 @@ BEGIN
         RAISE NOTICE 'Constraint não existe ou já foi removida';
     END;
     
-    -- 10. Finalmente, deletar o cliente
+    -- 12. Finalmente, deletar o cliente
     DELETE FROM clientes WHERE id = v_cliente_id;
     GET DIAGNOSTICS v_count = ROW_COUNT;
     

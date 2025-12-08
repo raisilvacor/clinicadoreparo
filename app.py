@@ -2419,14 +2419,30 @@ def executar_delete_cliente_2():
             
             # Executar tudo em uma única transação SQL otimizada
             with db.engine.begin() as conn:
-                # Remover constraint primeiro (se existir)
+                # 1. Deletar itens_pedido relacionados aos pedidos do cliente (se tabela existir)
+                try:
+                    conn.execute(db.text("""
+                        DELETE FROM itens_pedido 
+                        WHERE pedido_id IN (
+                            SELECT id FROM pedidos WHERE cliente_id = :cliente_id
+                        )
+                    """), {'cliente_id': cliente_id})
+                except Exception as e:
+                    print(f"Aviso: erro ao deletar itens_pedido (pode não existir): {e}")
+                
+                # 2. Deletar pedidos do cliente (se tabela existir)
+                try:
+                    conn.execute(db.text("DELETE FROM pedidos WHERE cliente_id = :cliente_id"), {'cliente_id': cliente_id})
+                except Exception as e:
+                    print(f"Aviso: erro ao deletar pedidos (pode não existir): {e}")
+                
+                # 3. Remover constraint da loja antiga (se existir) - ANTES de deletar o cliente
                 try:
                     conn.execute(db.text("ALTER TABLE clientes DROP CONSTRAINT IF EXISTS pedidos_cliente_id_fkey CASCADE"))
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Aviso: erro ao remover constraint (pode não existir): {e}")
                 
-                # Executar exclusões em cascata usando SQL direto (mais rápido)
-                # Usar CASCADE nas foreign keys ou deletar manualmente
+                # 4-12. Executar exclusões em cascata usando SQL direto (mais rápido)
                 conn.execute(db.text("""
                     -- Deletar PDFs de orçamentos
                     DELETE FROM pdf_documents 
