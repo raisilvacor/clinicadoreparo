@@ -91,6 +91,12 @@ if database_url:
                         garantir_coluna_pagina_servico_id()
                     except Exception as col_error:
                         print(f"DEBUG: ⚠️ Aviso ao criar coluna pagina_servico_id (não crítico): {col_error}")
+                    
+                    # Garantir que a coluna custos_adicionais existe
+                    try:
+                        garantir_coluna_custos_adicionais()
+                    except Exception as col_error:
+                        print(f"DEBUG: ⚠️ Aviso ao criar coluna custos_adicionais (não crítico): {col_error}")
                 except Exception as create_error:
                     print(f"DEBUG: ⚠️ Aviso ao criar tabelas (não crítico): {create_error}")
                     # Continuar mesmo se der erro
@@ -263,6 +269,60 @@ def garantir_coluna_pagina_servico_id():
 def coluna_pagina_servico_id_existe():
     """Verifica se a coluna pagina_servico_id existe (cria se não existir)"""
     return garantir_coluna_pagina_servico_id()
+
+# Cache para verificar se a coluna custos_adicionais existe
+_custos_adicionais_column_exists = None
+
+def garantir_coluna_custos_adicionais():
+    """Garante que a coluna custos_adicionais existe na tabela orcamentos_ar_condicionado, criando se necessário"""
+    global _custos_adicionais_column_exists
+    
+    # Se já verificamos antes e existe, retornar True (cache)
+    if _custos_adicionais_column_exists is True:
+        return True
+    
+    if not use_database():
+        _custos_adicionais_column_exists = False
+        return False
+    
+    try:
+        # Verificação rápida usando SQL direto
+        engine = db.engine
+        try:
+            with engine.connect() as conn:
+                result = conn.execute(db.text("""
+                    SELECT 1 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'orcamentos_ar_condicionado' 
+                    AND column_name = 'custos_adicionais'
+                    LIMIT 1
+                """))
+                if result.fetchone():
+                    _custos_adicionais_column_exists = True
+                    return True
+        except Exception as check_error:
+            print(f"Aviso ao verificar coluna custos_adicionais: {check_error}")
+        
+        # Coluna não existe, criar agora
+        print("Coluna custos_adicionais não existe. Criando...")
+        try:
+            with engine.begin() as conn:
+                # Adicionar coluna como JSON
+                conn.execute(db.text("""
+                    ALTER TABLE orcamentos_ar_condicionado
+                    ADD COLUMN IF NOT EXISTS custos_adicionais JSON
+                """))
+            print("✅ Coluna custos_adicionais criada com sucesso!")
+            _custos_adicionais_column_exists = True
+            return True
+        except Exception as create_error:
+            print(f"Erro ao criar coluna custos_adicionais: {create_error}")
+            _custos_adicionais_column_exists = False
+            return False
+    except Exception as e:
+        print(f"Erro ao garantir coluna custos_adicionais: {e}")
+        _custos_adicionais_column_exists = False
+        return False
 
 def garantir_tabela_fornecedores():
     """Garante que a tabela de fornecedores existe no banco de dados - SOLUÇÃO DEFINITIVA"""
@@ -8142,6 +8202,9 @@ def add_orcamento_ar():
         flash('Banco de dados não configurado.', 'error')
         return redirect(url_for('admin_orcamentos_ar'))
     
+    # Garantir que a coluna custos_adicionais existe
+    garantir_coluna_custos_adicionais()
+    
     if request.method == 'POST':
         try:
             cliente_id = int(request.form.get('cliente_id'))
@@ -8282,6 +8345,9 @@ def edit_orcamento_ar(orcamento_id):
     if not use_database():
         flash('Banco de dados não configurado.', 'error')
         return redirect(url_for('admin_orcamentos_ar'))
+    
+    # Garantir que a coluna custos_adicionais existe
+    garantir_coluna_custos_adicionais()
     
     try:
         orcamento = OrcamentoArCondicionado.query.get(orcamento_id)
