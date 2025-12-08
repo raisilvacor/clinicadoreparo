@@ -13,7 +13,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, PaginaServico, OrcamentoArCondicionado, OrcamentoArCondicionado
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, PaginaServico, OrcamentoArCondicionado, Manual
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -153,6 +153,8 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'ogv', 'mov', 'avi'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
+MAX_PDF_SIZE = 50 * 1024 * 1024  # 50MB para PDFs
+ALLOWED_PDF_EXTENSIONS = {'pdf'}
 
 # Lista fixa de tipos de serviço
 TIPOS_SERVICO = [
@@ -174,6 +176,9 @@ def allowed_file(filename):
 
 def allowed_video_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
+
+def allowed_pdf_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PDF_EXTENSIONS
 
 # ==================== FUNÇÕES AUXILIARES ====================
 
@@ -6781,6 +6786,213 @@ def delete_video(video_id):
         flash('Banco de dados não configurado.', 'error')
     
     return redirect(url_for('admin_videos'))
+
+# ==================== MANUAIS ====================
+
+@app.route('/admin/manuais')
+@login_required
+def admin_manuais():
+    """Lista todos os manuais cadastrados"""
+    if use_database():
+        try:
+            manuais = Manual.query.order_by(Manual.data_criacao.desc()).all()
+            return render_template('admin/manuais.html', manuais=manuais)
+        except Exception as e:
+            print(f"Erro ao carregar manuais: {e}")
+            flash('Erro ao carregar manuais.', 'error')
+            return render_template('admin/manuais.html', manuais=[])
+    else:
+        flash('Banco de dados não configurado.', 'error')
+        return render_template('admin/manuais.html', manuais=[])
+
+@app.route('/admin/manuais/add', methods=['GET', 'POST'])
+@login_required
+def add_manual():
+    """Adiciona um novo manual"""
+    if request.method == 'POST':
+        if not use_database():
+            flash('Banco de dados não configurado.', 'error')
+            return redirect(url_for('admin_manuais'))
+        
+        try:
+            titulo = request.form.get('titulo', '').strip()
+            pdf_file = request.files.get('pdf_file')
+            
+            if not titulo:
+                flash('Título é obrigatório!', 'error')
+                return redirect(url_for('add_manual'))
+            
+            if not pdf_file or pdf_file.filename == '':
+                flash('Arquivo PDF é obrigatório!', 'error')
+                return redirect(url_for('add_manual'))
+            
+            if not allowed_pdf_file(pdf_file.filename):
+                flash('Tipo de arquivo não permitido. Use apenas arquivos PDF.', 'error')
+                return redirect(url_for('add_manual'))
+            
+            # Verificar tamanho
+            pdf_file.seek(0, os.SEEK_END)
+            pdf_size = pdf_file.tell()
+            pdf_file.seek(0)
+            
+            if pdf_size > MAX_PDF_SIZE:
+                flash(f'Arquivo muito grande. Tamanho máximo: {MAX_PDF_SIZE // (1024*1024)}MB', 'error')
+                return redirect(url_for('add_manual'))
+            
+            pdf_data = pdf_file.read()
+            novo_manual = Manual(
+                titulo=titulo,
+                pdf_data=pdf_data,
+                pdf_filename=secure_filename(pdf_file.filename),
+                pdf_size=pdf_size
+            )
+            
+            db.session.add(novo_manual)
+            db.session.commit()
+            
+            flash('Manual cadastrado com sucesso!', 'success')
+            return redirect(url_for('admin_manuais'))
+        except Exception as e:
+            print(f"Erro ao cadastrar manual: {e}")
+            db.session.rollback()
+            flash(f'Erro ao cadastrar manual: {str(e)}', 'error')
+            return redirect(url_for('add_manual'))
+    
+    return render_template('admin/add_manual.html')
+
+@app.route('/admin/manuais/<int:manual_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_manual(manual_id):
+    """Edita um manual existente"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_manuais'))
+    
+    try:
+        manual = Manual.query.get(manual_id)
+        if not manual:
+            flash('Manual não encontrado!', 'error')
+            return redirect(url_for('admin_manuais'))
+        
+        if request.method == 'POST':
+            titulo = request.form.get('titulo', '').strip()
+            pdf_file = request.files.get('pdf_file')
+            
+            if not titulo:
+                flash('Título é obrigatório!', 'error')
+                return redirect(url_for('edit_manual', manual_id=manual_id))
+            
+            manual.titulo = titulo
+            
+            # Se um novo arquivo foi enviado, substituir
+            if pdf_file and pdf_file.filename != '':
+                if not allowed_pdf_file(pdf_file.filename):
+                    flash('Tipo de arquivo não permitido. Use apenas arquivos PDF.', 'error')
+                    return redirect(url_for('edit_manual', manual_id=manual_id))
+                
+                pdf_file.seek(0, os.SEEK_END)
+                pdf_size = pdf_file.tell()
+                pdf_file.seek(0)
+                
+                if pdf_size > MAX_PDF_SIZE:
+                    flash(f'Arquivo muito grande. Tamanho máximo: {MAX_PDF_SIZE // (1024*1024)}MB', 'error')
+                    return redirect(url_for('edit_manual', manual_id=manual_id))
+                
+                pdf_data = pdf_file.read()
+                manual.pdf_data = pdf_data
+                manual.pdf_filename = secure_filename(pdf_file.filename)
+                manual.pdf_size = pdf_size
+                manual.data_atualizacao = datetime.now()
+            
+            db.session.commit()
+            flash('Manual atualizado com sucesso!', 'success')
+            return redirect(url_for('admin_manuais'))
+        
+        return render_template('admin/edit_manual.html', manual=manual)
+    except Exception as e:
+        print(f"Erro ao editar manual: {e}")
+        db.session.rollback()
+        flash(f'Erro ao editar manual: {str(e)}', 'error')
+        return redirect(url_for('admin_manuais'))
+
+@app.route('/admin/manuais/<int:manual_id>/delete', methods=['POST'])
+@login_required
+def delete_manual(manual_id):
+    """Exclui um manual"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_manuais'))
+    
+    try:
+        manual = Manual.query.get(manual_id)
+        if not manual:
+            flash('Manual não encontrado!', 'error')
+            return redirect(url_for('admin_manuais'))
+        
+        db.session.delete(manual)
+        db.session.commit()
+        
+        flash('Manual excluído com sucesso!', 'success')
+    except Exception as e:
+        print(f"Erro ao excluir manual: {e}")
+        db.session.rollback()
+        flash(f'Erro ao excluir manual: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_manuais'))
+
+@app.route('/media/manual/<int:manual_id>')
+@login_required
+def servir_manual(manual_id):
+    """Serve o PDF do manual para visualização"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_manuais'))
+    
+    try:
+        manual = Manual.query.get(manual_id)
+        if manual and manual.pdf_data:
+            return Response(
+                manual.pdf_data,
+                mimetype='application/pdf',
+                headers={
+                    'Content-Disposition': f'inline; filename={manual.pdf_filename or "manual.pdf"}',
+                    'Cache-Control': 'public, max-age=31536000'
+                }
+            )
+        else:
+            flash('Manual não encontrado!', 'error')
+            return redirect(url_for('admin_manuais'))
+    except Exception as e:
+        print(f"Erro ao servir manual: {e}")
+        flash('Erro ao abrir manual.', 'error')
+        return redirect(url_for('admin_manuais'))
+
+@app.route('/admin/manuais/<int:manual_id>/download')
+@login_required
+def download_manual(manual_id):
+    """Download do manual em PDF"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_manuais'))
+    
+    try:
+        manual = Manual.query.get(manual_id)
+        if manual and manual.pdf_data:
+            return Response(
+                manual.pdf_data,
+                mimetype='application/pdf',
+                headers={
+                    'Content-Disposition': f'attachment; filename={manual.pdf_filename or "manual.pdf"}',
+                    'Cache-Control': 'public, max-age=31536000'
+                }
+            )
+        else:
+            flash('Manual não encontrado!', 'error')
+            return redirect(url_for('admin_manuais'))
+    except Exception as e:
+        print(f"Erro ao baixar manual: {e}")
+        flash('Erro ao baixar manual.', 'error')
+        return redirect(url_for('admin_manuais'))
 
 @app.route('/videos')
 def todos_videos():

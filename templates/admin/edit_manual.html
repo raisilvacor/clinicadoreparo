@@ -1,0 +1,116 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Manual - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-book"></i> Editar Manual</h1>
+    <p>Edite as informações do manual</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_manual', manual_id=manual.id) }}" enctype="multipart/form-data" class="admin-form">
+        <div class="form-group">
+            <label for="titulo">
+                <i class="fas fa-heading"></i>
+                Título do Manual <span class="required">*</span>
+            </label>
+            <input type="text" id="titulo" name="titulo" value="{{ manual.titulo }}" required placeholder="Ex: Manual de Instalação Ar-Condicionado">
+            <small class="form-help">Título que identificará este manual</small>
+        </div>
+        
+        <div class="form-group">
+            <label>PDF Atual</label>
+            <div class="current-pdf-info">
+                <p><i class="fas fa-file-pdf"></i> <strong>{{ manual.pdf_filename or 'manual.pdf' }}</strong></p>
+                <p class="text-muted">Tamanho: {{ "%.2f"|format(manual.pdf_size / 1024 / 1024) }} MB</p>
+                <div style="margin-top: 1rem;">
+                    <a href="{{ url_for('servir_manual', manual_id=manual.id) }}" class="btn btn-sm btn-info" target="_blank">
+                        <i class="fas fa-eye"></i> Ver PDF Atual
+                    </a>
+                    <a href="{{ url_for('download_manual', manual_id=manual.id) }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-download"></i> Baixar PDF Atual
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <i class="fas fa-exchange-alt"></i>
+                Substituir PDF
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="substituir_pdf" name="substituir_pdf" onchange="toggleSubstituir()">
+                <span>Substituir PDF por novo arquivo</span>
+            </label>
+            <div id="substituir-section" style="display: none; margin-top: 1rem;">
+                <input type="file" id="pdf_file" name="pdf_file" accept="application/pdf" onchange="updateFileInfo(this)">
+                <small class="form-help">Apenas arquivos PDF. Tamanho máximo: 50MB</small>
+                <div id="file-info" style="margin-top: 0.5rem; color: var(--text-secondary);"></div>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Atualizar Manual
+            </button>
+            <a href="{{ url_for('admin_manuais') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleSubstituir() {
+    const checkbox = document.getElementById('substituir_pdf');
+    const section = document.getElementById('substituir-section');
+    section.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+function updateFileInfo(input) {
+    const fileInfo = document.getElementById('file-info');
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        fileInfo.textContent = `Arquivo selecionado: ${file.name} (${sizeMB} MB)`;
+        if (file.size > 50 * 1024 * 1024) {
+            fileInfo.style.color = 'red';
+            fileInfo.textContent += ' - Arquivo muito grande!';
+        } else {
+            fileInfo.style.color = 'var(--text-secondary)';
+        }
+    } else {
+        fileInfo.textContent = '';
+    }
+}
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+.current-pdf-info {
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.current-pdf-info p {
+    margin: 0.5rem 0;
+    color: var(--text-primary);
+}
+
+.text-muted {
+    color: var(--text-secondary);
+}
+
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    margin-right: 0.5rem;
+}
+</style>
+{% endblock %}
+

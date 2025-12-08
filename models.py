@@ -294,6 +294,26 @@ class Video(db.Model):
         """Retorna a URL para servir o vídeo"""
         return f'/media/video/{self.id}'
 
+# ==================== MANUAIS ====================
+class Manual(db.Model):
+    """Manuais em PDF cadastrados no sistema"""
+    __tablename__ = 'manuais'
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(200), nullable=False)
+    pdf_data = db.Column(db.LargeBinary, nullable=False)  # Dados binários do PDF
+    pdf_filename = db.Column(db.String(200), nullable=False)  # Nome do arquivo original
+    pdf_size = db.Column(db.Integer, nullable=False)  # Tamanho em bytes
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    def get_pdf_url(self):
+        """Retorna a URL para servir o PDF"""
+        return f'/media/manual/{self.id}'
+    
+    def get_download_url(self):
+        """Retorna a URL para download do PDF"""
+        return f'/admin/manuais/{self.id}/download'
+
 # ==================== PÁGINAS DE SERVIÇOS ====================
 class PaginaServico(db.Model):
     """Páginas individuais de serviços (Máquina de Lavar, Microondas, etc.)"""

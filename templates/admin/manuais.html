@@ -1,0 +1,92 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Manuais - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-book"></i> Gerenciar Manuais</h1>
+        <p>Gerencie os manuais em PDF cadastrados</p>
+    </div>
+    <a href="{{ url_for('add_manual') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Manual
+    </a>
+</div>
+
+{% if manuais %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Título</th>
+                <th>Arquivo</th>
+                <th>Tamanho</th>
+                <th>Data de Criação</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for manual in manuais %}
+            <tr>
+                <td>{{ manual.id }}</td>
+                <td><strong>{{ manual.titulo }}</strong></td>
+                <td>
+                    <span class="text-muted">{{ manual.pdf_filename or 'manual.pdf' }}</span>
+                </td>
+                <td>{{ "%.2f"|format(manual.pdf_size / 1024 / 1024) }} MB</td>
+                <td>{{ manual.data_criacao.strftime('%d/%m/%Y %H:%M') if manual.data_criacao else '-' }}</td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('servir_manual', manual_id=manual.id) }}" class="btn btn-sm btn-info" title="Ver" target="_blank">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('edit_manual', manual_id=manual.id) }}" class="btn btn-sm btn-warning" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{{ url_for('download_manual', manual_id=manual.id) }}" class="btn btn-sm btn-primary" title="Baixar">
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_manual', manual_id=manual.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este manual?');">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-book"></i>
+    <h3>Nenhum manual cadastrado</h3>
+    <p>Comece adicionando seu primeiro manual em PDF</p>
+    <a href="{{ url_for('add_manual') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Primeiro Manual
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block styles %}
+<style>
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.text-muted {
+    color: var(--text-secondary);
+}
+</style>
+{% endblock %}
+
