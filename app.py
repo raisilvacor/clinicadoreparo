@@ -97,6 +97,16 @@ if database_url:
                         garantir_coluna_custos_adicionais()
                     except Exception as col_error:
                         print(f"DEBUG: ⚠️ Aviso ao criar coluna custos_adicionais (não crítico): {col_error}")
+                    
+                    # Limpar constraint de pedidos da loja antiga (se existir)
+                    try:
+                        with db.engine.connect() as temp_conn:
+                            temp_conn.execute(db.text("""
+                                ALTER TABLE clientes DROP CONSTRAINT IF EXISTS pedidos_cliente_id_fkey CASCADE
+                            """))
+                            temp_conn.commit()
+                    except Exception as constraint_error:
+                        pass  # Ignorar se não existir
                 except Exception as create_error:
                     print(f"DEBUG: ⚠️ Aviso ao criar tabelas (não crítico): {create_error}")
                     # Continuar mesmo se der erro
@@ -2394,6 +2404,105 @@ def edit_cliente(cliente_id):
         return redirect(url_for('admin_clientes'))
     
     return render_template('admin/edit_cliente.html', cliente=cliente)
+
+@app.route('/admin/executar-delete-cliente-2', methods=['GET', 'POST'])
+@login_required
+def executar_delete_cliente_2():
+    """Rota temporária para executar exclusão do cliente ID 2 - OTIMIZADA"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_clientes'))
+    
+    if request.method == 'POST':
+        try:
+            cliente_id = 2
+            
+            # Executar tudo em uma única transação SQL otimizada
+            with db.engine.begin() as conn:
+                # Remover constraint primeiro (se existir)
+                try:
+                    conn.execute(db.text("ALTER TABLE clientes DROP CONSTRAINT IF EXISTS pedidos_cliente_id_fkey CASCADE"))
+                except:
+                    pass
+                
+                # Executar exclusões em cascata usando SQL direto (mais rápido)
+                # Usar CASCADE nas foreign keys ou deletar manualmente
+                conn.execute(db.text("""
+                    -- Deletar PDFs de orçamentos
+                    DELETE FROM pdf_documents 
+                    WHERE id IN (
+                        SELECT pdf_id FROM orcamentos_ar_condicionado 
+                        WHERE cliente_id = :cliente_id AND pdf_id IS NOT NULL
+                    );
+                    
+                    -- Deletar orçamentos
+                    DELETE FROM orcamentos_ar_condicionado WHERE cliente_id = :cliente_id;
+                    
+                    -- Deletar PDFs de comprovantes
+                    DELETE FROM pdf_documents 
+                    WHERE id IN (
+                        SELECT pdf_id FROM comprovantes 
+                        WHERE cliente_id = :cliente_id AND pdf_id IS NOT NULL
+                    );
+                    
+                    -- Deletar comprovantes
+                    DELETE FROM comprovantes WHERE cliente_id = :cliente_id;
+                    
+                    -- Deletar cupons
+                    DELETE FROM cupons WHERE cliente_id = :cliente_id;
+                    
+                    -- Deletar PDFs de ordens
+                    DELETE FROM pdf_documents 
+                    WHERE id IN (
+                        SELECT pdf_id FROM ordens_servico 
+                        WHERE cliente_id = :cliente_id AND pdf_id IS NOT NULL
+                    );
+                    
+                    -- Deletar ordens
+                    DELETE FROM ordens_servico WHERE cliente_id = :cliente_id;
+                    
+                    -- Deletar agendamentos relacionados
+                    DELETE FROM agendamentos 
+                    WHERE email = (SELECT email FROM clientes WHERE id = :cliente_id);
+                    
+                    -- Deletar cliente
+                    DELETE FROM clientes WHERE id = :cliente_id;
+                """), {'cliente_id': cliente_id})
+                
+            flash('Cliente ID 2 e todos os dados relacionados foram deletados com sucesso!', 'success')
+                    
+        except Exception as e:
+            print(f"Erro ao deletar cliente 2: {e}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Erro ao deletar cliente: {str(e)}', 'error')
+        
+        return redirect(url_for('admin_clientes'))
+    
+    return '''
+    <html>
+    <head><title>Confirmar Exclusão</title></head>
+    <body style="font-family: Arial; padding: 40px; text-align: center;">
+        <h1>⚠️ Confirmar Exclusão do Cliente ID 2</h1>
+        <p>Esta ação irá deletar o cliente ID 2 e TODOS os dados relacionados:</p>
+        <ul style="text-align: left; display: inline-block;">
+            <li>Orçamentos de ar-condicionado</li>
+            <li>Comprovantes</li>
+            <li>Cupons</li>
+            <li>Ordens de serviço</li>
+            <li>Agendamentos relacionados</li>
+            <li>PDFs associados</li>
+        </ul>
+        <form method="POST" style="margin-top: 30px;">
+            <button type="submit" style="background: #dc3545; color: white; padding: 15px 30px; font-size: 18px; border: none; border-radius: 5px; cursor: pointer;">
+                ⚠️ CONFIRMAR EXCLUSÃO
+            </button>
+            <br><br>
+            <a href="/admin/clientes" style="color: #666;">Cancelar</a>
+        </form>
+    </body>
+    </html>
+    '''
 
 @app.route('/admin/clientes/<int:cliente_id>/delete', methods=['POST'])
 @login_required
