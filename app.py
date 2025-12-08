@@ -2214,65 +2214,111 @@ init_clients_file()
 @app.route('/admin/clientes')
 @login_required
 def admin_clientes():
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    """Lista todos os clientes cadastrados - APENAS BANCO DE DADOS"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_dashboard'))
     
-    return render_template('admin/clientes_gerenciar.html', clientes=data['clients'])
+    try:
+        clientes_db = Cliente.query.order_by(Cliente.id.desc()).all()
+        clientes = []
+        for c in clientes_db:
+            clientes.append({
+                'id': c.id,
+                'nome': c.nome,
+                'email': c.email or '',
+                'telefone': c.telefone or '',
+                'cpf': c.cpf or '',
+                'endereco': c.endereco or '',
+                'username': c.username or '',
+                'data_cadastro': c.data_cadastro.strftime('%d/%m/%Y %H:%M') if c.data_cadastro else ''
+            })
+    except Exception as e:
+        print(f"Erro ao buscar clientes do banco: {e}")
+        import traceback
+        traceback.print_exc()
+        clientes = []
+        flash('Erro ao buscar clientes do banco de dados.', 'error')
+    
+    return render_template('admin/clientes_gerenciar.html', clientes=clientes)
 
 @app.route('/admin/clientes/add', methods=['GET', 'POST'])
 @login_required
 def add_cliente_admin():
-    if request.method == 'POST':
-        nome = request.form.get('nome')
-        email = request.form.get('email')
-        telefone = request.form.get('telefone')
-        cpf = request.form.get('cpf')
-        endereco = request.form.get('endereco')
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Verificar se username já existe
-        if any(c.get('username') == username for c in data['clients']):
-            flash('Este nome de usuário já está em uso!', 'error')
-            return render_template('admin/add_cliente.html')
-        
-        novo_cliente = {
-            'id': len(data['clients']) + 1,
-            'nome': nome,
-            'email': email,
-            'telefone': telefone,
-            'cpf': cpf,
-            'endereco': endereco,
-            'username': username,
-            'password': password,  # Em produção, usar hash!
-            'data_cadastro': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'ordens': []
-        }
-        
-        data['clients'].append(novo_cliente)
-        
-        with open(CLIENTS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Cliente cadastrado com sucesso!', 'success')
+    """Adiciona um novo cliente - APENAS BANCO DE DADOS"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
         return redirect(url_for('admin_clientes'))
+    
+    if request.method == 'POST':
+        try:
+            nome = request.form.get('nome')
+            email = request.form.get('email')
+            telefone = request.form.get('telefone')
+            cpf = request.form.get('cpf')
+            endereco = request.form.get('endereco')
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+            # Verificar se username já existe
+            if username:
+                cliente_existente = Cliente.query.filter_by(username=username).first()
+                if cliente_existente:
+                    flash('Este nome de usuário já está em uso!', 'error')
+                    return render_template('admin/add_cliente.html')
+            
+            # Criar novo cliente
+            novo_cliente = Cliente(
+                nome=nome,
+                email=email or None,
+                telefone=telefone or None,
+                cpf=cpf or None,
+                endereco=endereco or None,
+                username=username or None,
+                password=password  # Em produção, usar hash!
+            )
+            
+            db.session.add(novo_cliente)
+            db.session.commit()
+            
+            flash('Cliente cadastrado com sucesso!', 'success')
+            return redirect(url_for('admin_clientes'))
+        except Exception as e:
+            print(f"Erro ao cadastrar cliente: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao cadastrar cliente: {str(e)}', 'error')
     
     return render_template('admin/add_cliente.html')
 
 @app.route('/admin/clientes/<int:cliente_id>')
 @login_required
 def view_cliente(cliente_id):
-    """Visualiza detalhes de um cliente"""
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    """Visualiza detalhes de um cliente - APENAS BANCO DE DADOS"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_clientes'))
     
-    cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
-    
-    if not cliente:
-        flash('Cliente não encontrado!', 'error')
+    try:
+        cliente_db = Cliente.query.get(cliente_id)
+        if not cliente_db:
+            flash('Cliente não encontrado!', 'error')
+            return redirect(url_for('admin_clientes'))
+        
+        cliente = {
+            'id': cliente_db.id,
+            'nome': cliente_db.nome,
+            'email': cliente_db.email or '',
+            'telefone': cliente_db.telefone or '',
+            'cpf': cliente_db.cpf or '',
+            'endereco': cliente_db.endereco or '',
+            'username': cliente_db.username or '',
+            'data_cadastro': cliente_db.data_cadastro.strftime('%d/%m/%Y %H:%M') if cliente_db.data_cadastro else ''
+        }
+    except Exception as e:
+        print(f"Erro ao buscar cliente: {e}")
+        flash('Erro ao buscar cliente.', 'error')
         return redirect(url_for('admin_clientes'))
     
     return render_template('admin/view_cliente.html', cliente=cliente)
@@ -2280,47 +2326,71 @@ def view_cliente(cliente_id):
 @app.route('/admin/clientes/<int:cliente_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_cliente(cliente_id):
-    """Edita um cliente existente"""
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    cliente = next((c for c in data['clients'] if c.get('id') == cliente_id), None)
-    
-    if not cliente:
-        flash('Cliente não encontrado!', 'error')
+    """Edita um cliente existente - APENAS BANCO DE DADOS"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
         return redirect(url_for('admin_clientes'))
     
-    if request.method == 'POST':
-        # Verificar se username foi alterado e se já existe
-        novo_username = request.form.get('username')
-        if novo_username != cliente.get('username'):
-            if any(c.get('username') == novo_username and c.get('id') != cliente_id for c in data['clients']):
-                flash('Este nome de usuário já está em uso!', 'error')
-                return render_template('admin/edit_cliente.html', cliente=cliente)
+    try:
+        cliente_db = Cliente.query.get(cliente_id)
+        if not cliente_db:
+            flash('Cliente não encontrado!', 'error')
+            return redirect(url_for('admin_clientes'))
         
-        # Atualizar dados do cliente
-        cliente['nome'] = request.form.get('nome')
-        cliente['email'] = request.form.get('email')
-        cliente['telefone'] = request.form.get('telefone')
-        cliente['cpf'] = request.form.get('cpf')
-        cliente['endereco'] = request.form.get('endereco')
-        cliente['username'] = novo_username
+        if request.method == 'POST':
+            # Verificar se username foi alterado e se já existe
+            novo_username = request.form.get('username')
+            if novo_username and novo_username != cliente_db.username:
+                cliente_existente = Cliente.query.filter(
+                    Cliente.username == novo_username,
+                    Cliente.id != cliente_id
+                ).first()
+                if cliente_existente:
+                    flash('Este nome de usuário já está em uso!', 'error')
+                    cliente = {
+                        'id': cliente_db.id,
+                        'nome': cliente_db.nome,
+                        'email': cliente_db.email or '',
+                        'telefone': cliente_db.telefone or '',
+                        'cpf': cliente_db.cpf or '',
+                        'endereco': cliente_db.endereco or '',
+                        'username': cliente_db.username or ''
+                    }
+                    return render_template('admin/edit_cliente.html', cliente=cliente)
+            
+            # Atualizar dados do cliente
+            cliente_db.nome = request.form.get('nome')
+            cliente_db.email = request.form.get('email') or None
+            cliente_db.telefone = request.form.get('telefone') or None
+            cliente_db.cpf = request.form.get('cpf') or None
+            cliente_db.endereco = request.form.get('endereco') or None
+            cliente_db.username = novo_username or None
+            
+            # Atualizar senha apenas se fornecida
+            nova_senha = request.form.get('password')
+            if nova_senha and nova_senha.strip():
+                cliente_db.password = nova_senha  # Em produção, usar hash!
+            
+            db.session.commit()
+            flash('Cliente atualizado com sucesso!', 'success')
+            return redirect(url_for('admin_clientes'))
         
-        # Atualizar senha apenas se fornecida
-        nova_senha = request.form.get('password')
-        if nova_senha and nova_senha.strip():
-            cliente['password'] = nova_senha  # Em produção, usar hash!
-        
-        # Atualizar na lista
-        for i, c in enumerate(data['clients']):
-            if c.get('id') == cliente_id:
-                data['clients'][i] = cliente
-                break
-        
-        with open(CLIENTS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Cliente atualizado com sucesso!', 'success')
+        # GET - Exibir formulário
+        cliente = {
+            'id': cliente_db.id,
+            'nome': cliente_db.nome,
+            'email': cliente_db.email or '',
+            'telefone': cliente_db.telefone or '',
+            'cpf': cliente_db.cpf or '',
+            'endereco': cliente_db.endereco or '',
+            'username': cliente_db.username or ''
+        }
+    except Exception as e:
+        print(f"Erro ao editar cliente: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        flash(f'Erro ao editar cliente: {str(e)}', 'error')
         return redirect(url_for('admin_clientes'))
     
     return render_template('admin/edit_cliente.html', cliente=cliente)
@@ -2328,15 +2398,27 @@ def edit_cliente(cliente_id):
 @app.route('/admin/clientes/<int:cliente_id>/delete', methods=['POST'])
 @login_required
 def delete_cliente(cliente_id):
-    with open(CLIENTS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    """Exclui um cliente - APENAS BANCO DE DADOS"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_clientes'))
     
-    data['clients'] = [c for c in data['clients'] if c.get('id') != cliente_id]
+    try:
+        cliente = Cliente.query.get(cliente_id)
+        if not cliente:
+            flash('Cliente não encontrado!', 'error')
+            return redirect(url_for('admin_clientes'))
+        
+        db.session.delete(cliente)
+        db.session.commit()
+        flash('Cliente excluído com sucesso!', 'success')
+    except Exception as e:
+        print(f"Erro ao excluir cliente: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        flash(f'Erro ao excluir cliente: {str(e)}', 'error')
     
-    with open(CLIENTS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    flash('Cliente excluído com sucesso!', 'success')
     return redirect(url_for('admin_clientes'))
 
 @app.route('/admin/financeiro')
@@ -4909,47 +4991,64 @@ def init_tecnicos_file():
 @app.route('/admin/tecnicos', methods=['GET'])
 @login_required
 def admin_tecnicos():
-    """Lista todos os técnicos cadastrados"""
-    init_tecnicos_file()
+    """Lista todos os técnicos cadastrados - APENAS BANCO DE DADOS"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_dashboard'))
     
-    with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    try:
+        tecnicos_db = Tecnico.query.order_by(Tecnico.id.desc()).all()
+        tecnicos = []
+        for t in tecnicos_db:
+            tecnicos.append({
+                'id': t.id,
+                'nome': t.nome,
+                'cpf': t.cpf or '',
+                'telefone': t.telefone or '',
+                'email': t.email or '',
+                'especialidade': t.especialidade or '',
+                'ativo': t.ativo if hasattr(t, 'ativo') else True,
+                'data_cadastro': t.data_cadastro.strftime('%d/%m/%Y %H:%M') if t.data_cadastro else ''
+            })
+    except Exception as e:
+        print(f"Erro ao buscar técnicos do banco: {e}")
+        import traceback
+        traceback.print_exc()
+        tecnicos = []
+        flash('Erro ao buscar técnicos do banco de dados.', 'error')
     
-    tecnicos = data.get('tecnicos', [])
     return render_template('admin/tecnicos.html', tecnicos=tecnicos)
 
 @app.route('/admin/tecnicos/add', methods=['GET', 'POST'])
 @login_required
 def add_tecnico():
-    """Adiciona um novo técnico"""
-    init_tecnicos_file()
+    """Adiciona um novo técnico - APENAS BANCO DE DADOS"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_tecnicos'))
     
     if request.method == 'POST':
-        with open(TECNICOS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Obter próximo ID
-        tecnicos = data.get('tecnicos', [])
-        novo_id = max([t.get('id', 0) for t in tecnicos], default=0) + 1
-        
-        novo_tecnico = {
-            'id': novo_id,
-            'nome': request.form.get('nome', '').strip(),
-            'cpf': request.form.get('cpf', '').strip(),
-            'telefone': request.form.get('telefone', '').strip(),
-            'email': request.form.get('email', '').strip(),
-            'especialidade': request.form.get('especialidade', '').strip(),
-            'data_cadastro': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        tecnicos.append(novo_tecnico)
-        data['tecnicos'] = tecnicos
-        
-        with open(TECNICOS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        flash('Técnico cadastrado com sucesso!', 'success')
-        return redirect(url_for('admin_tecnicos'))
+        try:
+            novo_tecnico = Tecnico(
+                nome=request.form.get('nome', '').strip(),
+                cpf=request.form.get('cpf', '').strip() or None,
+                telefone=request.form.get('telefone', '').strip() or None,
+                email=request.form.get('email', '').strip() or None,
+                especialidade=request.form.get('especialidade', '').strip() or None,
+                ativo=True
+            )
+            
+            db.session.add(novo_tecnico)
+            db.session.commit()
+            
+            flash('Técnico cadastrado com sucesso!', 'success')
+            return redirect(url_for('admin_tecnicos'))
+        except Exception as e:
+            print(f"Erro ao cadastrar técnico: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao cadastrar técnico: {str(e)}', 'error')
     
     return render_template('admin/add_tecnico.html')
 
@@ -8283,13 +8382,27 @@ def add_orcamento_ar():
     
     # GET - Exibir formulário
     try:
-        clientes_db = Cliente.query.all()
-        clientes = [{'id': c.id, 'nome': c.nome, 'email': c.email or ''} for c in clientes_db]
+        # Buscar clientes sem duplicação (garantir IDs únicos)
+        clientes_db = Cliente.query.order_by(Cliente.id).all()
+        clientes = []
+        seen_ids = set()
+        for c in clientes_db:
+            if c.id not in seen_ids:
+                clientes.append({'id': c.id, 'nome': c.nome, 'email': c.email or ''})
+                seen_ids.add(c.id)
         
-        tecnicos_db = Tecnico.query.filter_by(ativo=True).all()
-        tecnicos = [{'id': t.id, 'nome': t.nome} for t in tecnicos_db]
+        # Buscar técnicos ativos sem duplicação (garantir IDs únicos)
+        tecnicos_db = Tecnico.query.filter_by(ativo=True).order_by(Tecnico.id).all()
+        tecnicos = []
+        seen_ids_tec = set()
+        for t in tecnicos_db:
+            if t.id not in seen_ids_tec:
+                tecnicos.append({'id': t.id, 'nome': t.nome})
+                seen_ids_tec.add(t.id)
     except Exception as e:
         print(f"Erro ao buscar clientes/técnicos: {e}")
+        import traceback
+        traceback.print_exc()
         clientes = []
         tecnicos = []
     
@@ -8422,11 +8535,23 @@ def edit_orcamento_ar(orcamento_id):
             return redirect(url_for('admin_orcamentos_ar'))
         
         # GET - Exibir formulário
-        clientes_db = Cliente.query.all()
-        clientes = [{'id': c.id, 'nome': c.nome, 'email': c.email or ''} for c in clientes_db]
+        # Buscar clientes sem duplicação (garantir IDs únicos)
+        clientes_db = Cliente.query.order_by(Cliente.id).all()
+        clientes = []
+        seen_ids = set()
+        for c in clientes_db:
+            if c.id not in seen_ids:
+                clientes.append({'id': c.id, 'nome': c.nome, 'email': c.email or ''})
+                seen_ids.add(c.id)
         
-        tecnicos_db = Tecnico.query.filter_by(ativo=True).all()
-        tecnicos = [{'id': t.id, 'nome': t.nome} for t in tecnicos_db]
+        # Buscar técnicos ativos sem duplicação (garantir IDs únicos)
+        tecnicos_db = Tecnico.query.filter_by(ativo=True).order_by(Tecnico.id).all()
+        tecnicos = []
+        seen_ids_tec = set()
+        for t in tecnicos_db:
+            if t.id not in seen_ids_tec:
+                tecnicos.append({'id': t.id, 'nome': t.nome})
+                seen_ids_tec.add(t.id)
         
         orcamento_dict = {
             'id': orcamento.id,
