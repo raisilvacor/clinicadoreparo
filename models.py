@@ -336,3 +336,31 @@ class PaginaServico(db.Model):
     # Relacionamento
     imagem_obj = db.relationship('Imagem', foreign_keys=[imagem_id], lazy=True)
 
+# ==================== ORÇAMENTO AR-CONDICIONADO ====================
+class OrcamentoArCondicionado(db.Model):
+    __tablename__ = 'orcamentos_ar_condicionado'
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
+    tecnico_id = db.Column(db.Integer, db.ForeignKey('tecnicos.id'))
+    tipo_servico = db.Column(db.String(100), nullable=False)  # Instalação, Limpeza Evaporadora, Limpeza Completa, Remoção
+    potencia_btu = db.Column(db.Integer, nullable=False)  # 9000, 12000, 18000, etc
+    tipo_acesso = db.Column(db.String(50), nullable=False)  # Fácil, Moderado, Difícil
+    marca_aparelho = db.Column(db.String(100))
+    modelo_aparelho = db.Column(db.String(100))
+    material_adicional = db.Column(db.String(100))  # Kit Convencional, Tubulação extra
+    valor_material_adicional = db.Column(db.Numeric(10, 2), default=0)
+    valor_base = db.Column(db.Numeric(10, 2), nullable=False)
+    valor_acesso = db.Column(db.Numeric(10, 2), default=0)  # Valor do acréscimo por acesso
+    valor_total = db.Column(db.Numeric(10, 2), nullable=False)
+    status = db.Column(db.String(50), default='pendente')
+    prazo_estimado = db.Column(db.String(100))
+    pdf_id = db.Column(db.Integer, db.ForeignKey('pdf_documents.id'))
+    pdf_filename = db.Column(db.String(200))
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # Relacionamentos
+    cliente = db.relationship('Cliente', foreign_keys=[cliente_id], lazy=True)
+    tecnico = db.relationship('Tecnico', foreign_keys=[tecnico_id], lazy=True)
+    pdf_document = db.relationship('PDFDocument', foreign_keys=[pdf_id], lazy=True)
+

@@ -1,0 +1,323 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Editar Orçamento de Ar-Condicionado #{{ orcamento.id }} - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fas fa-snowflake"></i> Editar Orçamento de Ar-Condicionado #{{ orcamento.id }}</h1>
+    <p>Atualize os dados do orçamento</p>
+</div>
+
+<div class="admin-form-card">
+    <form method="POST" action="{{ url_for('edit_orcamento_ar', orcamento_id=orcamento.id) }}" class="admin-form" id="orcamentoForm">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="cliente_id">
+                    <i class="fas fa-user"></i>
+                    Cliente *
+                </label>
+                <select id="cliente_id" name="cliente_id" required>
+                    <option value="">Selecione um cliente</option>
+                    {% for cliente in clientes %}
+                    <option value="{{ cliente.id }}" {% if cliente.id == orcamento.cliente_id %}selected{% endif %}>{{ cliente.nome }} - {{ cliente.email }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="tecnico_id">
+                    <i class="fas fa-user-cog"></i>
+                    Técnico
+                </label>
+                <select id="tecnico_id" name="tecnico_id">
+                    <option value="">Selecione um técnico (opcional)</option>
+                    {% for tecnico in tecnicos %}
+                    <option value="{{ tecnico.id }}" {% if tecnico.id == orcamento.tecnico_id %}selected{% endif %}>{{ tecnico.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-tools"></i> Dados do Serviço</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="tipo_servico">
+                    <i class="fas fa-wrench"></i>
+                    Tipo de Serviço *
+                </label>
+                <select id="tipo_servico" name="tipo_servico" required onchange="calcularPreco()">
+                    <option value="">Selecione o tipo de serviço</option>
+                    <option value="Instalação de Ar-Condicionado Split" {% if orcamento.tipo_servico == 'Instalação de Ar-Condicionado Split' %}selected{% endif %}>Instalação de Ar-Condicionado Split</option>
+                    <option value="Limpeza preventiva da Evaporadora" {% if orcamento.tipo_servico == 'Limpeza preventiva da Evaporadora' %}selected{% endif %}>Limpeza preventiva da Evaporadora</option>
+                    <option value="Limpeza preventiva Evaporadora + Condensadora" {% if orcamento.tipo_servico == 'Limpeza preventiva Evaporadora + Condensadora' %}selected{% endif %}>Limpeza preventiva Evaporadora + Condensadora</option>
+                    <option value="Remoção de Ar-Condicionado Split" {% if orcamento.tipo_servico == 'Remoção de Ar-Condicionado Split' %}selected{% endif %}>Remoção de Ar-Condicionado Split</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="potencia_btu">
+                    <i class="fas fa-bolt"></i>
+                    Potência (BTU) *
+                </label>
+                <select id="potencia_btu" name="potencia_btu" required onchange="calcularPreco()">
+                    <option value="">Selecione a potência</option>
+                    <option value="9000" {% if orcamento.potencia_btu == 9000 %}selected{% endif %}>9000 BTU</option>
+                    <option value="12000" {% if orcamento.potencia_btu == 12000 %}selected{% endif %}>12000 BTU</option>
+                    <option value="18000" {% if orcamento.potencia_btu == 18000 %}selected{% endif %}>18000 BTU</option>
+                    <option value="24000" {% if orcamento.potencia_btu == 24000 %}selected{% endif %}>24000 BTU</option>
+                    <option value="36000" {% if orcamento.potencia_btu == 36000 %}selected{% endif %}>36000 BTU</option>
+                    <option value="48000" {% if orcamento.potencia_btu == 48000 %}selected{% endif %}>48000 BTU</option>
+                    <option value="60000" {% if orcamento.potencia_btu == 60000 %}selected{% endif %}>60000 BTU</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="tipo_acesso">
+                <i class="fas fa-ladder"></i>
+                Tipo de Acesso *
+            </label>
+            <select id="tipo_acesso" name="tipo_acesso" required onchange="calcularPreco()">
+                <option value="">Selecione o tipo de acesso</option>
+                <option value="Fácil" {% if orcamento.tipo_acesso == 'Fácil' %}selected{% endif %}>Acesso Fácil - Acesso direto sem obstáculos, até 3 metros de altura, posição confortável de trabalho.</option>
+                <option value="Moderado" {% if orcamento.tipo_acesso == 'Moderado' %}selected{% endif %}>Acesso Moderado - Locais com interferência de mobília, altura entre 3 e 4 metros, posição de trabalho desconfortável.</option>
+                <option value="Difícil" {% if orcamento.tipo_acesso == 'Difícil' %}selected{% endif %}>Acesso Difícil - Altura superior a 4 metros, posição inadequada de trabalho, horário fora do comercial.</option>
+            </select>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-box"></i> Informações do Aparelho</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="marca_aparelho">
+                    <i class="fas fa-tag"></i>
+                    Marca do Aparelho
+                </label>
+                <input type="text" id="marca_aparelho" name="marca_aparelho" value="{{ orcamento.marca_aparelho }}" placeholder="Ex: Samsung, LG, Consul">
+            </div>
+            
+            <div class="form-group">
+                <label for="modelo_aparelho">
+                    <i class="fas fa-cube"></i>
+                    Modelo do Aparelho
+                </label>
+                <input type="text" id="modelo_aparelho" name="modelo_aparelho" value="{{ orcamento.modelo_aparelho }}" placeholder="Ex: Split 9000 BTU">
+            </div>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-shopping-cart"></i> Materiais Adicionais</h3>
+        </div>
+        
+        <div class="form-group">
+            <label for="material_adicional">
+                <i class="fas fa-tools"></i>
+                Material Adicional
+            </label>
+            <select id="material_adicional" name="material_adicional" onchange="toggleMaterialAdicional()">
+                <option value="">Nenhum material adicional</option>
+                <option value="Kit Convencional (3m de tubulação)" {% if orcamento.material_adicional == 'Kit Convencional (3m de tubulação)' %}selected{% endif %}>Kit Convencional (3m de tubulação) + R$ 250,00</option>
+                <option value="Tubulação extra acima de 3m" {% if orcamento.material_adicional == 'Tubulação extra acima de 3m' %}selected{% endif %}>Tubulação extra acima de 3m</option>
+            </select>
+        </div>
+        
+        <div class="form-group" id="campo_valor_material" style="display: {% if orcamento.material_adicional == 'Tubulação extra acima de 3m' %}block{% else %}none{% endif %};">
+            <label for="valor_material_adicional">
+                <i class="fas fa-dollar-sign"></i>
+                Valor da Tubulação Extra (R$)
+            </label>
+            <input type="number" id="valor_material_adicional" name="valor_material_adicional" step="0.01" min="0" value="{{ "%.2f"|format(orcamento.valor_material_adicional) }}" placeholder="0.00" onchange="calcularPreco()">
+            <small class="form-help">Digite o valor manualmente para tubulação extra acima de 3m</small>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-calculator"></i> Resumo do Orçamento</h3>
+        </div>
+        
+        <div id="resumo_orcamento" style="background: #f5f5f5; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">Valor Base:</td>
+                    <td style="padding: 8px; text-align: right;" id="valor_base_display">R$ 0,00</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">Acréscimo por Acesso:</td>
+                    <td style="padding: 8px; text-align: right;" id="valor_acesso_display">R$ 0,00</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">Material Adicional:</td>
+                    <td style="padding: 8px; text-align: right;" id="valor_material_display">R$ 0,00</td>
+                </tr>
+                <tr style="border-top: 2px solid #215f97; font-size: 1.2em;">
+                    <td style="padding: 12px 8px; font-weight: bold; color: #215f97;">TOTAL:</td>
+                    <td style="padding: 12px 8px; text-align: right; font-weight: bold; color: #215f97;" id="valor_total_display">R$ 0,00</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section-divider">
+            <h3><i class="fas fa-info-circle"></i> Informações Adicionais</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="status">
+                    <i class="fas fa-check-circle"></i>
+                    Status do Orçamento *
+                </label>
+                <select id="status" name="status" required>
+                    <option value="pendente" {% if orcamento.status == 'pendente' %}selected{% endif %}>Pendente</option>
+                    <option value="aprovado" {% if orcamento.status == 'aprovado' %}selected{% endif %}>Aprovado</option>
+                    <option value="recusado" {% if orcamento.status == 'recusado' %}selected{% endif %}>Recusado</option>
+                    <option value="concluido" {% if orcamento.status == 'concluido' %}selected{% endif %}>Concluído</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="prazo_estimado">
+                    <i class="fas fa-calendar"></i>
+                    Prazo Estimado
+                </label>
+                <input type="text" id="prazo_estimado" name="prazo_estimado" value="{{ orcamento.prazo_estimado }}" placeholder="Ex: 5 dias, 1 semana">
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_orcamentos_ar') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function calcularPreco() {
+    const tipoServico = document.getElementById('tipo_servico').value;
+    const potenciaBtu = parseInt(document.getElementById('potencia_btu').value) || 0;
+    const tipoAcesso = document.getElementById('tipo_acesso').value;
+    const materialAdicional = document.getElementById('material_adicional').value;
+    const valorMaterialAdicional = parseFloat(document.getElementById('valor_material_adicional').value) || 0;
+    
+    if (!tipoServico || !potenciaBtu || !tipoAcesso) {
+        atualizarResumo(0, 0, 0, 0);
+        return;
+    }
+    
+    // Tabela de preços base
+    const precosBase = {
+        'Instalação de Ar-Condicionado Split': {
+            9000: 650.00,
+            12000: 700.00,
+            18000: 750.00,
+            24000: 800.00,
+            36000: 900.00,
+            48000: 1200.00,
+            60000: 1800.00
+        },
+        'Limpeza preventiva da Evaporadora': {
+            'ate_18000': 150.00,
+            '24000_36000': 200.00,
+            'acima_36000': 250.00
+        },
+        'Limpeza preventiva Evaporadora + Condensadora': {
+            'ate_18000': 250.00,
+            '24000_36000': 300.00,
+            'acima_36000': 350.00
+        },
+        'Remoção de Ar-Condicionado Split': {
+            'ate_18000': 250.00,
+            '24000_36000': 300.00,
+            'acima_36000': 400.00
+        }
+    };
+    
+    // Calcular valor base
+    let valorBase = 0.00;
+    
+    if (tipoServico === 'Instalação de Ar-Condicionado Split') {
+        valorBase = precosBase[tipoServico][potenciaBtu] || 0.00;
+    } else {
+        if (potenciaBtu <= 18000) {
+            valorBase = precosBase[tipoServico]['ate_18000'];
+        } else if (potenciaBtu <= 36000) {
+            valorBase = precosBase[tipoServico]['24000_36000'];
+        } else {
+            valorBase = precosBase[tipoServico]['acima_36000'];
+        }
+    }
+    
+    // Calcular acréscimo por acesso
+    let valorAcesso = 0.00;
+    if (tipoServico === 'Instalação de Ar-Condicionado Split') {
+        if (tipoAcesso === 'Moderado') {
+            valorAcesso = valorBase * 0.10; // 10%
+        } else if (tipoAcesso === 'Difícil') {
+            valorAcesso = valorBase * 0.20; // 20%
+        }
+    } else {
+        if (tipoAcesso === 'Moderado') {
+            valorAcesso = valorBase * 0.20; // 20%
+        } else if (tipoAcesso === 'Difícil') {
+            valorAcesso = valorBase * 0.30; // 30%
+        }
+    }
+    
+    // Valor do material adicional
+    let valorMaterial = 0.00;
+    if (materialAdicional === 'Kit Convencional (3m de tubulação)') {
+        valorMaterial = 250.00;
+    } else if (materialAdicional === 'Tubulação extra acima de 3m') {
+        valorMaterial = valorMaterialAdicional;
+    }
+    
+    // Calcular total
+    const valorTotal = valorBase + valorAcesso + valorMaterial;
+    
+    atualizarResumo(valorBase, valorAcesso, valorMaterial, valorTotal);
+}
+
+function toggleMaterialAdicional() {
+    const materialAdicional = document.getElementById('material_adicional').value;
+    const campoValorMaterial = document.getElementById('campo_valor_material');
+    
+    if (materialAdicional === 'Tubulação extra acima de 3m') {
+        campoValorMaterial.style.display = 'block';
+        if (!document.getElementById('valor_material_adicional').value) {
+            document.getElementById('valor_material_adicional').value = '';
+        }
+    } else {
+        campoValorMaterial.style.display = 'none';
+        document.getElementById('valor_material_adicional').value = '0';
+    }
+    
+    calcularPreco();
+}
+
+function atualizarResumo(valorBase, valorAcesso, valorMaterial, valorTotal) {
+    document.getElementById('valor_base_display').textContent = formatarMoeda(valorBase);
+    document.getElementById('valor_acesso_display').textContent = formatarMoeda(valorAcesso);
+    document.getElementById('valor_material_display').textContent = formatarMoeda(valorMaterial);
+    document.getElementById('valor_total_display').textContent = formatarMoeda(valorTotal);
+}
+
+function formatarMoeda(valor) {
+    return 'R$ ' + valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// Calcular ao carregar a página
+document.addEventListener('DOMContentLoaded', function() {
+    calcularPreco();
+});
+</script>
+{% endblock %}
+

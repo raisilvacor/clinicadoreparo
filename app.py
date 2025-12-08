@@ -13,7 +13,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, PaginaServico
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, PaginaServico, OrcamentoArCondicionado, OrcamentoArCondicionado
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -7856,6 +7856,542 @@ Sitemap: {base_url}/sitemap.xml
     response = make_response(robots_txt)
     response.headers['Content-Type'] = 'text/plain'
     return response
+
+# ==================== ORÇAMENTO AR-CONDICIONADO ====================
+
+def calcular_preco_orcamento_ar(tipo_servico, potencia_btu, tipo_acesso, material_adicional=None, valor_material_adicional=0):
+    """Calcula o preço do orçamento de ar-condicionado baseado nas regras fornecidas"""
+    
+    # Tabela de preços base por tipo de serviço e BTU (Acesso Fácil)
+    precos_base = {
+        'Instalação de Ar-Condicionado Split': {
+            9000: 650.00,
+            12000: 700.00,
+            18000: 750.00,
+            24000: 800.00,
+            36000: 900.00,
+            48000: 1200.00,
+            60000: 1800.00
+        },
+        'Limpeza preventiva da Evaporadora': {
+            'ate_18000': 150.00,
+            '24000_36000': 200.00,
+            'acima_36000': 250.00
+        },
+        'Limpeza preventiva Evaporadora + Condensadora': {
+            'ate_18000': 250.00,
+            '24000_36000': 300.00,
+            'acima_36000': 350.00
+        },
+        'Remoção de Ar-Condicionado Split': {
+            'ate_18000': 250.00,
+            '24000_36000': 300.00,
+            'acima_36000': 400.00
+        }
+    }
+    
+    # Calcular valor base
+    valor_base = 0.00
+    
+    if tipo_servico == 'Instalação de Ar-Condicionado Split':
+        valor_base = precos_base[tipo_servico].get(potencia_btu, 0.00)
+    else:
+        # Para outros serviços, usar faixas de BTU
+        if potencia_btu <= 18000:
+            valor_base = precos_base[tipo_servico]['ate_18000']
+        elif potencia_btu <= 36000:
+            valor_base = precos_base[tipo_servico]['24000_36000']
+        else:
+            valor_base = precos_base[tipo_servico]['acima_36000']
+    
+    # Calcular acréscimo por tipo de acesso
+    valor_acesso = 0.00
+    if tipo_servico == 'Instalação de Ar-Condicionado Split':
+        if tipo_acesso == 'Moderado':
+            valor_acesso = valor_base * 0.10  # 10%
+        elif tipo_acesso == 'Difícil':
+            valor_acesso = valor_base * 0.20  # 20%
+    else:
+        # Para outros serviços
+        if tipo_acesso == 'Moderado':
+            valor_acesso = valor_base * 0.20  # 20%
+        elif tipo_acesso == 'Difícil':
+            valor_acesso = valor_base * 0.30  # 30%
+    
+    # Valor do material adicional (se houver)
+    valor_material = float(valor_material_adicional) if valor_material_adicional else 0.00
+    if material_adicional == 'Kit Convencional (3m de tubulação)':
+        valor_material = 250.00
+    
+    # Calcular total
+    valor_total = valor_base + valor_acesso + valor_material
+    
+    return {
+        'valor_base': round(valor_base, 2),
+        'valor_acesso': round(valor_acesso, 2),
+        'valor_material': round(valor_material, 2),
+        'valor_total': round(valor_total, 2)
+    }
+
+def gerar_pdf_orcamento_ar(orçamento):
+    """Gera PDF do orçamento de ar-condicionado e salva no banco"""
+    pdf_filename = f"orcamento_ar_{orçamento.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    
+    # Logo
+    logo_path = os.path.join('static', 'img', 'logo.png')
+    if os.path.exists(logo_path):
+        try:
+            logo_width = 4.5*cm
+            logo_height = logo_width / 2.60
+            logo = Image(logo_path, width=logo_width, height=logo_height)
+            logo_table = Table([[logo]], colWidths=[17*cm])
+            logo_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ]))
+            story.append(logo_table)
+            story.append(Spacer(1, 0.2*cm))
+        except:
+            pass
+    
+    # Título
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=22,
+        textColor=colors.HexColor('#215f97'),
+        spaceAfter=10,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    story.append(Paragraph("ORÇAMENTO DE AR-CONDICIONADO", title_style))
+    story.append(Spacer(1, 0.5*cm))
+    
+    # Informações do Orçamento
+    data_formatada = orçamento.data_criacao.strftime('%d/%m/%Y %H:%M') if orçamento.data_criacao else datetime.now().strftime('%d/%m/%Y %H:%M')
+    
+    info_data = [
+        ['Número do Orçamento:', f"#{orçamento.id:04d}"],
+        ['Data:', data_formatada],
+        ['Cliente:', orçamento.cliente.nome if orçamento.cliente else 'N/A'],
+        ['Técnico:', orçamento.tecnico.nome if orçamento.tecnico else 'Não atribuído'],
+    ]
+    
+    info_table = Table(info_data, colWidths=[5*cm, 12*cm])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f5f5f5')),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 0.8*cm))
+    
+    # Detalhes do Serviço
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor=colors.HexColor('#215f97'),
+        spaceAfter=8,
+        spaceBefore=0,
+        fontName='Helvetica-Bold'
+    )
+    
+    story.append(Paragraph("Detalhes do Serviço", heading_style))
+    
+    detalhes_data = [
+        ['Tipo de Serviço:', orçamento.tipo_servico],
+        ['Potência (BTU):', f"{orçamento.potencia_btu} BTU"],
+        ['Tipo de Acesso:', orçamento.tipo_acesso],
+        ['Marca:', orçamento.marca_aparelho or 'N/A'],
+        ['Modelo:', orçamento.modelo_aparelho or 'N/A'],
+    ]
+    
+    if orçamento.material_adicional:
+        detalhes_data.append(['Material Adicional:', orçamento.material_adicional])
+    
+    if orçamento.prazo_estimado:
+        detalhes_data.append(['Prazo Estimado:', orçamento.prazo_estimado])
+    
+    detalhes_table = Table(detalhes_data, colWidths=[5*cm, 12*cm])
+    detalhes_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f5f5f5')),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    story.append(detalhes_table)
+    story.append(Spacer(1, 0.8*cm))
+    
+    # Valores
+    story.append(Paragraph("Valores", heading_style))
+    
+    valores_data = [
+        ['Descrição', 'Valor'],
+        ['Valor Base', f"R$ {orçamento.valor_base:.2f}"],
+        ['Acréscimo por Acesso', f"R$ {orçamento.valor_acesso:.2f}"],
+    ]
+    
+    if orçamento.valor_material_adicional > 0:
+        valores_data.append(['Material Adicional', f"R$ {float(orçamento.valor_material_adicional):.2f}"])
+    
+    valores_data.append(['TOTAL', f"R$ {orçamento.valor_total:.2f}"])
+    
+    valores_table = Table(valores_data, colWidths=[12*cm, 5*cm])
+    valores_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#215f97')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (-1, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('FONTSIZE', (-1, -1), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BACKGROUND', (-1, -1), (-1, -1), colors.HexColor('#f0f0f0')),
+    ]))
+    story.append(valores_table)
+    
+    # Gerar PDF
+    doc.build(story)
+    pdf_data = buffer.getvalue()
+    buffer.close()
+    
+    # Salvar no banco
+    pdf_id = salvar_pdf_no_banco(pdf_data, pdf_filename, 'orcamento_ar', orçamento.id)
+    
+    return {
+        'pdf_id': pdf_id,
+        'pdf_filename': pdf_filename
+    }
+
+@app.route('/admin/orcamentos-ar')
+@login_required
+def admin_orcamentos_ar():
+    """Lista todos os orçamentos de ar-condicionado"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        orcamentos_db = OrcamentoArCondicionado.query.order_by(OrcamentoArCondicionado.data_criacao.desc()).all()
+        orcamentos = []
+        for o in orcamentos_db:
+            orcamentos.append({
+                'id': o.id,
+                'cliente_nome': o.cliente.nome if o.cliente else 'Cliente não encontrado',
+                'tipo_servico': o.tipo_servico,
+                'potencia_btu': o.potencia_btu,
+                'tipo_acesso': o.tipo_acesso,
+                'valor_total': float(o.valor_total) if o.valor_total else 0.00,
+                'status': o.status or 'pendente',
+                'data_criacao': o.data_criacao.strftime('%d/%m/%Y %H:%M') if o.data_criacao else '',
+                'prazo_estimado': o.prazo_estimado or ''
+            })
+    except Exception as e:
+        print(f"Erro ao listar orçamentos: {e}")
+        import traceback
+        traceback.print_exc()
+        orcamentos = []
+    
+    return render_template('admin/orcamentos_ar.html', orcamentos=orcamentos)
+
+@app.route('/admin/orcamentos-ar/add', methods=['GET', 'POST'])
+@login_required
+def add_orcamento_ar():
+    """Adiciona um novo orçamento de ar-condicionado"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_orcamentos_ar'))
+    
+    if request.method == 'POST':
+        try:
+            cliente_id = int(request.form.get('cliente_id'))
+            tecnico_id = request.form.get('tecnico_id')
+            tipo_servico = request.form.get('tipo_servico')
+            potencia_btu = int(request.form.get('potencia_btu'))
+            tipo_acesso = request.form.get('tipo_acesso')
+            marca_aparelho = request.form.get('marca_aparelho', '').strip()
+            modelo_aparelho = request.form.get('modelo_aparelho', '').strip()
+            material_adicional = request.form.get('material_adicional', '').strip() or None
+            valor_material_adicional = request.form.get('valor_material_adicional', '0').strip()
+            status = request.form.get('status', 'pendente')
+            prazo_estimado = request.form.get('prazo_estimado', '').strip() or None
+            
+            # Calcular valores
+            valor_material = 0.00
+            if material_adicional == 'Tubulação extra acima de 3m' and valor_material_adicional:
+                valor_material = float(valor_material_adicional)
+            
+            calculo = calcular_preco_orcamento_ar(tipo_servico, potencia_btu, tipo_acesso, material_adicional, valor_material)
+            
+            # Criar orçamento
+            orcamento = OrcamentoArCondicionado(
+                cliente_id=cliente_id,
+                tecnico_id=int(tecnico_id) if tecnico_id and tecnico_id != '' else None,
+                tipo_servico=tipo_servico,
+                potencia_btu=potencia_btu,
+                tipo_acesso=tipo_acesso,
+                marca_aparelho=marca_aparelho if marca_aparelho else None,
+                modelo_aparelho=modelo_aparelho if modelo_aparelho else None,
+                material_adicional=material_adicional,
+                valor_material_adicional=valor_material,
+                valor_base=calculo['valor_base'],
+                valor_acesso=calculo['valor_acesso'],
+                valor_total=calculo['valor_total'],
+                status=status,
+                prazo_estimado=prazo_estimado
+            )
+            
+            db.session.add(orcamento)
+            db.session.commit()
+            
+            # Gerar PDF
+            pdf_result = gerar_pdf_orcamento_ar(orcamento)
+            if pdf_result and pdf_result.get('pdf_id'):
+                orcamento.pdf_id = pdf_result['pdf_id']
+                orcamento.pdf_filename = pdf_result['pdf_filename']
+                db.session.commit()
+            
+            flash('Orçamento criado com sucesso!', 'success')
+            return redirect(url_for('admin_orcamentos_ar'))
+        except Exception as e:
+            print(f"Erro ao criar orçamento: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao criar orçamento: {str(e)}', 'error')
+    
+    # GET - Exibir formulário
+    try:
+        clientes_db = Cliente.query.all()
+        clientes = [{'id': c.id, 'nome': c.nome, 'email': c.email or ''} for c in clientes_db]
+        
+        tecnicos_db = Tecnico.query.filter_by(ativo=True).all()
+        tecnicos = [{'id': t.id, 'nome': t.nome} for t in tecnicos_db]
+    except Exception as e:
+        print(f"Erro ao buscar clientes/técnicos: {e}")
+        clientes = []
+        tecnicos = []
+    
+    return render_template('admin/add_orcamento_ar.html', clientes=clientes, tecnicos=tecnicos)
+
+@app.route('/admin/orcamentos-ar/<int:orcamento_id>')
+@login_required
+def view_orcamento_ar(orcamento_id):
+    """Visualiza detalhes de um orçamento"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_orcamentos_ar'))
+    
+    try:
+        orcamento = OrcamentoArCondicionado.query.get(orcamento_id)
+        if not orcamento:
+            flash('Orçamento não encontrado!', 'error')
+            return redirect(url_for('admin_orcamentos_ar'))
+        
+        orcamento_dict = {
+            'id': orcamento.id,
+            'cliente_nome': orcamento.cliente.nome if orcamento.cliente else 'N/A',
+            'cliente_email': orcamento.cliente.email if orcamento.cliente else '',
+            'cliente_telefone': orcamento.cliente.telefone if orcamento.cliente else '',
+            'tecnico_nome': orcamento.tecnico.nome if orcamento.tecnico else 'Não atribuído',
+            'tipo_servico': orcamento.tipo_servico,
+            'potencia_btu': orcamento.potencia_btu,
+            'tipo_acesso': orcamento.tipo_acesso,
+            'marca_aparelho': orcamento.marca_aparelho or '',
+            'modelo_aparelho': orcamento.modelo_aparelho or '',
+            'material_adicional': orcamento.material_adicional or '',
+            'valor_material_adicional': float(orcamento.valor_material_adicional) if orcamento.valor_material_adicional else 0.00,
+            'valor_base': float(orcamento.valor_base) if orcamento.valor_base else 0.00,
+            'valor_acesso': float(orcamento.valor_acesso) if orcamento.valor_acesso else 0.00,
+            'valor_total': float(orcamento.valor_total) if orcamento.valor_total else 0.00,
+            'status': orcamento.status or 'pendente',
+            'prazo_estimado': orcamento.prazo_estimado or '',
+            'data_criacao': orcamento.data_criacao.strftime('%d/%m/%Y %H:%M') if orcamento.data_criacao else '',
+            'pdf_id': orcamento.pdf_id,
+            'pdf_filename': orcamento.pdf_filename or ''
+        }
+    except Exception as e:
+        print(f"Erro ao buscar orçamento: {e}")
+        flash('Erro ao buscar orçamento.', 'error')
+        return redirect(url_for('admin_orcamentos_ar'))
+    
+    return render_template('admin/view_orcamento_ar.html', orcamento=orcamento_dict)
+
+@app.route('/admin/orcamentos-ar/<int:orcamento_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_orcamento_ar(orcamento_id):
+    """Edita um orçamento existente"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_orcamentos_ar'))
+    
+    try:
+        orcamento = OrcamentoArCondicionado.query.get(orcamento_id)
+        if not orcamento:
+            flash('Orçamento não encontrado!', 'error')
+            return redirect(url_for('admin_orcamentos_ar'))
+        
+        if request.method == 'POST':
+            orcamento.cliente_id = int(request.form.get('cliente_id'))
+            tecnico_id = request.form.get('tecnico_id')
+            orcamento.tecnico_id = int(tecnico_id) if tecnico_id and tecnico_id != '' else None
+            orcamento.tipo_servico = request.form.get('tipo_servico')
+            orcamento.potencia_btu = int(request.form.get('potencia_btu'))
+            orcamento.tipo_acesso = request.form.get('tipo_acesso')
+            orcamento.marca_aparelho = request.form.get('marca_aparelho', '').strip() or None
+            orcamento.modelo_aparelho = request.form.get('modelo_aparelho', '').strip() or None
+            material_adicional = request.form.get('material_adicional', '').strip() or None
+            valor_material_adicional = request.form.get('valor_material_adicional', '0').strip()
+            orcamento.status = request.form.get('status', 'pendente')
+            orcamento.prazo_estimado = request.form.get('prazo_estimado', '').strip() or None
+            
+            # Recalcular valores
+            valor_material = 0.00
+            if material_adicional == 'Tubulação extra acima de 3m' and valor_material_adicional:
+                valor_material = float(valor_material_adicional)
+            
+            calculo = calcular_preco_orcamento_ar(orcamento.tipo_servico, orcamento.potencia_btu, orcamento.tipo_acesso, material_adicional, valor_material)
+            
+            orcamento.material_adicional = material_adicional
+            orcamento.valor_material_adicional = valor_material
+            orcamento.valor_base = calculo['valor_base']
+            orcamento.valor_acesso = calculo['valor_acesso']
+            orcamento.valor_total = calculo['valor_total']
+            orcamento.data_atualizacao = datetime.now()
+            
+            # Regenerar PDF
+            pdf_result = gerar_pdf_orcamento_ar(orcamento)
+            if pdf_result and pdf_result.get('pdf_id'):
+                # Deletar PDF antigo se existir
+                if orcamento.pdf_id:
+                    try:
+                        pdf_antigo = PDFDocument.query.get(orcamento.pdf_id)
+                        if pdf_antigo:
+                            db.session.delete(pdf_antigo)
+                    except:
+                        pass
+                
+                orcamento.pdf_id = pdf_result['pdf_id']
+                orcamento.pdf_filename = pdf_result['pdf_filename']
+            
+            db.session.commit()
+            
+            flash('Orçamento atualizado com sucesso!', 'success')
+            return redirect(url_for('admin_orcamentos_ar'))
+        
+        # GET - Exibir formulário
+        clientes_db = Cliente.query.all()
+        clientes = [{'id': c.id, 'nome': c.nome, 'email': c.email or ''} for c in clientes_db]
+        
+        tecnicos_db = Tecnico.query.filter_by(ativo=True).all()
+        tecnicos = [{'id': t.id, 'nome': t.nome} for t in tecnicos_db]
+        
+        orcamento_dict = {
+            'id': orcamento.id,
+            'cliente_id': orcamento.cliente_id,
+            'tecnico_id': orcamento.tecnico_id,
+            'tipo_servico': orcamento.tipo_servico,
+            'potencia_btu': orcamento.potencia_btu,
+            'tipo_acesso': orcamento.tipo_acesso,
+            'marca_aparelho': orcamento.marca_aparelho or '',
+            'modelo_aparelho': orcamento.modelo_aparelho or '',
+            'material_adicional': orcamento.material_adicional or '',
+            'valor_material_adicional': float(orcamento.valor_material_adicional) if orcamento.valor_material_adicional else 0.00,
+            'status': orcamento.status or 'pendente',
+            'prazo_estimado': orcamento.prazo_estimado or ''
+        }
+        
+        return render_template('admin/edit_orcamento_ar.html', orcamento=orcamento_dict, clientes=clientes, tecnicos=tecnicos)
+    except Exception as e:
+        print(f"Erro ao editar orçamento: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        flash(f'Erro ao editar orçamento: {str(e)}', 'error')
+        return redirect(url_for('admin_orcamentos_ar'))
+
+@app.route('/admin/orcamentos-ar/<int:orcamento_id>/delete', methods=['POST'])
+@login_required
+def delete_orcamento_ar(orcamento_id):
+    """Deleta um orçamento"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_orcamentos_ar'))
+    
+    try:
+        orcamento = OrcamentoArCondicionado.query.get(orcamento_id)
+        if not orcamento:
+            flash('Orçamento não encontrado!', 'error')
+            return redirect(url_for('admin_orcamentos_ar'))
+        
+        # Deletar PDF se existir
+        if orcamento.pdf_id:
+            try:
+                pdf_doc = PDFDocument.query.get(orcamento.pdf_id)
+                if pdf_doc:
+                    db.session.delete(pdf_doc)
+            except Exception as e:
+                print(f"Erro ao deletar PDF: {e}")
+        
+        db.session.delete(orcamento)
+        db.session.commit()
+        
+        flash('Orçamento excluído com sucesso!', 'success')
+    except Exception as e:
+        print(f"Erro ao deletar orçamento: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        flash(f'Erro ao excluir orçamento: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_orcamentos_ar'))
+
+@app.route('/admin/orcamentos-ar/<int:orcamento_id>/pdf')
+@login_required
+def download_orcamento_ar_pdf(orcamento_id):
+    """Download do PDF do orçamento"""
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_orcamentos_ar'))
+    
+    try:
+        orcamento = OrcamentoArCondicionado.query.get(orcamento_id)
+        if not orcamento or not orcamento.pdf_id:
+            flash('PDF não encontrado!', 'error')
+            return redirect(url_for('admin_orcamentos_ar'))
+        
+        pdf_doc = PDFDocument.query.get(orcamento.pdf_id)
+        if pdf_doc and pdf_doc.dados:
+            return Response(
+                pdf_doc.dados,
+                mimetype='application/pdf',
+                headers={'Content-Disposition': f'inline; filename={orcamento.pdf_filename or "orcamento.pdf"}'}
+            )
+        
+        flash('PDF não encontrado!', 'error')
+    except Exception as e:
+        print(f"Erro ao buscar PDF: {e}")
+        flash('Erro ao buscar PDF.', 'error')
+    
+    return redirect(url_for('admin_orcamentos_ar'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

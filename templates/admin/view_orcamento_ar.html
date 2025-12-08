@@ -1,0 +1,191 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Orçamento #{{ orcamento.id }} - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-snowflake"></i> Orçamento de Ar-Condicionado #{{ orcamento.id }}</h1>
+        <p>Detalhes completos do orçamento</p>
+    </div>
+    <div>
+        <a href="{{ url_for('edit_orcamento_ar', orcamento_id=orcamento.id) }}" class="btn btn-primary">
+            <i class="fas fa-edit"></i> Editar
+        </a>
+        {% if orcamento.pdf_id %}
+        <a href="{{ url_for('download_orcamento_ar_pdf', orcamento_id=orcamento.id) }}" class="btn btn-secondary" target="_blank">
+            <i class="fas fa-file-pdf"></i> Baixar PDF
+        </a>
+        {% endif %}
+        <a href="{{ url_for('admin_orcamentos_ar') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="admin-form-card">
+    <div class="section-divider">
+        <h3><i class="fas fa-info-circle"></i> Informações do Orçamento</h3>
+    </div>
+    
+    <div class="info-grid">
+        <div class="info-item">
+            <label>Número do Orçamento:</label>
+            <p><strong>#{{ orcamento.id }}</strong></p>
+        </div>
+        <div class="info-item">
+            <label>Data de Criação:</label>
+            <p>{{ orcamento.data_criacao }}</p>
+        </div>
+        <div class="info-item">
+            <label>Status:</label>
+            <p>
+                <span class="badge {% if orcamento.status == 'aprovado' %}status-concluido{% elif orcamento.status == 'recusado' %}status-cancelado{% else %}status-pendente{% endif %}">
+                    {{ orcamento.status }}
+                </span>
+            </p>
+        </div>
+        {% if orcamento.prazo_estimado %}
+        <div class="info-item">
+            <label>Prazo Estimado:</label>
+            <p>{{ orcamento.prazo_estimado }}</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="section-divider">
+        <h3><i class="fas fa-user"></i> Cliente e Técnico</h3>
+    </div>
+    
+    <div class="info-grid">
+        <div class="info-item">
+            <label>Cliente:</label>
+            <p><strong>{{ orcamento.cliente_nome }}</strong></p>
+        </div>
+        <div class="info-item">
+            <label>E-mail:</label>
+            <p>{{ orcamento.cliente_email or 'N/A' }}</p>
+        </div>
+        <div class="info-item">
+            <label>Telefone:</label>
+            <p>{{ orcamento.cliente_telefone or 'N/A' }}</p>
+        </div>
+        <div class="info-item">
+            <label>Técnico Responsável:</label>
+            <p>{{ orcamento.tecnico_nome }}</p>
+        </div>
+    </div>
+    
+    <div class="section-divider">
+        <h3><i class="fas fa-tools"></i> Detalhes do Serviço</h3>
+    </div>
+    
+    <div class="info-grid">
+        <div class="info-item">
+            <label>Tipo de Serviço:</label>
+            <p><strong>{{ orcamento.tipo_servico }}</strong></p>
+        </div>
+        <div class="info-item">
+            <label>Potência (BTU):</label>
+            <p>{{ orcamento.potencia_btu }} BTU</p>
+        </div>
+        <div class="info-item">
+            <label>Tipo de Acesso:</label>
+            <p><span class="badge">{{ orcamento.tipo_acesso }}</span></p>
+        </div>
+        {% if orcamento.marca_aparelho %}
+        <div class="info-item">
+            <label>Marca:</label>
+            <p>{{ orcamento.marca_aparelho }}</p>
+        </div>
+        {% endif %}
+        {% if orcamento.modelo_aparelho %}
+        <div class="info-item">
+            <label>Modelo:</label>
+            <p>{{ orcamento.modelo_aparelho }}</p>
+        </div>
+        {% endif %}
+        {% if orcamento.material_adicional %}
+        <div class="info-item">
+            <label>Material Adicional:</label>
+            <p>{{ orcamento.material_adicional }}</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="section-divider">
+        <h3><i class="fas fa-dollar-sign"></i> Valores</h3>
+    </div>
+    
+    <div class="finance-stats-grid" style="margin-top: 1rem;">
+        <div class="finance-stat-card">
+            <div class="stat-icon saldo-icon">
+                <i class="fas fa-calculator"></i>
+            </div>
+            <div class="stat-content">
+                <h3>Valor Base</h3>
+                <p class="stat-value">R$ {{ "%.2f"|format(orcamento.valor_base) }}</p>
+            </div>
+        </div>
+        <div class="finance-stat-card">
+            <div class="stat-icon receber-icon">
+                <i class="fas fa-ladder"></i>
+            </div>
+            <div class="stat-content">
+                <h3>Acréscimo por Acesso</h3>
+                <p class="stat-value">R$ {{ "%.2f"|format(orcamento.valor_acesso) }}</p>
+            </div>
+        </div>
+        {% if orcamento.valor_material_adicional > 0 %}
+        <div class="finance-stat-card">
+            <div class="stat-icon receber-icon">
+                <i class="fas fa-tools"></i>
+            </div>
+            <div class="stat-content">
+                <h3>Material Adicional</h3>
+                <p class="stat-value">R$ {{ "%.2f"|format(orcamento.valor_material_adicional) }}</p>
+            </div>
+        </div>
+        {% endif %}
+        <div class="finance-stat-card" style="border: 2px solid #215f97;">
+            <div class="stat-icon" style="background: #215f97; color: white;">
+                <i class="fas fa-money-bill-wave"></i>
+            </div>
+            <div class="stat-content">
+                <h3>TOTAL</h3>
+                <p class="stat-value" style="font-size: 1.8em; color: #215f97;">R$ {{ "%.2f"|format(orcamento.valor_total) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<style>
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.info-item {
+    padding: 1rem;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border-left: 3px solid #215f97;
+}
+
+.info-item label {
+    display: block;
+    font-weight: bold;
+    color: #215f97;
+    margin-bottom: 0.5rem;
+    font-size: 0.9em;
+}
+
+.info-item p {
+    margin: 0;
+    font-size: 1.1em;
+}
+</style>
+
