@@ -1614,11 +1614,28 @@ def admin_dashboard():
             
             # Serviços do banco
             total_servicos = Servico.query.count()
+            
+            # Agendamentos recentes (últimos 10, ordenados por data de criação)
+            agendamentos_recentes_db = Agendamento.query.order_by(Agendamento.data_criacao.desc()).limit(10).all()
+            agendamentos_recentes = []
+            for a in agendamentos_recentes_db:
+                agendamentos_recentes.append({
+                    'id': a.id,
+                    'nome': a.nome or '',
+                    'email': a.email or '',
+                    'telefone': a.telefone or '',
+                    'data_agendamento': a.data_agendamento.strftime('%d/%m/%Y') if a.data_agendamento else '',
+                    'hora_agendamento': a.hora_agendamento or '',
+                    'tipo_servico': a.tipo_servico or '',
+                    'status': a.status or 'pendente',
+                    'data_criacao': a.data_criacao.strftime('%Y-%m-%d %H:%M:%S') if a.data_criacao else ''
+                })
         except Exception as e:
             print(f"Erro ao buscar estatísticas do banco: {e}")
             total_contatos = 0
             total_servicos = 0
             contatos_recentes = []
+            agendamentos_recentes = []
     else:
         # Fallback para JSON
         init_data_file()
@@ -1628,11 +1645,24 @@ def admin_dashboard():
         total_contatos = len(data.get('contacts', []))
         total_servicos = len(data.get('services', []))
         contatos_recentes = sorted(data.get('contacts', []), key=lambda x: x.get('data', ''), reverse=True)[:5]
+        
+        # Agendamentos do JSON
+        try:
+            with open('data/agendamentos.json', 'r', encoding='utf-8') as f:
+                agendamentos_data = json.load(f)
+            agendamentos_recentes = sorted(
+                agendamentos_data.get('agendamentos', []), 
+                key=lambda x: x.get('data_criacao', ''), 
+                reverse=True
+            )[:10]
+        except:
+            agendamentos_recentes = []
     
     stats = {
         'total_contatos': total_contatos,
         'total_servicos': total_servicos,
-        'contatos_recentes': contatos_recentes
+        'contatos_recentes': contatos_recentes,
+        'agendamentos_recentes': agendamentos_recentes
     }
     
     return render_template('admin/dashboard.html', stats=stats)

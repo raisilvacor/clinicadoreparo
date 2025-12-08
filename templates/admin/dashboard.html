@@ -90,6 +90,63 @@
 
 <div class="admin-section">
     <div class="section-header">
+        <h2><i class="fas fa-calendar-check"></i> Notificações de Agendamentos</h2>
+        <a href="{{ url_for('admin_agendamentos') }}" class="btn btn-secondary">
+            Ver Todos
+        </a>
+    </div>
+    
+    {% if stats.agendamentos_recentes %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Telefone</th>
+                    <th>Data do Agendamento</th>
+                    <th>Hora</th>
+                    <th>Serviço</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for agendamento in stats.agendamentos_recentes %}
+                <tr class="{% if agendamento.status == 'pendente' %}notification-pending{% elif agendamento.status == 'confirmado' %}notification-confirmed{% elif agendamento.status == 'concluido' %}notification-completed{% elif agendamento.status == 'cancelado' %}notification-cancelled{% endif %}">
+                    <td><strong>{{ agendamento.nome }}</strong></td>
+                    <td>{{ agendamento.telefone }}</td>
+                    <td>{{ agendamento.data_agendamento }}</td>
+                    <td>{{ agendamento.hora_agendamento }}</td>
+                    <td>{{ agendamento.tipo_servico }}</td>
+                    <td>
+                        <span class="badge badge-{{ agendamento.status }}">
+                            {% if agendamento.status == 'pendente' %}
+                                Pendente
+                            {% elif agendamento.status == 'confirmado' %}
+                                Confirmado
+                            {% elif agendamento.status == 'concluido' %}
+                                Concluído
+                            {% elif agendamento.status == 'cancelado' %}
+                                Cancelado
+                            {% else %}
+                                {{ agendamento.status|title }}
+                            {% endif %}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-calendar-times"></i>
+        <p>Nenhum agendamento ainda</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="admin-section">
+    <div class="section-header">
         <h2><i class="fas fa-bolt"></i> Ações Rápidas</h2>
     </div>
     <div class="quick-actions">
@@ -205,5 +262,20 @@
         </a>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh apenas na página do dashboard a cada 1 minuto (60000ms)
+    if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
+        setInterval(function() {
+            // Recarregar a página suavemente
+            window.location.reload();
+        }, 60000); // 1 minuto = 60000 milissegundos
+        
+        // Mostrar indicador de atualização automática
+        console.log('Dashboard configurado para atualizar automaticamente a cada 1 minuto');
+    }
+</script>
 {% endblock %}
 

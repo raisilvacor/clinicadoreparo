@@ -708,6 +708,63 @@
     color: #991b1b;
 }
 
+/* Notification Styles for Agendamentos */
+.notification-pending {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+}
+
+.notification-pending:hover {
+    background: #fde68a;
+}
+
+.notification-confirmed {
+    background: #dbeafe;
+    border-left: 4px solid #3b82f6;
+}
+
+.notification-confirmed:hover {
+    background: #bfdbfe;
+}
+
+.notification-completed {
+    background: #dcfce7;
+    border-left: 4px solid #10b981;
+}
+
+.notification-completed:hover {
+    background: #bbf7d0;
+}
+
+.notification-cancelled {
+    background: #fee2e2;
+    border-left: 4px solid #ef4444;
+}
+
+.notification-cancelled:hover {
+    background: #fecaca;
+}
+
+.badge-pendente {
+    background: #f59e0b;
+    color: white;
+}
+
+.badge-confirmado {
+    background: #3b82f6;
+    color: white;
+}
+
+.badge-concluido {
+    background: #10b981;
+    color: white;
+}
+
+.badge-cancelado {
+    background: #ef4444;
+    color: white;
+}
+
 /* Action Buttons */
 .action-buttons {
     display: flex;
