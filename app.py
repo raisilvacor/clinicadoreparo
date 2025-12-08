@@ -8102,7 +8102,9 @@ def admin_orcamentos_ar():
                 'valor_total': float(o.valor_total) if o.valor_total else 0.00,
                 'status': o.status or 'pendente',
                 'data_criacao': o.data_criacao.strftime('%d/%m/%Y %H:%M') if o.data_criacao else '',
-                'prazo_estimado': o.prazo_estimado or ''
+                'prazo_estimado': o.prazo_estimado or '',
+                'pdf_id': o.pdf_id,
+                'pdf_filename': o.pdf_filename or ''
             })
     except Exception as e:
         print(f"Erro ao listar orçamentos: {e}")
