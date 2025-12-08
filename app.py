@@ -8291,13 +8291,22 @@ def gerar_pdf_orcamento_ar(orçamento):
     ]
     
     # Adicionar material adicional se houver
-    if orçamento.material_adicional and orçamento.valor_material_adicional > 0:
+    if orçamento.material_adicional:
         descricao_material = orçamento.material_adicional
+        valor_material_exibir = 0.00
+        
+        # Calcular o valor correto do material adicional
         if descricao_material == 'Kit Convencional (3m de tubulação)':
+            valor_material_exibir = 250.00
             descricao_material = 'Kit Convencional (3m de tubulação)'
         elif descricao_material == 'Tubulação extra acima de 3m':
+            # Usar o valor salvo no banco, ou 0 se não houver
+            valor_material_exibir = float(orçamento.valor_material_adicional) if orçamento.valor_material_adicional else 0.00
             descricao_material = 'Tubulação extra acima de 3m'
-        valores_data.append([descricao_material, f"R$ {float(orçamento.valor_material_adicional):.2f}"])
+        
+        # Só adicionar na tabela se o valor for maior que zero
+        if valor_material_exibir > 0:
+            valores_data.append([descricao_material, f"R$ {valor_material_exibir:.2f}"])
     
     # Adicionar custos adicionais se houver
     if orçamento.custos_adicionais:
@@ -8397,7 +8406,9 @@ def add_orcamento_ar():
             
             # Calcular valores
             valor_material = 0.00
-            if material_adicional == 'Tubulação extra acima de 3m' and valor_material_adicional:
+            if material_adicional == 'Kit Convencional (3m de tubulação)':
+                valor_material = 250.00
+            elif material_adicional == 'Tubulação extra acima de 3m' and valor_material_adicional:
                 valor_material = float(valor_material_adicional)
             
             # Processar custos adicionais
@@ -8561,7 +8572,9 @@ def edit_orcamento_ar(orcamento_id):
             
             # Recalcular valores
             valor_material = 0.00
-            if material_adicional == 'Tubulação extra acima de 3m' and valor_material_adicional:
+            if material_adicional == 'Kit Convencional (3m de tubulação)':
+                valor_material = 250.00
+            elif material_adicional == 'Tubulação extra acima de 3m' and valor_material_adicional:
                 valor_material = float(valor_material_adicional)
             
             # Processar custos adicionais
