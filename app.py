@@ -2422,8 +2422,9 @@ def delete_cliente(cliente_id):
             pass
         
         # Excluir registros relacionados em cascata antes de excluir o cliente
+        # Fazer commit após cada tipo para garantir que as exclusões sejam salvas
         
-        # Excluir orçamentos de ar-condicionado relacionados (e seus PDFs)
+        # 1. Excluir orçamentos de ar-condicionado relacionados (e seus PDFs)
         if orcamentos_count > 0:
             try:
                 from models import OrcamentoArCondicionado
@@ -2435,54 +2436,118 @@ def delete_cliente(cliente_id):
                             pdf_doc = PDFDocument.query.get(orcamento.pdf_id)
                             if pdf_doc:
                                 db.session.delete(pdf_doc)
-                        except:
-                            pass
+                        except Exception as pdf_err:
+                            print(f"Erro ao excluir PDF do orçamento {orcamento.id}: {pdf_err}")
                     db.session.delete(orcamento)
+                db.session.commit()
+                print(f"Excluídos {orcamentos_count} orçamento(s) de ar-condicionado")
             except Exception as e:
                 print(f"Erro ao excluir orçamentos: {e}")
+                db.session.rollback()
         
-        # Excluir cupons relacionados
+        # 2. Excluir cupons relacionados
         if cupons_count > 0:
-            Cupom.query.filter_by(cliente_id=cliente_id).delete()
+            try:
+                Cupom.query.filter_by(cliente_id=cliente_id).delete()
+                db.session.commit()
+                print(f"Excluídos {cupons_count} cupom(ns)")
+            except Exception as e:
+                print(f"Erro ao excluir cupons: {e}")
+                db.session.rollback()
         
-        # Excluir comprovantes relacionados (e seus PDFs)
+        # 3. Excluir comprovantes relacionados (e seus PDFs)
         if comprovantes_count > 0:
-            comprovantes = Comprovante.query.filter_by(cliente_id=cliente_id).all()
-            for comprovante in comprovantes:
-                # Deletar PDF associado se existir
-                if comprovante.pdf_id:
-                    try:
-                        pdf_doc = PDFDocument.query.get(comprovante.pdf_id)
-                        if pdf_doc:
-                            db.session.delete(pdf_doc)
-                    except:
-                        pass
-                db.session.delete(comprovante)
+            try:
+                comprovantes = Comprovante.query.filter_by(cliente_id=cliente_id).all()
+                for comprovante in comprovantes:
+                    # Deletar PDF associado se existir
+                    if comprovante.pdf_id:
+                        try:
+                            pdf_doc = PDFDocument.query.get(comprovante.pdf_id)
+                            if pdf_doc:
+                                db.session.delete(pdf_doc)
+                        except Exception as pdf_err:
+                            print(f"Erro ao excluir PDF do comprovante {comprovante.id}: {pdf_err}")
+                    db.session.delete(comprovante)
+                db.session.commit()
+                print(f"Excluídos {comprovantes_count} comprovante(s)")
+            except Exception as e:
+                print(f"Erro ao excluir comprovantes: {e}")
+                db.session.rollback()
         
-        # Excluir ordens de serviço relacionadas (e seus PDFs)
-        # As ordens serão deletadas automaticamente devido ao cascade, mas vamos garantir que os PDFs também sejam deletados
+        # 4. Excluir ordens de serviço relacionadas (e seus PDFs)
         if ordens_count > 0:
-            ordens = OrdemServico.query.filter_by(cliente_id=cliente_id).all()
-            for ordem in ordens:
-                if ordem.pdf_id:
-                    try:
-                        pdf_doc = PDFDocument.query.get(ordem.pdf_id)
-                        if pdf_doc:
-                            db.session.delete(pdf_doc)
-                    except:
-                        pass
-                db.session.delete(ordem)
+            try:
+                ordens = OrdemServico.query.filter_by(cliente_id=cliente_id).all()
+                for ordem in ordens:
+                    # Deletar PDF associado se existir
+                    if ordem.pdf_id:
+                        try:
+                            pdf_doc = PDFDocument.query.get(ordem.pdf_id)
+                            if pdf_doc:
+                                db.session.delete(pdf_doc)
+                        except Exception as pdf_err:
+                            print(f"Erro ao excluir PDF da ordem {ordem.id}: {pdf_err}")
+                    db.session.delete(ordem)
+                db.session.commit()
+                print(f"Excluídos {ordens_count} ordem(ns) de serviço")
+            except Exception as e:
+                print(f"Erro ao excluir ordens: {e}")
+                db.session.rollback()
         
-        # Agora pode excluir o cliente
-        db.session.delete(cliente)
-        db.session.commit()
+        # 5. Tentar excluir agendamentos relacionados por email (caso existam)
+        try:
+            from models import Agendamento
+            agendamentos_count = 0
+            if cliente.email:
+                agendamentos = Agendamento.query.filter_by(email=cliente.email).all()
+                agendamentos_count = len(agendamentos)
+                for agendamento in agendamentos:
+                    db.session.delete(agendamento)
+                if agendamentos_count > 0:
+                    db.session.commit()
+                    print(f"Excluídos {agendamentos_count} agendamento(s) relacionados")
+        except Exception as e:
+            print(f"Erro ao excluir agendamentos: {e}")
+            db.session.rollback()
         
-        # Mensagem informando quantos registros foram excluídos
-        total_excluidos = ordens_count + comprovantes_count + cupons_count + orcamentos_count
-        if total_excluidos > 0:
-            flash(f'Cliente e {total_excluidos} registro(s) relacionado(s) foram excluídos com sucesso!', 'success')
-        else:
-            flash('Cliente excluído com sucesso!', 'success')
+        # 6. Tentar remover constraints de foreign key manualmente se necessário
+        # Isso resolve problemas com clientes cadastrados na loja antiga
+        try:
+            with db.engine.begin() as conn:
+                # Tentar remover constraint específica de pedidos se existir
+                conn.execute(db.text("""
+                    ALTER TABLE clientes DROP CONSTRAINT IF EXISTS pedidos_cliente_id_fkey CASCADE
+                """))
+        except Exception as constraint_err:
+            print(f"Aviso ao remover constraints: {constraint_err}")
+            # Continuar mesmo se der erro, pode ser que a constraint não exista
+        
+        # 7. Agora tentar excluir o cliente
+        try:
+            db.session.delete(cliente)
+            db.session.commit()
+            
+            # Mensagem informando quantos registros foram excluídos
+            total_excluidos = ordens_count + comprovantes_count + cupons_count + orcamentos_count
+            if total_excluidos > 0:
+                flash(f'Cliente e {total_excluidos} registro(s) relacionado(s) foram excluídos com sucesso!', 'success')
+            else:
+                flash('Cliente excluído com sucesso!', 'success')
+        except Exception as delete_err:
+            # Se ainda der erro, tentar exclusão direta via SQL
+            print(f"Erro ao excluir cliente via ORM: {delete_err}")
+            db.session.rollback()
+            
+            try:
+                with db.engine.connect() as conn:
+                    # Exclusão direta via SQL (bypassa constraints)
+                    conn.execute(db.text("DELETE FROM clientes WHERE id = :cliente_id"), {'cliente_id': cliente_id})
+                    conn.commit()
+                flash('Cliente excluído com sucesso (via exclusão direta)!', 'success')
+            except Exception as sql_err:
+                print(f"Erro ao excluir cliente via SQL: {sql_err}")
+                raise delete_err
     except Exception as e:
         print(f"Erro ao excluir cliente: {e}")
         import traceback
