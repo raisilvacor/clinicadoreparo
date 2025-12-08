@@ -75,10 +75,17 @@
     color: var(--primary-color);
 }
 
-.admin-nav-links {
+.admin-nav-menu {
     display: flex;
+    list-style: none;
     gap: 1rem;
     align-items: center;
+    margin: 0;
+    padding: 0;
+}
+
+.admin-nav-menu li {
+    margin: 0;
 }
 
 .admin-nav-link {
@@ -104,6 +111,34 @@
 
 .admin-nav-link.logout:hover {
     background: rgba(239, 68, 68, 0.1);
+}
+
+/* Admin Hamburger Menu */
+.admin-hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+    gap: 5px;
+}
+
+.admin-hamburger span {
+    width: 25px;
+    height: 3px;
+    background: var(--text-primary);
+    border-radius: 3px;
+    transition: all 0.3s ease;
+}
+
+.admin-hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(8px, 8px);
+}
+
+.admin-hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.admin-hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -7px);
 }
 
 /* Admin Main */
@@ -793,14 +828,52 @@
 }
 
 @media (max-width: 768px) {
-    .admin-nav-links {
-        flex-wrap: wrap;
-        gap: 0.5rem;
+    .admin-hamburger {
+        display: flex;
+    }
+    
+    .admin-nav-menu {
+        position: fixed;
+        top: 70px;
+        left: -100%;
+        width: 80%;
+        max-width: 300px;
+        height: calc(100vh - 70px);
+        background: white;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 2rem 1rem;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        transition: left 0.3s ease;
+        overflow-y: auto;
+        z-index: 99;
+        gap: 0;
+    }
+    
+    .admin-nav-menu.active {
+        left: 0;
+    }
+    
+    .admin-nav-menu li {
+        width: 100%;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .admin-nav-menu li:last-child {
+        border-bottom: none;
     }
     
     .admin-nav-link {
-        font-size: 0.9rem;
-        padding: 0.4rem 0.8rem;
+        width: 100%;
+        padding: 1rem;
+        font-size: 1rem;
+        justify-content: flex-start;
+        border-radius: 0;
+    }
+    
+    .admin-nav-link:hover {
+        background: var(--bg-secondary);
+        color: var(--primary-color);
     }
     
     .admin-header {

@@ -21,28 +21,33 @@
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="logo-img">
                 <span>Painel Admin</span>
             </div>
-            <div class="admin-nav-links">
-                <a href="{{ url_for('admin_dashboard') }}" class="admin-nav-link">
+            <ul class="admin-nav-menu">
+                <li><a href="{{ url_for('admin_dashboard') }}" class="admin-nav-link">
                     <i class="fas fa-home"></i> Dashboard
-                </a>
-                <a href="{{ url_for('admin_contatos') }}" class="admin-nav-link">
+                </a></li>
+                <li><a href="{{ url_for('admin_contatos') }}" class="admin-nav-link">
                     <i class="fas fa-envelope"></i> Contatos
-                </a>
-                <a href="{{ url_for('admin_servicos') }}" class="admin-nav-link">
+                </a></li>
+                <li><a href="{{ url_for('admin_servicos') }}" class="admin-nav-link">
                     <i class="fas fa-tools"></i> Serviços
-                </a>
-                <a href="{{ url_for('admin_clientes') }}" class="admin-nav-link">
+                </a></li>
+                <li><a href="{{ url_for('admin_clientes') }}" class="admin-nav-link">
                     <i class="fas fa-users"></i> Clientes
-                </a>
-                <a href="{{ url_for('admin_ordens') }}" class="admin-nav-link">
+                </a></li>
+                <li><a href="{{ url_for('admin_ordens') }}" class="admin-nav-link">
                     <i class="fas fa-file-alt"></i> Ordens de Serviço
-                </a>
-                <a href="{{ url_for('index') }}" class="admin-nav-link" target="_blank">
+                </a></li>
+                <li><a href="{{ url_for('index') }}" class="admin-nav-link" target="_blank">
                     <i class="fas fa-external-link-alt"></i> Ver Site
-                </a>
-                <a href="{{ url_for('admin_logout') }}" class="admin-nav-link logout">
+                </a></li>
+                <li><a href="{{ url_for('admin_logout') }}" class="admin-nav-link logout">
                     <i class="fas fa-sign-out-alt"></i> Sair
-                </a>
+                </a></li>
+            </ul>
+            <div class="admin-hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
             </div>
         </div>
     </nav>
@@ -68,6 +73,37 @@
     </main>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Admin Hamburger Menu Toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.querySelector('.admin-hamburger');
+            const navMenu = document.querySelector('.admin-nav-menu');
+
+            if (hamburger && navMenu) {
+                hamburger.addEventListener('click', function() {
+                    navMenu.classList.toggle('active');
+                    hamburger.classList.toggle('active');
+                });
+
+                // Close menu when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!hamburger.contains(event.target) && !navMenu.contains(event.target)) {
+                        navMenu.classList.remove('active');
+                        hamburger.classList.remove('active');
+                    }
+                });
+
+                // Close menu when clicking on a link
+                const navLinks = navMenu.querySelectorAll('.admin-nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        navMenu.classList.remove('active');
+                        hamburger.classList.remove('active');
+                    });
+                });
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
