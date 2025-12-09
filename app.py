@@ -273,17 +273,18 @@ if database_url:
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'connect_args': {
                 'sslmode': 'require',
-                'connect_timeout': 30,  # Aumentado para 30 segundos para uploads grandes
+                'connect_timeout': 120,  # 2 minutos para conectar
                 'keepalives': 1,
-                'keepalives_idle': 30,
+                'keepalives_idle': 60,  # Manter conexão viva por 60s
                 'keepalives_interval': 10,
-                'keepalives_count': 5
+                'keepalives_count': 5,
+                'options': '-c statement_timeout=900000'  # 15 minutos para queries (em ms)
             },
             'pool_pre_ping': True,  # Verificar conexão antes de usar
-            'pool_recycle': 3600,  # Reciclar conexões a cada 1 hora
-            'pool_timeout': 30,  # Timeout para obter conexão do pool (aumentado)
-            'max_overflow': 5,  # Permitir conexões extras para operações longas
-            'pool_size': 10  # Tamanho do pool de conexões
+            'pool_recycle': 7200,  # Reciclar conexões a cada 2 horas
+            'pool_timeout': 120,  # Timeout para obter conexão do pool (2 minutos)
+            'max_overflow': 10,  # Permitir mais conexões extras para operações longas
+            'pool_size': 15  # Tamanho maior do pool de conexões
         }
         
         # Inicializar o banco de dados
@@ -6640,94 +6641,109 @@ def admin_videos():
 @app.route('/admin/videos/add', methods=['GET', 'POST'])
 @login_required
 def add_video():
-    """Adiciona um novo vídeo (upload ou YouTube)"""
+    """Adiciona um novo vídeo (upload direto)"""
     garantir_colunas_video()
+    
     if request.method == 'POST':
         titulo = request.form.get('titulo', '').strip()
-        link_youtube = request.form.get('link_youtube', '').strip()
         ordem = request.form.get('ordem', '1')
         ativo = request.form.get('ativo') == 'on'
         video_file = request.files.get('video_file')
-        thumbnail_file = request.files.get('thumbnail_file')
         
         if not titulo:
             flash('Por favor, informe o título do vídeo.', 'error')
             return redirect(url_for('add_video'))
         
-        # Verificar se é upload de vídeo ou link do YouTube
-        is_upload = video_file and video_file.filename
-        
-        if not is_upload and not link_youtube:
-            flash('Por favor, envie um arquivo de vídeo OU informe o link do YouTube.', 'error')
+        if not video_file or not video_file.filename:
+            flash('Por favor, envie um arquivo de vídeo.', 'error')
             return redirect(url_for('add_video'))
         
-        if use_database():
-            try:
-                # Obter próxima ordem se não especificada
-                if not ordem or not ordem.isdigit():
-                    ultimo_video = Video.query.order_by(Video.ordem.desc()).first()
-                    ordem = (ultimo_video.ordem + 1) if ultimo_video else 1
-                else:
-                    ordem = int(ordem)
-                
-                novo_video = Video(
-                    titulo=titulo,
-                    ordem=ordem,
-                    ativo=ativo
-                )
-                
-                if is_upload:
-                    # Processar upload de vídeo
-                    if not allowed_video_file(video_file.filename):
-                        flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
-                        return redirect(url_for('add_video'))
-                    
-                    # Verificar tamanho
-                    video_file.seek(0, os.SEEK_END)
-                    video_size = video_file.tell()
-                    video_file.seek(0)
-                    if video_size > MAX_VIDEO_SIZE:
-                        flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
-                        return redirect(url_for('add_video'))
-                    
-                    video_data = video_file.read()
-                    novo_video.video_data = video_data
-                    novo_video.video_filename = secure_filename(video_file.filename)
-                    novo_video.video_mime_type = video_file.mimetype or 'video/mp4'
-                    novo_video.video_size = video_size
-                    
-                    # Processar thumbnail opcional
-                    if thumbnail_file and thumbnail_file.filename:
-                        if allowed_file(thumbnail_file.filename):
-                            thumbnail_file.seek(0, os.SEEK_END)
-                            thumbnail_size = thumbnail_file.tell()
-                            thumbnail_file.seek(0)
-                            if thumbnail_size <= MAX_FILE_SIZE:
-                                novo_video.thumbnail_data = thumbnail_file.read()
-                                novo_video.thumbnail_mime_type = thumbnail_file.mimetype or 'image/jpeg'
-                else:
-                    # Processar link do YouTube
-                    novo_video.link_youtube = link_youtube
-                    video_temp = Video()
-                    video_temp.link_youtube = link_youtube
-                    if not video_temp.get_video_id():
-                        flash('Link do YouTube inválido. Use um link válido do YouTube.', 'error')
-                        return redirect(url_for('add_video'))
-                
-                db.session.add(novo_video)
-                db.session.commit()
-                
-                flash('Vídeo cadastrado com sucesso!', 'success')
-                return redirect(url_for('admin_videos'))
-            except Exception as e:
-                print(f"Erro ao salvar vídeo no banco: {e}")
-                import traceback
-                traceback.print_exc()
-                db.session.rollback()
-                flash(f'Erro ao salvar vídeo: {str(e)}', 'error')
-        else:
+        if not use_database():
             flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
             return redirect(url_for('admin_videos'))
+        
+        # Verificar conexão antes de processar
+        if not verificar_conexao_banco():
+            recriar_sessao()
+            if not verificar_conexao_banco():
+                flash('Erro de conexão com o banco de dados. Tente novamente.', 'error')
+                return redirect(url_for('add_video'))
+        
+        try:
+            # Validar tipo de arquivo
+            if not allowed_video_file(video_file.filename):
+                flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
+                return redirect(url_for('add_video'))
+            
+            # Verificar tamanho ANTES de ler o arquivo
+            video_file.seek(0, os.SEEK_END)
+            video_size = video_file.tell()
+            video_file.seek(0)
+            
+            if video_size > MAX_VIDEO_SIZE:
+                flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
+                return redirect(url_for('add_video'))
+            
+            if video_size == 0:
+                flash('Arquivo vazio. Por favor, selecione um arquivo válido.', 'error')
+                return redirect(url_for('add_video'))
+            
+            # Ler dados do arquivo
+            print(f"Iniciando leitura de vídeo de {video_size / (1024*1024):.2f}MB...")
+            video_data = video_file.read()
+            print(f"Vídeo lido com sucesso. Tamanho: {len(video_data) / (1024*1024):.2f}MB")
+            
+            # Obter próxima ordem se não especificada
+            if not ordem or not ordem.isdigit():
+                try:
+                    ultimo_video = Video.query.order_by(Video.ordem.desc()).first()
+                    ordem = (ultimo_video.ordem + 1) if ultimo_video else 1
+                except:
+                    ordem = 1
+            else:
+                ordem = int(ordem)
+            
+            # Criar objeto de vídeo
+            novo_video = Video(
+                titulo=titulo,
+                ordem=ordem,
+                ativo=ativo,
+                video_data=video_data,
+                video_filename=secure_filename(video_file.filename),
+                video_mime_type=video_file.mimetype or 'video/mp4',
+                video_size=video_size
+            )
+            
+            # Adicionar ao banco
+            db.session.add(novo_video)
+            print("Salvando vídeo no banco de dados...")
+            
+            # Verificar conexão novamente antes do commit
+            verificar_conexao_banco()
+            
+            # Commit com timeout implícito via SQLAlchemy
+            db.session.commit()
+            
+            print(f"Vídeo salvo com sucesso! ID: {novo_video.id}")
+            flash('Vídeo cadastrado com sucesso!', 'success')
+            return redirect(url_for('admin_videos'))
+            
+        except Exception as e:
+            print(f"Erro ao salvar vídeo no banco: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                db.session.rollback()
+            except:
+                recriar_sessao()
+            
+            error_msg = str(e)
+            if 'timeout' in error_msg.lower() or 'connection' in error_msg.lower():
+                flash('Timeout ou erro de conexão. O arquivo pode ser muito grande. Tente novamente ou reduza o tamanho do vídeo.', 'error')
+            else:
+                flash(f'Erro ao salvar vídeo: {error_msg[:200]}', 'error')
+            
+            return redirect(url_for('add_video'))
     
     return render_template('admin/add_video.html')
 
@@ -6736,67 +6752,87 @@ def add_video():
 def edit_video(video_id):
     """Edita um vídeo existente"""
     garantir_colunas_video()
-    if use_database():
-        try:
-            video = Video.query.get(video_id)
-            if not video:
-                flash('Vídeo não encontrado!', 'error')
-                return redirect(url_for('admin_videos'))
+    
+    if not use_database():
+        flash('Banco de dados não configurado.', 'error')
+        return redirect(url_for('admin_videos'))
+    
+    try:
+        video = Video.query.get(video_id)
+        if not video:
+            flash('Vídeo não encontrado!', 'error')
+            return redirect(url_for('admin_videos'))
+        
+        if request.method == 'POST':
+            video.titulo = request.form.get('titulo', '').strip()
+            ordem = request.form.get('ordem', '1')
+            video.ativo = request.form.get('ativo') == 'on'
+            video_file = request.files.get('video_file')
+            substituir_video = request.form.get('substituir_video') == 'on'
             
-            if request.method == 'POST':
-                video.titulo = request.form.get('titulo', '').strip()
-                ordem = request.form.get('ordem', '1')
-                video.ativo = request.form.get('ativo') == 'on'
-                video_file = request.files.get('video_file')
-                substituir_video = request.form.get('substituir_video') == 'on'
+            if not video.titulo:
+                flash('Por favor, informe o título do vídeo.', 'error')
+                return redirect(url_for('edit_video', video_id=video_id))
+            
+            # Se for substituir vídeo
+            if substituir_video and video_file and video_file.filename:
+                # Verificar conexão antes
+                if not verificar_conexao_banco():
+                    recriar_sessao()
                 
-                if not video.titulo:
-                    flash('Por favor, informe o título do vídeo.', 'error')
+                if not allowed_video_file(video_file.filename):
+                    flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
                     return redirect(url_for('edit_video', video_id=video_id))
                 
-                # Se for substituir vídeo
-                if substituir_video and video_file and video_file.filename:
-                    if not allowed_video_file(video_file.filename):
-                        flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
-                        return redirect(url_for('edit_video', video_id=video_id))
-                    
-                    video_file.seek(0, os.SEEK_END)
-                    video_size = video_file.tell()
-                    video_file.seek(0)
-                    if video_size > MAX_VIDEO_SIZE:
-                        flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
-                        return redirect(url_for('edit_video', video_id=video_id))
-                    
-                    video_data = video_file.read()
-                    video.video_data = video_data
-                    video.video_filename = secure_filename(video_file.filename)
-                    video.video_mime_type = video_file.mimetype or 'video/mp4'
-                    video.video_size = video_size
+                video_file.seek(0, os.SEEK_END)
+                video_size = video_file.tell()
+                video_file.seek(0)
                 
-                if ordem and ordem.isdigit():
-                    video.ordem = int(ordem)
+                if video_size > MAX_VIDEO_SIZE:
+                    flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
+                    return redirect(url_for('edit_video', video_id=video_id))
                 
-                db.session.commit()
+                if video_size == 0:
+                    flash('Arquivo vazio. Por favor, selecione um arquivo válido.', 'error')
+                    return redirect(url_for('edit_video', video_id=video_id))
                 
-                flash('Vídeo atualizado com sucesso!', 'success')
-                return redirect(url_for('admin_videos'))
+                print(f"Substituindo vídeo. Novo tamanho: {video_size / (1024*1024):.2f}MB...")
+                video_data = video_file.read()
+                print(f"Novo vídeo lido com sucesso.")
+                
+                video.video_data = video_data
+                video.video_filename = secure_filename(video_file.filename)
+                video.video_mime_type = video_file.mimetype or 'video/mp4'
+                video.video_size = video_size
             
-            # GET - carregar dados
-            video_data = {
-                'id': video.id,
-                'titulo': video.titulo,
-                'video_url': video.get_video_url(),
-                'video_filename': video.video_filename,
-                'video_mime_type': video.video_mime_type,
-                'ordem': video.ordem,
-                'ativo': video.ativo
-            }
-        except Exception as e:
-            print(f"Erro ao buscar vídeo: {e}")
-            flash('Erro ao carregar vídeo.', 'error')
+            if ordem and ordem.isdigit():
+                video.ordem = int(ordem)
+            
+            verificar_conexao_banco()
+            db.session.commit()
+            
+            flash('Vídeo atualizado com sucesso!', 'success')
             return redirect(url_for('admin_videos'))
-    else:
-        flash('Banco de dados não configurado.', 'error')
+        
+        # GET - carregar dados
+        video_data = {
+            'id': video.id,
+            'titulo': video.titulo,
+            'video_url': video.get_video_url(),
+            'video_filename': video.video_filename,
+            'video_mime_type': video.video_mime_type,
+            'ordem': video.ordem,
+            'ativo': video.ativo
+        }
+    except Exception as e:
+        print(f"Erro ao processar vídeo: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        try:
+            db.session.rollback()
+        except:
+            recriar_sessao()
+        flash('Erro ao processar vídeo.', 'error')
         return redirect(url_for('admin_videos'))
     
     return render_template('admin/edit_video.html', video=video_data)
