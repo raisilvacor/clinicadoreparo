@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import JSON
+import os
 
 db = SQLAlchemy()
 
@@ -277,22 +278,33 @@ class ReparoRealizado(db.Model):
 
 # ==================== VÍDEOS ====================
 class Video(db.Model):
-    """Vídeos cadastrados (upload direto)"""
+    """Vídeos cadastrados (upload direto ou arquivo do servidor)"""
     __tablename__ = 'videos'
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(200), nullable=False)
-    # Campos para upload direto de vídeo
-    video_data = db.Column(db.LargeBinary, nullable=False)  # Dados binários do vídeo
-    video_filename = db.Column(db.String(200), nullable=False)  # Nome do arquivo original
-    video_mime_type = db.Column(db.String(50), nullable=False)  # video/mp4, video/webm, etc
-    video_size = db.Column(db.Integer, nullable=False)  # Tamanho em bytes
+    # Campos para upload direto de vídeo (opcional - usado quando upload do computador)
+    video_data = db.Column(db.LargeBinary, nullable=True)  # Dados binários do vídeo
+    video_filename = db.Column(db.String(200), nullable=True)  # Nome do arquivo original
+    video_mime_type = db.Column(db.String(50), nullable=True)  # video/mp4, video/webm, etc
+    video_size = db.Column(db.Integer, nullable=True)  # Tamanho em bytes
+    # Campo para vídeo do servidor (opcional - usado quando escolhe do servidor)
+    video_path = db.Column(db.String(500), nullable=True)  # Caminho relativo no servidor (ex: videos/video.mp4)
     ordem = db.Column(db.Integer, default=1)  # Ordem de exibição
     ativo = db.Column(db.Boolean, default=True)
     data_criacao = db.Column(db.DateTime, default=datetime.now)
     
     def get_video_url(self):
         """Retorna a URL para servir o vídeo"""
-        return f'/media/video/{self.id}'
+        if self.video_path:
+            # Vídeo do servidor - retorna caminho estático
+            return f'/static/videos/{os.path.basename(self.video_path)}'
+        else:
+            # Vídeo do banco - retorna rota de mídia
+            return f'/media/video/{self.id}'
+    
+    def is_file_based(self):
+        """Verifica se o vídeo está armazenado como arquivo no servidor"""
+        return self.video_path is not None and self.video_path != ''
 
 # ==================== MANUAIS ====================
 class Manual(db.Model):

@@ -195,10 +195,10 @@ def _garantir_colunas_video_internal():
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'videos' 
-                AND column_name IN ('video_data', 'video_filename', 'video_mime_type', 'video_size')
+                AND column_name IN ('video_data', 'video_filename', 'video_mime_type', 'video_size', 'video_path')
             """))
             existing = {row[0] for row in result.fetchall()}
-            needed = {'video_data', 'video_filename', 'video_mime_type', 'video_size'}
+            needed = {'video_data', 'video_filename', 'video_mime_type', 'video_size', 'video_path'}
             
             if existing == needed:
                 _video_columns_exist = True
@@ -216,6 +216,8 @@ def _garantir_colunas_video_internal():
                         conn_alter.execute(db.text("ALTER TABLE videos ADD COLUMN video_mime_type VARCHAR(50)"))
                     if 'video_size' not in existing:
                         conn_alter.execute(db.text("ALTER TABLE videos ADD COLUMN video_size INTEGER"))
+                    if 'video_path' not in existing:
+                        conn_alter.execute(db.text("ALTER TABLE videos ADD COLUMN video_path VARCHAR(500)"))
                 
                 _video_columns_exist = True
                 return True
@@ -6551,25 +6553,28 @@ def servir_imagem_reparo(image_id):
 
 @app.route('/media/video/<int:video_id>')
 def servir_video(video_id):
-    """Rota para servir vídeos do banco de dados"""
+    """Rota para servir vídeos do banco de dados (apenas para vídeos armazenados no banco)"""
     if use_database():
         try:
             video = Video.query.get(video_id)
-            if video and video.video_data:
-                # Suportar range requests para streaming
-                range_header = request.headers.get('Range', None)
-                if range_header:
-                    return servir_video_com_range(video, range_header)
-                else:
-                    return Response(
-                        video.video_data,
-                        mimetype=video.video_mime_type or 'video/mp4',
-                        headers={
-                            'Content-Disposition': f'inline; filename={video.video_filename or "video.mp4"}',
-                            'Accept-Ranges': 'bytes',
-                            'Content-Length': str(video.video_size or len(video.video_data))
-                        }
-                    )
+            if video:
+                # Se o vídeo está no servidor (video_path), Flask serve automaticamente via static
+                # Esta rota só é usada para vídeos armazenados no banco (video_data)
+                if video.video_data:
+                    # Suportar range requests para streaming
+                    range_header = request.headers.get('Range', None)
+                    if range_header:
+                        return servir_video_com_range(video, range_header)
+                    else:
+                        return Response(
+                            video.video_data,
+                            mimetype=video.video_mime_type or 'video/mp4',
+                            headers={
+                                'Content-Disposition': f'inline; filename={video.video_filename or "video.mp4"}',
+                                'Accept-Ranges': 'bytes',
+                                'Content-Length': str(video.video_size or len(video.video_data))
+                            }
+                        )
         except Exception as e:
             print(f"Erro ao buscar vídeo: {e}")
     
@@ -6638,10 +6643,31 @@ def admin_videos():
     
     return render_template('admin/videos.html', videos=videos)
 
+@app.route('/admin/videos/list-available')
+@login_required
+def list_available_videos():
+    """Lista vídeos disponíveis na pasta static/videos/"""
+    videos_dir = os.path.join('static', 'videos')
+    videos_list = []
+    
+    if os.path.exists(videos_dir):
+        for filename in os.listdir(videos_dir):
+            filepath = os.path.join(videos_dir, filename)
+            if os.path.isfile(filepath) and allowed_video_file(filename):
+                file_size = os.path.getsize(filepath)
+                videos_list.append({
+                    'filename': filename,
+                    'path': filename,  # Caminho relativo
+                    'size': file_size,
+                    'size_mb': round(file_size / (1024 * 1024), 2)
+                })
+    
+    return jsonify({'videos': videos_list})
+
 @app.route('/admin/videos/add', methods=['GET', 'POST'])
 @login_required
 def add_video():
-    """Adiciona um novo vídeo (upload direto)"""
+    """Adiciona um novo vídeo (upload do computador ou escolher do servidor)"""
     garantir_colunas_video()
     
     if request.method == 'POST':
@@ -6649,13 +6675,11 @@ def add_video():
         ordem = request.form.get('ordem', '1')
         ativo = request.form.get('ativo') == 'on'
         video_file = request.files.get('video_file')
+        video_source = request.form.get('video_source', 'upload')  # 'upload' ou 'server'
+        server_video_path = request.form.get('server_video_path', '').strip()
         
         if not titulo:
             flash('Por favor, informe o título do vídeo.', 'error')
-            return redirect(url_for('add_video'))
-        
-        if not video_file or not video_file.filename:
-            flash('Por favor, envie um arquivo de vídeo.', 'error')
             return redirect(url_for('add_video'))
         
         if not use_database():
@@ -6670,29 +6694,6 @@ def add_video():
                 return redirect(url_for('add_video'))
         
         try:
-            # Validar tipo de arquivo
-            if not allowed_video_file(video_file.filename):
-                flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
-                return redirect(url_for('add_video'))
-            
-            # Verificar tamanho ANTES de ler o arquivo
-            video_file.seek(0, os.SEEK_END)
-            video_size = video_file.tell()
-            video_file.seek(0)
-            
-            if video_size > MAX_VIDEO_SIZE:
-                flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
-                return redirect(url_for('add_video'))
-            
-            if video_size == 0:
-                flash('Arquivo vazio. Por favor, selecione um arquivo válido.', 'error')
-                return redirect(url_for('add_video'))
-            
-            # Ler dados do arquivo
-            print(f"Iniciando leitura de vídeo de {video_size / (1024*1024):.2f}MB...")
-            video_data = video_file.read()
-            print(f"Vídeo lido com sucesso. Tamanho: {len(video_data) / (1024*1024):.2f}MB")
-            
             # Obter próxima ordem se não especificada
             if not ordem or not ordem.isdigit():
                 try:
@@ -6703,25 +6704,86 @@ def add_video():
             else:
                 ordem = int(ordem)
             
-            # Criar objeto de vídeo
             novo_video = Video(
                 titulo=titulo,
                 ordem=ordem,
-                ativo=ativo,
-                video_data=video_data,
-                video_filename=secure_filename(video_file.filename),
-                video_mime_type=video_file.mimetype or 'video/mp4',
-                video_size=video_size
+                ativo=ativo
             )
+            
+            if video_source == 'server' and server_video_path:
+                # Usar vídeo do servidor
+                video_path_full = os.path.join('static', 'videos', server_video_path)
+                if not os.path.exists(video_path_full):
+                    flash('Vídeo selecionado não encontrado no servidor.', 'error')
+                    return redirect(url_for('add_video'))
+                
+                if not allowed_video_file(server_video_path):
+                    flash('Tipo de arquivo não permitido.', 'error')
+                    return redirect(url_for('add_video'))
+                
+                # Obter informações do arquivo
+                file_size = os.path.getsize(video_path_full)
+                mime_type = 'video/mp4'  # Padrão
+                if server_video_path.lower().endswith('.webm'):
+                    mime_type = 'video/webm'
+                elif server_video_path.lower().endswith('.ogv'):
+                    mime_type = 'video/ogg'
+                elif server_video_path.lower().endswith('.mov'):
+                    mime_type = 'video/quicktime'
+                elif server_video_path.lower().endswith('.avi'):
+                    mime_type = 'video/x-msvideo'
+                
+                novo_video.video_path = server_video_path
+                novo_video.video_filename = server_video_path
+                novo_video.video_mime_type = mime_type
+                novo_video.video_size = file_size
+                # video_data fica None quando é arquivo do servidor
+                
+            elif video_file and video_file.filename:
+                # Upload do computador
+                if not allowed_video_file(video_file.filename):
+                    flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
+                    return redirect(url_for('add_video'))
+                
+                # Verificar tamanho ANTES de ler o arquivo
+                video_file.seek(0, os.SEEK_END)
+                video_size = video_file.tell()
+                video_file.seek(0)
+                
+                if video_size > MAX_VIDEO_SIZE:
+                    flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
+                    return redirect(url_for('add_video'))
+                
+                if video_size == 0:
+                    flash('Arquivo vazio. Por favor, selecione um arquivo válido.', 'error')
+                    return redirect(url_for('add_video'))
+                
+                # Ler dados do arquivo
+                print(f"Iniciando leitura de vídeo de {video_size / (1024*1024):.2f}MB...")
+                video_data = video_file.read()
+                print(f"Vídeo lido com sucesso. Tamanho: {len(video_data) / (1024*1024):.2f}MB")
+                
+                novo_video.video_data = video_data
+                novo_video.video_filename = secure_filename(video_file.filename)
+                novo_video.video_mime_type = video_file.mimetype or 'video/mp4'
+                novo_video.video_size = video_size
+                # video_path fica None quando é upload do computador
+            else:
+                flash('Por favor, envie um arquivo de vídeo OU selecione um vídeo do servidor.', 'error')
+                return redirect(url_for('add_video'))
             
             # Adicionar ao banco
             db.session.add(novo_video)
-            print("Salvando vídeo no banco de dados...")
+            
+            if video_source == 'upload':
+                print("Salvando vídeo no banco de dados...")
+            else:
+                print(f"Registrando vídeo do servidor: {server_video_path}")
             
             # Verificar conexão novamente antes do commit
             verificar_conexao_banco()
             
-            # Commit com timeout implícito via SQLAlchemy
+            # Commit
             db.session.commit()
             
             print(f"Vídeo salvo com sucesso! ID: {novo_video.id}")
@@ -6739,7 +6801,7 @@ def add_video():
             
             error_msg = str(e)
             if 'timeout' in error_msg.lower() or 'connection' in error_msg.lower():
-                flash('Timeout ou erro de conexão. O arquivo pode ser muito grande. Tente novamente ou reduza o tamanho do vídeo.', 'error')
+                flash('Timeout ou erro de conexão. Tente novamente.', 'error')
             else:
                 flash(f'Erro ao salvar vídeo: {error_msg[:200]}', 'error')
             
@@ -6769,41 +6831,74 @@ def edit_video(video_id):
             video.ativo = request.form.get('ativo') == 'on'
             video_file = request.files.get('video_file')
             substituir_video = request.form.get('substituir_video') == 'on'
+            video_source = request.form.get('video_source', 'upload')
+            server_video_path = request.form.get('server_video_path', '').strip()
             
             if not video.titulo:
                 flash('Por favor, informe o título do vídeo.', 'error')
                 return redirect(url_for('edit_video', video_id=video_id))
             
             # Se for substituir vídeo
-            if substituir_video and video_file and video_file.filename:
+            if substituir_video:
                 # Verificar conexão antes
                 if not verificar_conexao_banco():
                     recriar_sessao()
                 
-                if not allowed_video_file(video_file.filename):
-                    flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
-                    return redirect(url_for('edit_video', video_id=video_id))
-                
-                video_file.seek(0, os.SEEK_END)
-                video_size = video_file.tell()
-                video_file.seek(0)
-                
-                if video_size > MAX_VIDEO_SIZE:
-                    flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
-                    return redirect(url_for('edit_video', video_id=video_id))
-                
-                if video_size == 0:
-                    flash('Arquivo vazio. Por favor, selecione um arquivo válido.', 'error')
-                    return redirect(url_for('edit_video', video_id=video_id))
-                
-                print(f"Substituindo vídeo. Novo tamanho: {video_size / (1024*1024):.2f}MB...")
-                video_data = video_file.read()
-                print(f"Novo vídeo lido com sucesso.")
-                
-                video.video_data = video_data
-                video.video_filename = secure_filename(video_file.filename)
-                video.video_mime_type = video_file.mimetype or 'video/mp4'
-                video.video_size = video_size
+                if video_source == 'server' and server_video_path:
+                    # Usar vídeo do servidor
+                    video_path_full = os.path.join('static', 'videos', server_video_path)
+                    if not os.path.exists(video_path_full):
+                        flash('Vídeo selecionado não encontrado no servidor.', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    
+                    if not allowed_video_file(server_video_path):
+                        flash('Tipo de arquivo não permitido.', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    
+                    file_size = os.path.getsize(video_path_full)
+                    mime_type = 'video/mp4'
+                    if server_video_path.lower().endswith('.webm'):
+                        mime_type = 'video/webm'
+                    elif server_video_path.lower().endswith('.ogv'):
+                        mime_type = 'video/ogg'
+                    elif server_video_path.lower().endswith('.mov'):
+                        mime_type = 'video/quicktime'
+                    elif server_video_path.lower().endswith('.avi'):
+                        mime_type = 'video/x-msvideo'
+                    
+                    video.video_path = server_video_path
+                    video.video_filename = server_video_path
+                    video.video_mime_type = mime_type
+                    video.video_size = file_size
+                    video.video_data = None  # Limpar dados do banco
+                    
+                elif video_file and video_file.filename:
+                    # Upload do computador
+                    if not allowed_video_file(video_file.filename):
+                        flash('Tipo de arquivo não permitido. Use: MP4, WEBM, OGV, MOV ou AVI.', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    
+                    video_file.seek(0, os.SEEK_END)
+                    video_size = video_file.tell()
+                    video_file.seek(0)
+                    
+                    if video_size > MAX_VIDEO_SIZE:
+                        flash(f'Arquivo muito grande. Tamanho máximo: {MAX_VIDEO_SIZE // (1024*1024)}MB', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    
+                    if video_size == 0:
+                        flash('Arquivo vazio. Por favor, selecione um arquivo válido.', 'error')
+                        return redirect(url_for('edit_video', video_id=video_id))
+                    
+                    print(f"Substituindo vídeo. Novo tamanho: {video_size / (1024*1024):.2f}MB...")
+                    video_data = video_file.read()
+                    print(f"Novo vídeo lido com sucesso.")
+                    
+                    video.video_data = video_data
+                    video.video_filename = secure_filename(video_file.filename)
+                    video.video_mime_type = video_file.mimetype or 'video/mp4'
+                    video.video_size = video_size
+                    video.video_path = None  # Limpar caminho do servidor
             
             if ordem and ordem.isdigit():
                 video.ordem = int(ordem)
@@ -6821,6 +6916,7 @@ def edit_video(video_id):
             'video_url': video.get_video_url(),
             'video_filename': video.video_filename,
             'video_mime_type': video.video_mime_type,
+            'video_path': video.video_path,
             'ordem': video.ordem,
             'ativo': video.ativo
         }
