@@ -365,7 +365,7 @@ AGENDAMENTOS_FILE = 'data/agendamentos.json'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'ogv', 'mov', 'avi'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
+MAX_VIDEO_SIZE = 300 * 1024 * 1024  # 300MB
 MAX_PDF_SIZE = 50 * 1024 * 1024  # 50MB para PDFs
 ALLOWED_PDF_EXTENSIONS = {'pdf'}
 

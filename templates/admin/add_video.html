@@ -25,7 +25,7 @@
                 Arquivo de Vídeo <span class="required">*</span>
             </label>
             <input type="file" id="video_file" name="video_file" required accept="video/mp4,video/webm,video/ogv,video/quicktime,video/x-msvideo" onchange="updateFileInfo(this)">
-            <small class="form-help">Formatos aceitos: MP4, WEBM, OGV, MOV, AVI. Tamanho máximo: 100MB</small>
+            <small class="form-help">Formatos aceitos: MP4, WEBM, OGV, MOV, AVI. Tamanho máximo: 300MB</small>
             <div id="file-info" style="margin-top: 0.5rem; color: var(--text-secondary);"></div>
         </div>
         
@@ -65,7 +65,7 @@ function updateFileInfo(input) {
         const file = input.files[0];
         const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
         fileInfo.textContent = `Arquivo selecionado: ${file.name} (${sizeMB} MB)`;
-        if (file.size > 100 * 1024 * 1024) {
+        if (file.size > 300 * 1024 * 1024) {
             fileInfo.style.color = 'red';
             fileInfo.textContent += ' - Arquivo muito grande!';
         } else {
