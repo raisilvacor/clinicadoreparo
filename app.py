@@ -19,6 +19,9 @@ from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cup
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
 
+# Configurar tamanho máximo de upload (350MB para dar margem aos 300MB de vídeo)
+app.config['MAX_CONTENT_LENGTH'] = 350 * 1024 * 1024  # 350MB
+
 # Configurações do Mercado Pago (REMOVIDO - sistema de loja removido)
 
 # Flag global para rastrear se o banco está disponível
@@ -9431,6 +9434,18 @@ def download_orcamento_ar_pdf(orcamento_id):
         flash('Erro ao buscar PDF.', 'error')
     
     return redirect(url_for('admin_orcamentos_ar'))
+
+# Handler de erro para arquivos muito grandes
+from werkzeug.exceptions import RequestEntityTooLarge
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(e):
+    """Handler para quando o arquivo excede o tamanho máximo"""
+    flash('Arquivo muito grande! O tamanho máximo permitido é 300MB para vídeos.', 'error')
+    # Tentar redirecionar para a página anterior ou admin dashboard
+    if request.path.startswith('/admin/videos'):
+        return redirect(url_for('add_video'))
+    return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
