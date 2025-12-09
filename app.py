@@ -29,6 +29,29 @@ _pagina_servico_id_column_exists = None
 _custos_adicionais_column_exists = None
 _video_columns_exist = False
 
+# ==================== FUNÇÃO use_database (DEFINIDA PRIMEIRO) ====================
+def use_database():
+    """Verifica se deve usar banco de dados - configuração direta com Render"""
+    global DB_AVAILABLE
+    
+    # Se a flag indica que o banco não está disponível, retornar False imediatamente
+    if not DB_AVAILABLE:
+        return False
+    
+    # Verificar se DATABASE_URL existe nas variáveis de ambiente
+    database_url = os.environ.get('DATABASE_URL', '')
+    if not database_url:
+        return False
+    
+    # Verificar se o banco foi configurado no app
+    try:
+        if hasattr(app, 'config') and app.config.get('SQLALCHEMY_DATABASE_URI'):
+            return True
+    except:
+        pass
+    
+    return False
+
 # ==================== FUNÇÕES DE GARANTIA DE COLUNAS ====================
 # Definidas antes da inicialização do banco, mas só serão executadas após db.init_app()
 
@@ -384,28 +407,6 @@ def recriar_sessao():
     except:
         pass
     # SQLAlchemy cria automaticamente uma nova sessão na próxima operação
-
-def use_database():
-    """Verifica se deve usar banco de dados - configuração direta com Render"""
-    global DB_AVAILABLE
-    
-    # Se a flag indica que o banco não está disponível, retornar False imediatamente
-    if not DB_AVAILABLE:
-        return False
-    
-    # Verificar se DATABASE_URL existe nas variáveis de ambiente
-    database_url = os.environ.get('DATABASE_URL', '')
-    if not database_url:
-        return False
-    
-    # Verificar se o banco foi configurado no app
-    try:
-        if hasattr(app, 'config') and app.config.get('SQLALCHEMY_DATABASE_URI'):
-            return True
-    except:
-        pass
-    
-    return False
 
 # ==================== FUNÇÕES DE GARANTIA DE COLUNAS (DEFINIÇÕES ANTIGAS REMOVIDAS) ====================
 # As funções já foram definidas antes da inicialização do banco (linhas 90-189)
@@ -6831,7 +6832,10 @@ def add_manual():
                 flash(f'Arquivo muito grande. Tamanho máximo: {MAX_PDF_SIZE // (1024*1024)}MB', 'error')
                 return redirect(url_for('add_manual'))
             
+            # Ler arquivo em chunks para evitar problemas de memória
             pdf_data = pdf_file.read()
+            
+            # Criar manual e salvar diretamente (sem múltiplas tentativas que causam timeout)
             novo_manual = Manual(
                 titulo=titulo,
                 pdf_data=pdf_data,
@@ -6839,56 +6843,11 @@ def add_manual():
                 pdf_size=pdf_size
             )
             
-            # Tentar adicionar com tratamento de erro melhorado para arquivos grandes
-            max_retries = 5
-            last_error = None
-            for attempt in range(max_retries):
-                try:
-                    # Verificar e recriar conexão se necessário antes de cada tentativa
-                    if attempt > 0:
-                        print(f"Tentativa {attempt + 1}/{max_retries} - Verificando conexão...")
-                        if not verificar_conexao_banco():
-                            print("Conexão com banco indisponível, aguardando...")
-                            time.sleep(2 * attempt)  # Delay crescente: 2s, 4s, 6s, 8s
-                            continue
-                        recriar_sessao()
-                        # Recriar o objeto manual para nova tentativa
-                        novo_manual = Manual(
-                            titulo=titulo,
-                            pdf_data=pdf_data,
-                            pdf_filename=secure_filename(pdf_file.filename),
-                            pdf_size=pdf_size
-                        )
-                        time.sleep(1)  # Pequeno delay antes de tentar novamente
-                    
-                    db.session.add(novo_manual)
-                    # Usar flush() primeiro para detectar erros antes do commit
-                    db.session.flush()
-                    db.session.commit()
-                    flash('Manual cadastrado com sucesso!', 'success')
-                    return redirect(url_for('admin_manuais'))
-                except Exception as commit_error:
-                    last_error = commit_error
-                    try:
-                        db.session.rollback()
-                    except:
-                        pass
-                    error_str = str(commit_error).lower()
-                    # Se for erro de conexão SSL/EOF/Connection e ainda temos tentativas, tentar novamente
-                    if ('ssl' in error_str or 'eof' in error_str or 'connection' in error_str or 'refused' in error_str) and attempt < max_retries - 1:
-                        print(f"Erro de conexão no upload (tentativa {attempt + 1}/{max_retries}): {commit_error}")
-                        recriar_sessao()
-                        # Delay crescente entre tentativas
-                        time.sleep(2 * (attempt + 1))
-                        continue
-                    else:
-                        # Se não for erro de conexão ou esgotaram as tentativas, lançar o erro
-                        if attempt < max_retries - 1:
-                            continue  # Tentar mais uma vez mesmo assim
-                        raise commit_error
+            db.session.add(novo_manual)
+            db.session.commit()
             
-            # Se chegou aqui, todas as tentativas falharam
-            raise last_error if last_error else Exception("Falha ao cadastrar manual após múltiplas tentativas")
+            flash('Manual cadastrado com sucesso!', 'success')
+            return redirect(url_for('admin_manuais'))
         except Exception as e:
             print(f"Erro ao cadastrar manual: {e}")
             db.session.rollback()
@@ -6940,54 +6899,13 @@ def edit_manual(manual_id):
                     return redirect(url_for('edit_manual', manual_id=manual_id))
                 
                 pdf_data = pdf_file.read()
-                # Tentar atualizar com tratamento de erro melhorado para arquivos grandes
-                max_retries = 5
-                last_error = None
-                for attempt in range(max_retries):
-                    try:
-                        # Verificar e recriar conexão se necessário antes de cada tentativa
-                        if attempt > 0:
-                            print(f"Tentativa {attempt + 1}/{max_retries} - Verificando conexão...")
-                            if not verificar_conexao_banco():
-                                print("Conexão com banco indisponível, aguardando...")
-                                time.sleep(2 * attempt)
-                                continue
-                            recriar_sessao()
-                            # Recarregar o manual da sessão
-                            manual = Manual.query.get(manual_id)
-                            if not manual:
-                                flash('Manual não encontrado após reconexão!', 'error')
-                                return redirect(url_for('admin_manuais'))
-                            time.sleep(1)
-                        
-                        manual.pdf_data = pdf_data
-                        manual.pdf_filename = secure_filename(pdf_file.filename)
-                        manual.pdf_size = pdf_size
-                        manual.data_atualizacao = datetime.now()
-                        db.session.flush()
-                        db.session.commit()
-                        flash('Manual atualizado com sucesso!', 'success')
-                        return redirect(url_for('admin_manuais'))
-                    except Exception as commit_error:
-                        last_error = commit_error
-                        try:
-                            db.session.rollback()
-                        except:
-                            pass
-                        error_str = str(commit_error).lower()
-                        # Se for erro de conexão e ainda temos tentativas, tentar novamente
-                        if ('ssl' in error_str or 'eof' in error_str or 'connection' in error_str or 'refused' in error_str) and attempt < max_retries - 1:
-                            print(f"Erro de conexão no upload (tentativa {attempt + 1}/{max_retries}): {commit_error}")
-                            recriar_sessao()
-                            time.sleep(2 * (attempt + 1))
-                            continue
-                        else:
-                            if attempt < max_retries - 1:
-                                continue
-                            raise commit_error
-                
-                # Se chegou aqui, todas as tentativas falharam
-                raise last_error if last_error else Exception("Falha ao atualizar manual após múltiplas tentativas")
+                manual.pdf_data = pdf_data
+                manual.pdf_filename = secure_filename(pdf_file.filename)
+                manual.pdf_size = pdf_size
+                manual.data_atualizacao = datetime.now()
+                db.session.commit()
+                flash('Manual atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_manuais'))
             else:
                 # Apenas atualizar título, sem alterar arquivo
                 db.session.commit()
