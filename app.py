@@ -6543,9 +6543,6 @@ def servir_imagem_reparo(image_id):
 
 # ==================== VÍDEOS ====================
 
-        return Response('Erro ao servir vídeo', status=500)
-
-
 @app.route('/admin/videos')
 @login_required
 def admin_videos():
