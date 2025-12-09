@@ -6819,17 +6819,29 @@ def admin_manuais():
             manuais = Manual.query.order_by(Manual.data_criacao.desc()).all()
             return render_template('admin/manuais.html', manuais=manuais)
         except Exception as e:
-            print(f"Erro ao carregar manuais: {e}")
-            flash('Erro ao carregar manuais.', 'error')
+            # Silenciar erros de conexão - não crítico
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar manuais: {e}")
+                flash('Erro ao carregar manuais.', 'error')
+            # Fazer rollback em caso de erro
+            try:
+                db.session.rollback()
+            except:
+                pass
             return render_template('admin/manuais.html', manuais=[])
     else:
-        flash('Banco de dados não configurado.', 'error')
         return render_template('admin/manuais.html', manuais=[])
 
 @app.route('/admin/manuais/add', methods=['GET', 'POST'])
 @login_required
 def add_manual():
     """Adiciona um novo manual"""
+    # GET: apenas mostrar o formulário, não precisa verificar banco
+    if request.method == 'GET':
+        return render_template('admin/add_manual.html')
+    
+    # POST: precisa do banco para salvar
     if request.method == 'POST':
         if not use_database():
             flash('Banco de dados não configurado.', 'error')
