@@ -6828,10 +6828,18 @@ def delete_video(video_id):
 @login_required
 def admin_manuais():
     """Lista todos os manuais cadastrados"""
+    busca = request.args.get('busca', '').strip()
+    
     if use_database():
         try:
-            manuais = Manual.query.order_by(Manual.data_criacao.desc()).all()
-            return render_template('admin/manuais.html', manuais=manuais)
+            query = Manual.query
+            
+            # Aplicar filtro de busca se fornecido
+            if busca:
+                query = query.filter(Manual.titulo.ilike(f'%{busca}%'))
+            
+            manuais = query.order_by(Manual.data_criacao.desc()).all()
+            return render_template('admin/manuais.html', manuais=manuais, busca=busca)
         except Exception as e:
             # Silenciar erros de conexão - não crítico
             error_str = str(e).lower()
@@ -6843,9 +6851,9 @@ def admin_manuais():
                 db.session.rollback()
             except:
                 pass
-            return render_template('admin/manuais.html', manuais=[])
+            return render_template('admin/manuais.html', manuais=[], busca=busca)
     else:
-        return render_template('admin/manuais.html', manuais=[])
+        return render_template('admin/manuais.html', manuais=[], busca=busca)
 
 @app.route('/admin/manuais/add', methods=['GET', 'POST'])
 @login_required

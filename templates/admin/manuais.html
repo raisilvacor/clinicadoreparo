@@ -13,6 +13,29 @@
     </a>
 </div>
 
+<div class="admin-section" style="margin-bottom: 2rem;">
+    <form method="GET" action="{{ url_for('admin_manuais') }}" style="display: flex; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <label for="busca">
+                <i class="fas fa-search"></i>
+                Pesquisar Manuais
+            </label>
+            <input type="text" id="busca" name="busca" value="{{ busca or '' }}" placeholder="Digite o título do manual...">
+            <small class="form-help">Pesquise por título do manual</small>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+            {% if busca %}
+            <a href="{{ url_for('admin_manuais') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Limpar
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
 {% if manuais %}
 <div class="table-responsive">
     <table class="admin-table">
@@ -62,11 +85,19 @@
 {% else %}
 <div class="empty-state">
     <i class="fas fa-book"></i>
+    {% if busca %}
+    <h3>Nenhum manual encontrado</h3>
+    <p>Nenhum manual corresponde à pesquisa "{{ busca }}"</p>
+    <a href="{{ url_for('admin_manuais') }}" class="btn btn-secondary">
+        <i class="fas fa-times"></i> Limpar Pesquisa
+    </a>
+    {% else %}
     <h3>Nenhum manual cadastrado</h3>
     <p>Comece adicionando seu primeiro manual em PDF</p>
     <a href="{{ url_for('add_manual') }}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Adicionar Primeiro Manual
     </a>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}
