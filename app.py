@@ -203,7 +203,9 @@ def _garantir_colunas_video_internal():
                 _video_columns_exist = True
                 return True
     except Exception as e:
-        print(f"Erro ao garantir colunas de vídeo: {e}")
+        error_str = str(e).lower()
+        if 'connection' not in error_str and 'refused' not in error_str:
+            print(f"Erro ao garantir colunas de vídeo: {e}")
         return False
     
     _video_columns_exist = True
@@ -520,7 +522,9 @@ def get_proximo_numero_ordem():
         try:
             ordens = OrdemServico.query.all()
         except Exception as e:
-            print(f"Erro ao carregar ordens do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar ordens do banco: {e}")
             ordens = []
         for ordem in ordens:
             if ordem.numero_ordem:
@@ -920,7 +924,9 @@ def index():
         try:
             slides_db = Slide.query.filter_by(ativo=True).order_by(Slide.ordem).all()
         except Exception as e:
-            print(f"Erro ao carregar slides do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar slides do banco: {e}")
             slides_db = []
         slides = []
         for s in slides_db:
@@ -952,7 +958,9 @@ def index():
         try:
             footer_obj = Footer.query.first()
         except Exception as e:
-            print(f"Erro ao carregar footer do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar footer do banco: {e}")
             footer_obj = None
         if footer_obj:
             # Garantir que contato e redes_sociais sejam dicionários
@@ -987,7 +995,9 @@ def index():
         try:
             marcas_db = Marca.query.filter_by(ativo=True).order_by(Marca.ordem).all()
         except Exception as e:
-            print(f"Erro ao carregar marcas do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar marcas do banco: {e}")
             marcas_db = []
         marcas = []
         for m in marcas_db:
@@ -1017,7 +1027,9 @@ def index():
         try:
             milestones_db = Milestone.query.filter_by(ativo=True).order_by(Milestone.ordem).all()
         except Exception as e:
-            print(f"Erro ao carregar milestones do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar milestones do banco: {e}")
             milestones_db = []
         milestones = []
         for m in milestones_db:
@@ -1047,7 +1059,9 @@ def index():
         try:
             servicos_db = Servico.query.filter_by(ativo=True).order_by(Servico.ordem).all()
         except Exception as e:
-            print(f"Erro ao carregar serviços do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar serviços do banco: {e}")
             servicos_db = []
         servicos = []
         for s in servicos_db:
@@ -1132,7 +1146,9 @@ def index():
         try:
             reparos_db = ReparoRealizado.query.filter_by(ativo=True).order_by(ReparoRealizado.ordem).limit(6).all()
         except Exception as e:
-            print(f"Erro ao carregar reparos realizados do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar reparos realizados do banco: {e}")
             reparos_db = []
         reparos = []
         for r in reparos_db:
@@ -1157,7 +1173,9 @@ def index():
             garantir_colunas_video()
             videos_db = Video.query.filter_by(ativo=True).order_by(Video.ordem, Video.data_criacao.desc()).limit(6).all()
         except Exception as e:
-            print(f"Erro ao carregar vídeos do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar vídeos do banco: {e}")
             videos_db = []
         videos = []
         for v in videos_db:
@@ -1192,7 +1210,9 @@ def todos_reparos():
                     'whatsapp_float': footer_obj.whatsapp_float or ''
                 }
         except Exception as e:
-            print(f"Erro ao carregar footer do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar footer do banco: {e}")
     
     if not footer_data:
         footer_data = {
@@ -1208,7 +1228,9 @@ def todos_reparos():
         try:
             reparos_db = ReparoRealizado.query.filter_by(ativo=True).order_by(ReparoRealizado.ordem).all()
         except Exception as e:
-            print(f"Erro ao carregar reparos realizados do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar reparos realizados do banco: {e}")
             reparos_db = []
         reparos = []
         for r in reparos_db:
@@ -1247,7 +1269,9 @@ def sobre():
                     'whatsapp_float': footer_obj.whatsapp_float or ''
                 }
         except Exception as e:
-            print(f"Erro ao carregar footer do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar footer do banco: {e}")
     
     if not footer_data:
         footer_data = {
@@ -1421,7 +1445,9 @@ def contato():
                     'whatsapp_float': footer_obj.whatsapp_float or ''
                 }
         except Exception as e:
-            print(f"Erro ao carregar footer do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar footer do banco: {e}")
     
     if not footer_data:
         footer_data = {
@@ -5785,7 +5811,9 @@ def admin_footer():
                     'whatsapp_float': ''
                 }
         except Exception as e:
-            print(f"Erro ao carregar footer do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar footer do banco: {e}")
             footer_data = None
     
     # Se não usar banco ou não encontrou, criar footer padrão
@@ -7017,7 +7045,9 @@ def todos_videos():
                     'whatsapp_float': footer_obj.whatsapp_float or ''
                 }
         except Exception as e:
-            print(f"Erro ao carregar footer do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar footer do banco: {e}")
     
     if not footer_data:
         footer_data = {
@@ -7034,7 +7064,9 @@ def todos_videos():
             garantir_colunas_video()
             videos_db = Video.query.filter_by(ativo=True).order_by(Video.ordem, Video.data_criacao.desc()).all()
         except Exception as e:
-            print(f"Erro ao carregar vídeos do banco: {e}")
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar vídeos do banco: {e}")
             videos_db = []
         videos = []
         for v in videos_db:
@@ -7314,7 +7346,12 @@ def inject_footer():
                     'whatsapp_float': footer_obj.whatsapp_float or ''
                 }
         except Exception as e:
-            print(f"Erro ao carregar footer do banco em inject_footer: {e}")
+            # Silenciar erros de conexão - não crítico para funcionamento da aplicação
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar footer do banco: {e}")
             # Fazer rollback explícito para evitar InFailedSqlTransaction
             try:
                 db.session.rollback()
@@ -7361,7 +7398,12 @@ def inject_servicos():
                     'ativo': s.ativo
                 })
         except Exception as e:
-            print(f"Erro ao carregar serviços do banco em inject_servicos: {e}")
+            # Silenciar erros de conexão - não crítico
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar serviços do banco: {e}")
             # Fazer rollback explícito para evitar InFailedSqlTransaction
             try:
                 db.session.rollback()
@@ -7408,7 +7450,10 @@ def inject_paginas_servicos():
             if paginas_db:
                 primeira_pagina_servico = paginas_db[0].slug
         except Exception as e:
-            print(f"Erro ao carregar páginas de serviços do banco em inject_paginas_servicos: {e}")
+            # Silenciar erros de conexão - não crítico
+            error_str = str(e).lower()
+            if 'connection' not in error_str and 'refused' not in error_str:
+                print(f"Erro ao carregar páginas de serviços do banco: {e}")
             # Fazer rollback explícito para evitar InFailedSqlTransaction
             try:
                 db.session.rollback()
