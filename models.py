@@ -278,33 +278,62 @@ class ReparoRealizado(db.Model):
 
 # ==================== VÍDEOS ====================
 class Video(db.Model):
-    """Vídeos cadastrados (upload direto ou arquivo do servidor)"""
+    """Vídeos do YouTube cadastrados usando código embed"""
     __tablename__ = 'videos'
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(200), nullable=False)
-    # Campos para upload direto de vídeo (opcional - usado quando upload do computador)
-    video_data = db.Column(db.LargeBinary, nullable=True)  # Dados binários do vídeo
-    video_filename = db.Column(db.String(200), nullable=True)  # Nome do arquivo original
-    video_mime_type = db.Column(db.String(50), nullable=True)  # video/mp4, video/webm, etc
-    video_size = db.Column(db.Integer, nullable=True)  # Tamanho em bytes
-    # Campo para vídeo do servidor (opcional - usado quando escolhe do servidor)
-    video_path = db.Column(db.String(500), nullable=True)  # Caminho relativo no servidor (ex: videos/video.mp4)
+    embed_code = db.Column(db.Text, nullable=False)  # Código embed do YouTube
     ordem = db.Column(db.Integer, default=1)  # Ordem de exibição
     ativo = db.Column(db.Boolean, default=True)
     data_criacao = db.Column(db.DateTime, default=datetime.now)
     
-    def get_video_url(self):
-        """Retorna a URL para servir o vídeo"""
-        if self.video_path:
-            # Vídeo do servidor - retorna caminho estático
-            return f'/static/videos/{os.path.basename(self.video_path)}'
-        else:
-            # Vídeo do banco - retorna rota de mídia
-            return f'/media/video/{self.id}'
+    def get_video_id(self):
+        """Extrai o ID do vídeo do YouTube do código embed"""
+        import re
+        # Tenta extrair o ID de diferentes formatos de embed
+        # Formato 1: src="https://www.youtube.com/embed/VIDEO_ID"
+        # Formato 2: src="https://youtu.be/VIDEO_ID"
+        # Formato 3: VIDEO_ID direto
+        if not self.embed_code:
+            return None
+        
+        # Procurar por /embed/VIDEO_ID
+        match = re.search(r'/embed/([a-zA-Z0-9_-]{11})', self.embed_code)
+        if match:
+            return match.group(1)
+        
+        # Procurar por youtu.be/VIDEO_ID
+        match = re.search(r'youtu\.be/([a-zA-Z0-9_-]{11})', self.embed_code)
+        if match:
+            return match.group(1)
+        
+        # Procurar por ID direto (11 caracteres)
+        match = re.search(r'([a-zA-Z0-9_-]{11})', self.embed_code)
+        if match and len(match.group(1)) == 11:
+            return match.group(1)
+        
+        return None
     
-    def is_file_based(self):
-        """Verifica se o vídeo está armazenado como arquivo no servidor"""
-        return self.video_path is not None and self.video_path != ''
+    def get_embed_url(self):
+        """Retorna a URL embed do YouTube"""
+        video_id = self.get_video_id()
+        if video_id:
+            return f'https://www.youtube.com/embed/{video_id}'
+        return None
+    
+    def get_thumbnail_url(self):
+        """Retorna a URL da thumbnail automática do YouTube"""
+        video_id = self.get_video_id()
+        if video_id:
+            return f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg'
+        return None
+    
+    def get_embed_html(self):
+        """Retorna o HTML do iframe embed"""
+        video_id = self.get_video_id()
+        if video_id:
+            return f'<iframe width="560" height="315" src="https://www.youtube.com/embed/{video_id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
+        return self.embed_code  # Fallback: retorna o código original
 
 # ==================== MANUAIS ====================
 class Manual(db.Model):

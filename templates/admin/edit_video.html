@@ -4,12 +4,12 @@
 
 {% block content %}
 <div class="admin-header">
-    <h1><i class="fas fa-video"></i> Editar Vídeo</h1>
+    <h1><i class="fas fa-video"></i> Editar Vídeo do YouTube</h1>
     <p>Edite as informações do vídeo</p>
 </div>
 
 <div class="admin-form-card">
-    <form method="POST" action="{{ url_for('edit_video', video_id=video.id) }}" enctype="multipart/form-data" class="admin-form">
+    <form method="POST" action="{{ url_for('edit_video', video_id=video.id) }}" class="admin-form">
         <div class="form-group">
             <label for="titulo">
                 <i class="fas fa-heading"></i>
@@ -19,30 +19,28 @@
             <small class="form-help">Título que será exibido junto com o vídeo</small>
         </div>
         
+        {% if video.thumbnail_url %}
         <div class="form-group">
             <label>Vídeo Atual</label>
             <div class="current-video-info">
-                <p><i class="fas fa-file-video"></i> <strong>{{ video.video_filename or 'Arquivo de vídeo' }}</strong></p>
-                <video controls style="width: 100%; max-width: 560px; border-radius: 8px; background: #000;" preload="metadata">
-                    <source src="{{ video.video_url }}" type="{{ video.video_mime_type }}">
-                    Seu navegador não suporta a tag de vídeo.
-                </video>
+                <img src="{{ video.thumbnail_url }}" alt="{{ video.titulo }}" style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border-color);">
+                <p style="margin-top: 0.5rem;"><i class="fab fa-youtube"></i> Vídeo do YouTube</p>
             </div>
         </div>
+        {% endif %}
         
         <div class="form-group">
-            <label>
-                <i class="fas fa-exchange-alt"></i>
-                Substituir Vídeo
+            <label for="embed_code">
+                <i class="fab fa-youtube"></i>
+                Código Embed do YouTube <span class="required">*</span>
             </label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="substituir_video" name="substituir_video" onchange="toggleSubstituir()">
-                <span>Substituir vídeo por novo arquivo</span>
-            </label>
-            <div id="substituir-section" style="display: none; margin-top: 1rem;">
-                <input type="file" id="video_file" name="video_file" accept="video/mp4,video/webm,video/ogv,video/quicktime,video/x-msvideo" onchange="updateFileInfo(this)">
-                <small class="form-help">Formatos aceitos: MP4, WEBM, OGV, MOV, AVI. Tamanho máximo: 300MB</small>
-                <div id="file-info" style="margin-top: 0.5rem; color: var(--text-secondary);"></div>
+            <textarea id="embed_code" name="embed_code" required rows="5" placeholder='Cole aqui o código embed do YouTube'>{{ video.embed_code }}</textarea>
+            <small class="form-help">
+                Para obter o código embed: No YouTube, clique em "Compartilhar" → "Incorporar" → Copie o código iframe fornecido
+            </small>
+            <div id="embed-preview" style="margin-top: 1rem; display: none;">
+                <strong>Preview:</strong>
+                <div id="preview-content" style="margin-top: 0.5rem; border: 1px solid var(--border-color); padding: 1rem; background: var(--bg-secondary); border-radius: 4px;"></div>
             </div>
         </div>
         
@@ -76,33 +74,40 @@
 </div>
 
 <script>
-function toggleSubstituir() {
-    const checkbox = document.getElementById('substituir_video');
-    const section = document.getElementById('substituir-section');
-    section.style.display = checkbox.checked ? 'block' : 'none';
-}
-
-function updateFileInfo(input) {
-    const fileInfo = document.getElementById('file-info');
-    if (input.files && input.files[0]) {
-        const file = input.files[0];
-        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-        fileInfo.textContent = `Arquivo selecionado: ${file.name} (${sizeMB} MB)`;
-        if (file.size > 300 * 1024 * 1024) {
-            fileInfo.style.color = 'red';
-            fileInfo.textContent += ' - Arquivo muito grande!';
-        } else {
-            fileInfo.style.color = 'var(--text-secondary)';
-        }
+function updateEmbedPreview() {
+    const embedCode = document.getElementById('embed_code').value.trim();
+    const previewDiv = document.getElementById('embed-preview');
+    const previewContent = document.getElementById('preview-content');
+    
+    if (embedCode) {
+        previewDiv.style.display = 'block';
+        previewContent.innerHTML = embedCode;
     } else {
-        fileInfo.textContent = '';
+        previewDiv.style.display = 'none';
     }
 }
-</script>
-{% endblock %}
 
-{% block styles %}
+document.getElementById('embed_code').addEventListener('input', updateEmbedPreview);
+document.addEventListener('DOMContentLoaded', updateEmbedPreview);
+</script>
+
 <style>
+#embed_code {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    resize: vertical;
+}
+
+#preview-content iframe {
+    max-width: 100%;
+    height: auto;
+    min-height: 315px;
+}
+
 .current-video-info {
     padding: 1rem;
     background: var(--bg-secondary);
@@ -111,7 +116,7 @@ function updateFileInfo(input) {
 }
 
 .current-video-info p {
-    margin: 0 0 1rem 0;
+    margin: 0.5rem 0 0 0;
     color: var(--text-primary);
 }
 </style>

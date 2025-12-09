@@ -21,10 +21,16 @@
             {% for video in videos %}
             <div class="video-page-item">
                 <div class="video-page-thumbnail">
-                    <video controls preload="metadata" style="width: 100%; height: 100%; object-fit: cover;">
-                        <source src="{{ video.video_url }}" type="{{ video.video_mime_type }}">
-                        Seu navegador não suporta a tag de vídeo.
-                    </video>
+                    {% if video.embed_url %}
+                        <iframe width="100%" height="100%" src="{{ video.embed_url }}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+                    {% elif video.thumbnail_url %}
+                        <a href="{{ video.embed_url }}" target="_blank" style="display: block; width: 100%; height: 100%; position: relative;">
+                            <img src="{{ video.thumbnail_url }}" alt="{{ video.titulo }}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 0, 0, 0.8); border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fab fa-youtube" style="color: white; font-size: 2rem;"></i>
+                            </div>
+                        </a>
+                    {% endif %}
                 </div>
                 <h3>{{ video.titulo }}</h3>
             </div>
