@@ -34,8 +34,22 @@ def use_database():
     """Verifica se deve usar banco de dados - configuração direta com Render"""
     global DB_AVAILABLE
     
-    # Se a flag indica que o banco não está disponível, retornar False imediatamente
+    # Se a flag indica que o banco não está disponível, ainda tentar verificar (pode ter sido reiniciado)
     if not DB_AVAILABLE:
+        # Tentar verificar conexão uma vez
+        try:
+            database_url = os.environ.get('DATABASE_URL', '')
+            if database_url and hasattr(app, 'config') and app.config.get('SQLALCHEMY_DATABASE_URI'):
+                # Testar conexão rápida
+                try:
+                    with db.engine.connect() as conn:
+                        conn.execute(db.text('SELECT 1'))
+                    DB_AVAILABLE = True
+                    return True
+                except:
+                    return False
+        except:
+            pass
         return False
     
     # Verificar se DATABASE_URL existe nas variáveis de ambiente
