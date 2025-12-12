@@ -7020,8 +7020,10 @@ def todos_videos():
             videos.append({
                 'id': v.id,
                 'titulo': v.titulo,
-                'video_url': v.get_video_url(),
-                'video_mime_type': v.video_mime_type,
+                'embed_url': v.get_embed_url(),
+                'thumbnail_url': v.get_thumbnail_url(),
+                'embed_html': v.get_embed_html(),
+                'video_id': v.get_video_id(),
                 'ordem': v.ordem
             })
     else:
