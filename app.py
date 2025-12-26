@@ -311,6 +311,12 @@ if database_url:
                     except Exception as col_error:
                         print(f"DEBUG: ⚠️ Aviso ao criar colunas de vídeo (não crítico): {col_error}")
                     
+                    # Inicializar links padrão do menu
+                    try:
+                        inicializar_links_menu_padrao()
+                    except Exception as links_error:
+                        print(f"DEBUG: ⚠️ Aviso ao inicializar links do menu (não crítico): {links_error}")
+                    
                     # Limpar constraint de pedidos da loja antiga (se existir)
                     try:
                         with db.engine.connect() as temp_conn:
