@@ -4026,7 +4026,8 @@ def gerar_pdf_ordem(cliente, ordem):
 5. Peças substituídas tornam-se propriedade da oficina, exceto se solicitado pelo cliente no ato do orçamento.
 6. O cliente deve comparecer pessoalmente para retirada do aparelho ou autorizar por escrito outra pessoa.
 7. A oficina não se responsabiliza por dados perdidos durante o reparo.
-8. Em caso de reparo não autorizado, será cobrado apenas o valor da avaliação."""
+8. Em caso de reparo não autorizado, será cobrado apenas o valor da avaliação.
+9. Em caso de não retirada do aparelho em até 60 dias após a conclusão, o cliente perderá o aparelho e passa a ser de propriedade da nossa Assistência Técnica."""
     
     condicoes_style = ParagraphStyle(
         'Condicoes',
