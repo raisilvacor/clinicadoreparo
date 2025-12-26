@@ -56,7 +56,7 @@
                 <li><a href="{{ url_for('sobre') }}" class="nav-link">Sobre</a></li>
                 {% if links_menu %}
                     {% for link in links_menu %}
-                    <li><a href="{{ link.url }}" class="nav-link" {% if link.abrir_nova_aba %}target="_blank" rel="noopener noreferrer"{% endif %}>{{ link.texto }}</a></li>
+                    <li><a href="{{ link.url }}" class="nav-link" target="_blank" rel="noopener noreferrer">{{ link.texto }}</a></li>
                     {% endfor %}
                 {% endif %}
                 <li class="nav-dropdown">

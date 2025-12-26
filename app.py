@@ -233,7 +233,7 @@ def inicializar_links_menu_padrao():
                 url='/celulares',
                 ordem=1,
                 ativo=True,
-                abrir_nova_aba=False
+                abrir_nova_aba=True
             )
             db.session.add(link_celulares)
             db.session.commit()
@@ -8543,7 +8543,7 @@ def inicializar_links_padrao():
                     url='/celulares',
                     ordem=1,
                     ativo=True,
-                    abrir_nova_aba=False
+                    abrir_nova_aba=True
                 )
                 db.session.add(link_celulares)
                 db.session.commit()
