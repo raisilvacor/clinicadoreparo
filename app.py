@@ -3816,7 +3816,7 @@ def gerar_pdf_ordem(cliente, ordem):
     styles = getSampleStyleSheet()
     
     # Logo e Título
-    logo_path = os.path.join('static', 'img', 'logo.png')
+    logo_path = os.path.join('static', 'img', 'logo2.png')
     if os.path.exists(logo_path):
         try:
             # Proporção da logo original: 838x322 = 2.60:1
@@ -4751,7 +4751,7 @@ def gerar_pdf_comprovante(cliente, ordem, comprovante):
     styles = getSampleStyleSheet()
     
     # Logo
-    logo_path = os.path.join('static', 'img', 'logo.png')
+    logo_path = os.path.join('static', 'img', 'logo2.png')
     if os.path.exists(logo_path):
         try:
             logo_width = 4.5*cm
@@ -9065,7 +9065,7 @@ def gerar_pdf_orcamento_ar(orçamento):
     styles = getSampleStyleSheet()
     
     # Logo
-    logo_path = os.path.join('static', 'img', 'logo.png')
+    logo_path = os.path.join('static', 'img', 'logo2.png')
     if os.path.exists(logo_path):
         try:
             logo_width = 4.5*cm
