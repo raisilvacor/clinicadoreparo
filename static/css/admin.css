@@ -836,6 +836,71 @@
     font-size: 0.85rem;
 }
 
+/* Botões de ação na tabela */
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-sm.btn-info {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-sm.btn-info:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+}
+
+.btn-sm.btn-warning {
+    background: #ff9800;
+    color: white;
+}
+
+.btn-sm.btn-warning:hover {
+    background: #f57c00;
+    transform: translateY(-2px);
+}
+
+.btn-sm.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-sm.btn-danger:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+}
+
+.btn-sm.btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-sm.btn-success:hover {
+    background: #059669;
+    transform: translateY(-2px);
+}
+
+.btn-sm.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-sm.btn-secondary:hover {
+    background: #4b5563;
+    transform: translateY(-2px);
+}
+
 @media (max-width: 768px) {
     .admin-hamburger {
         display: flex;
