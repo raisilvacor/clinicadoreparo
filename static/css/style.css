@@ -1423,3 +1423,51 @@ section {
     }
 }
 
+/* Forçar substituição de cores laranjas por azul em todo o site */
+*[style*="orange"],
+*[style*="#ff9800"],
+*[style*="#ffc107"],
+*[style*="#f59e0b"],
+*[style*="#ff6b6b"],
+*[style*="#ff3300"],
+*[style*="#ffea00"],
+*[style*="#fbc02d"],
+*[style*="#ffa500"],
+*[style*="#ff8c00"] {
+    color: #215f97 !important;
+}
+
+*[style*="background"][style*="orange"],
+*[style*="background"][style*="#ff9800"],
+*[style*="background"][style*="#ffc107"],
+*[style*="background"][style*="#f59e0b"],
+*[style*="background"][style*="#ff6b6b"],
+*[style*="background"][style*="#ff3300"],
+*[style*="background"][style*="#ffea00"],
+*[style*="background"][style*="#fbc02d"],
+*[style*="background"][style*="#ffa500"],
+*[style*="background"][style*="#ff8c00"] {
+    background-color: #215f97 !important;
+    background: #215f97 !important;
+}
+
+*[style*="border"][style*="orange"],
+*[style*="border"][style*="#ff9800"],
+*[style*="border"][style*="#ffc107"],
+*[style*="border"][style*="#f59e0b"],
+*[style*="border"][style*="#ff6b6b"],
+*[style*="border"][style*="#ff3300"],
+*[style*="border"][style*="#ffea00"],
+*[style*="border"][style*="#fbc02d"],
+*[style*="border"][style*="#ffa500"],
+*[style*="border"][style*="#ff8c00"] {
+    border-color: #215f97 !important;
+}
+
+/* Garantir que títulos de páginas sejam brancos no header azul */
+.page-header h1,
+.page-header h1 *,
+.page-header * {
+    color: white !important;
+}
+

@@ -117,6 +117,56 @@
     margin-bottom: 0.5rem;
 }
 
+/* Forçar cores azuis em vez de laranjas no conteúdo HTML */
+.page-body *[style*="orange"],
+.page-body *[style*="#ff9800"],
+.page-body *[style*="#ffc107"],
+.page-body *[style*="#f59e0b"],
+.page-body *[style*="#ff6b6b"],
+.page-body *[style*="#ff3300"],
+.page-body *[style*="#ffea00"],
+.page-body *[style*="#fbc02d"],
+.page-body *[style*="#ffa500"],
+.page-body *[style*="#ff8c00"] {
+    color: #215f97 !important;
+}
+
+.page-body *[style*="background"][style*="orange"],
+.page-body *[style*="background"][style*="#ff9800"],
+.page-body *[style*="background"][style*="#ffc107"],
+.page-body *[style*="background"][style*="#f59e0b"],
+.page-body *[style*="background"][style*="#ff6b6b"],
+.page-body *[style*="background"][style*="#ff3300"],
+.page-body *[style*="background"][style*="#ffea00"],
+.page-body *[style*="background"][style*="#fbc02d"],
+.page-body *[style*="background"][style*="#ffa500"],
+.page-body *[style*="background"][style*="#ff8c00"] {
+    background-color: #215f97 !important;
+    background: #215f97 !important;
+}
+
+.page-body *[style*="border"][style*="orange"],
+.page-body *[style*="border"][style*="#ff9800"],
+.page-body *[style*="border"][style*="#ffc107"],
+.page-body *[style*="border"][style*="#f59e0b"],
+.page-body *[style*="border"][style*="#ff6b6b"],
+.page-body *[style*="border"][style*="#ff3300"],
+.page-body *[style*="border"][style*="#ffea00"],
+.page-body *[style*="border"][style*="#fbc02d"],
+.page-body *[style*="border"][style*="#ffa500"],
+.page-body *[style*="border"][style*="#ff8c00"] {
+    border-color: #215f97 !important;
+}
+
+/* Sobrescrever qualquer cor laranja no título da página */
+.page-header h1 {
+    color: white !important;
+}
+
+.page-header h1 * {
+    color: white !important;
+}
+
 @media (max-width: 768px) {
     .page-header {
         padding: 5rem 0 2rem;
