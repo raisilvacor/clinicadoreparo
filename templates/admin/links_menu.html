@@ -1,0 +1,79 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Links do Menu - Painel Admin{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <h1><i class="fas fa-link"></i> Gerenciar Links do Menu</h1>
+        <p>Gerencie os links exibidos no menu principal do site</p>
+    </div>
+    <a href="{{ url_for('add_link_menu') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Adicionar Link
+    </a>
+</div>
+
+{% if links %}
+<div class="table-responsive">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Texto</th>
+                <th>URL</th>
+                <th>Ordem</th>
+                <th>Status</th>
+                <th>Nova Aba</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for link in links %}
+            <tr>
+                <td>{{ link.id }}</td>
+                <td><strong>{{ link.texto }}</strong></td>
+                <td><code>{{ link.url }}</code></td>
+                <td><strong>{{ link.ordem }}</strong></td>
+                <td>
+                    {% if link.ativo %}
+                    <span class="badge badge-success" style="background: #10b981; color: white; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.85rem; font-weight: 600;">Ativo</span>
+                    {% else %}
+                    <span class="badge badge-secondary" style="background: #6b7280; color: white; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.85rem; font-weight: 600;">Inativo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if link.abrir_nova_aba %}
+                    <span class="badge badge-info" style="background: #3b82f6; color: white; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.85rem; font-weight: 600;">Sim</span>
+                    {% else %}
+                    <span class="badge badge-secondary" style="background: #6b7280; color: white; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.85rem; font-weight: 600;">Não</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{{ link.url }}" class="btn btn-sm btn-info" target="_blank" title="Ver link">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('edit_link_menu', link_id=link.id) }}" class="btn btn-sm btn-warning" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_link_menu', link_id=link.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este link?');">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-link"></i>
+    <p>Nenhum link cadastrado</p>
+    <a href="{{ url_for('add_link_menu') }}" class="btn btn-primary">Adicionar Primeiro Link</a>
+</div>
+{% endif %}
+{% endblock %}
+

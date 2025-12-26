@@ -14,7 +14,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, PaginaServico, OrcamentoArCondicionado, Manual
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, ReparoRealizado, Video, PaginaServico, OrcamentoArCondicionado, Manual, LinkMenu
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui_altere_em_producao')
@@ -7383,6 +7383,7 @@ def inject_paginas_servicos():
     """Injeta páginas de serviços ativas em todos os templates para o menu"""
     paginas_servicos_menu = []
     primeira_pagina_servico = None
+    links_menu = []
     
     if use_database():
         try:
@@ -7398,6 +7399,17 @@ def inject_paginas_servicos():
             # Pegar a primeira página para usar como fallback
             if paginas_db:
                 primeira_pagina_servico = paginas_db[0].slug
+            
+            # Carregar links do menu gerenciáveis
+            links_db = LinkMenu.query.filter_by(ativo=True).order_by(LinkMenu.ordem).all()
+            for l in links_db:
+                links_menu.append({
+                    'id': l.id,
+                    'texto': l.texto,
+                    'url': l.url,
+                    'ordem': l.ordem,
+                    'abrir_nova_aba': l.abrir_nova_aba
+                })
         except Exception as e:
             # Silenciar erros de conexão - não crítico
             error_str = str(e).lower()
@@ -7409,10 +7421,12 @@ def inject_paginas_servicos():
             except:
                 pass
             paginas_servicos_menu = []
+            links_menu = []
     
     return {
         'paginas_servicos_menu': paginas_servicos_menu,
-        'primeira_pagina_servico_slug': primeira_pagina_servico
+        'primeira_pagina_servico_slug': primeira_pagina_servico,
+        'links_menu': links_menu
     }
 
 @app.template_filter('get_status_label')
@@ -8328,6 +8342,158 @@ def upload_imagem_pagina_servico():
         traceback.print_exc()
         db.session.rollback()
         return jsonify({'success': False, 'error': f'Erro ao salvar imagem no banco de dados: {str(e)}'}), 500
+
+# ==================== ROTAS ADMIN - LINKS DO MENU ====================
+@app.route('/admin/links-menu')
+@login_required
+def admin_links_menu():
+    """Lista todos os links do menu cadastrados"""
+    if not use_database():
+        flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
+        return render_template('admin/links_menu.html', links=[])
+    
+    try:
+        links_db = LinkMenu.query.order_by(LinkMenu.ordem).all()
+        links = []
+        for l in links_db:
+            links.append({
+                'id': l.id,
+                'texto': l.texto,
+                'url': l.url,
+                'ordem': l.ordem,
+                'ativo': l.ativo,
+                'abrir_nova_aba': l.abrir_nova_aba
+            })
+    except Exception as e:
+        print(f"Erro ao buscar links do menu do banco: {e}")
+        import traceback
+        traceback.print_exc()
+        links = []
+    
+    return render_template('admin/links_menu.html', links=links)
+
+@app.route('/admin/links-menu/add', methods=['GET', 'POST'])
+@login_required
+def add_link_menu():
+    """Adiciona um novo link do menu"""
+    if request.method == 'POST':
+        if use_database():
+            try:
+                texto = request.form.get('texto', '').strip()
+                url = request.form.get('url', '').strip()
+                ordem = request.form.get('ordem', '1')
+                ativo = request.form.get('ativo') == 'on'
+                abrir_nova_aba = request.form.get('abrir_nova_aba') == 'on'
+                
+                if not texto or not url:
+                    flash('Por favor, preencha o texto e a URL.', 'error')
+                    return redirect(url_for('add_link_menu'))
+                
+                if not ordem or not ordem.isdigit():
+                    ultimo_link = LinkMenu.query.order_by(LinkMenu.ordem.desc()).first()
+                    ordem = (ultimo_link.ordem + 1) if ultimo_link else 1
+                else:
+                    ordem = int(ordem)
+                
+                novo_link = LinkMenu(
+                    texto=texto,
+                    url=url,
+                    ordem=ordem,
+                    ativo=ativo,
+                    abrir_nova_aba=abrir_nova_aba
+                )
+                
+                db.session.add(novo_link)
+                db.session.commit()
+                
+                flash('Link adicionado com sucesso!', 'success')
+                return redirect(url_for('admin_links_menu'))
+            except Exception as e:
+                print(f"Erro ao adicionar link do menu: {e}")
+                import traceback
+                traceback.print_exc()
+                db.session.rollback()
+                flash(f'Erro ao adicionar link: {str(e)}', 'error')
+        else:
+            flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
+            return redirect(url_for('admin_links_menu'))
+    
+    return render_template('admin/add_link_menu.html')
+
+@app.route('/admin/links-menu/<int:link_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_link_menu(link_id):
+    """Edita um link do menu existente"""
+    if use_database():
+        try:
+            link = LinkMenu.query.get(link_id)
+            if not link:
+                flash('Link não encontrado!', 'error')
+                return redirect(url_for('admin_links_menu'))
+            
+            if request.method == 'POST':
+                texto = request.form.get('texto', '').strip()
+                url = request.form.get('url', '').strip()
+                ordem = request.form.get('ordem', '1')
+                ativo = request.form.get('ativo') == 'on'
+                abrir_nova_aba = request.form.get('abrir_nova_aba') == 'on'
+                
+                if not texto or not url:
+                    flash('Por favor, preencha o texto e a URL.', 'error')
+                    return redirect(url_for('edit_link_menu', link_id=link_id))
+                
+                if not ordem or not ordem.isdigit():
+                    ordem = link.ordem
+                else:
+                    ordem = int(ordem)
+                
+                link.texto = texto
+                link.url = url
+                link.ordem = ordem
+                link.ativo = ativo
+                link.abrir_nova_aba = abrir_nova_aba
+                link.data_atualizacao = datetime.now()
+                
+                db.session.commit()
+                
+                flash('Link atualizado com sucesso!', 'success')
+                return redirect(url_for('admin_links_menu'))
+        except Exception as e:
+            print(f"Erro ao editar link do menu: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            flash(f'Erro ao editar link: {str(e)}', 'error')
+            return redirect(url_for('admin_links_menu'))
+    else:
+        flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
+        return redirect(url_for('admin_links_menu'))
+    
+    return render_template('admin/edit_link_menu.html', link=link)
+
+@app.route('/admin/links-menu/<int:link_id>/delete', methods=['POST'])
+@login_required
+def delete_link_menu(link_id):
+    """Exclui um link do menu"""
+    if use_database():
+        try:
+            link = LinkMenu.query.get(link_id)
+            if not link:
+                flash('Link não encontrado!', 'error')
+                return redirect(url_for('admin_links_menu'))
+            
+            db.session.delete(link)
+            db.session.commit()
+            
+            flash('Link excluído com sucesso!', 'success')
+        except Exception as e:
+            print(f"Erro ao excluir link do menu: {e}")
+            db.session.rollback()
+            flash(f'Erro ao excluir link: {str(e)}', 'error')
+    else:
+        flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
+    
+    return redirect(url_for('admin_links_menu'))
 
 @app.route('/admin/paginas-servicos/imagem/<int:image_id>')
 def servir_imagem_pagina_servico(image_id):

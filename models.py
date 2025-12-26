@@ -406,3 +406,16 @@ class OrcamentoArCondicionado(db.Model):
     tecnico = db.relationship('Tecnico', foreign_keys=[tecnico_id], lazy=True)
     pdf_document = db.relationship('PDFDocument', foreign_keys=[pdf_id], lazy=True)
 
+# ==================== LINKS DO MENU ====================
+class LinkMenu(db.Model):
+    """Links gerenciáveis do menu principal"""
+    __tablename__ = 'links_menu'
+    id = db.Column(db.Integer, primary_key=True)
+    texto = db.Column(db.String(200), nullable=False)  # Texto exibido no menu (ex: "Celulares")
+    url = db.Column(db.String(500), nullable=False)  # URL do link (ex: "/celulares" ou "https://...")
+    ordem = db.Column(db.Integer, default=1)  # Ordem no menu
+    ativo = db.Column(db.Boolean, default=True)  # Se aparece no menu
+    abrir_nova_aba = db.Column(db.Boolean, default=False)  # Se deve abrir em nova aba
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+

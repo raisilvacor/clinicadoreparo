@@ -16,7 +16,7 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 # Importar os modelos
-from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor
+from models import db, Cliente, Servico, Tecnico, OrdemServico, Comprovante, Cupom, Slide, Footer, Marca, Milestone, AdminUser, Agendamento, Contato, Imagem, PDFDocument, Fornecedor, LinkMenu
 
 def corrigir_database_url(url):
     """Corrige a URL do banco de dados para o formato correto"""
@@ -104,7 +104,7 @@ def criar_tabelas():
                 'clientes', 'imagens', 'pdf_documents', 'servicos', 'tecnicos',
                 'ordens_servico', 'comprovantes', 'cupons', 'slides', 'footer',
                 'marcas', 'milestones', 'admin_users', 'agendamentos', 'contatos',
-                'fornecedores', 'artigos'  # artigos pode não ser usado, mas está no modelo
+                'fornecedores', 'links_menu', 'artigos'  # artigos pode não ser usado, mas está no modelo
             ]
             
             for tabela in sorted(tabelas_apos):
