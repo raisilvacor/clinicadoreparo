@@ -8528,6 +8528,37 @@ def delete_link_menu(link_id):
     
     return redirect(url_for('admin_links_menu'))
 
+@app.route('/admin/links-menu/inicializar-padrao', methods=['POST'])
+@login_required
+def inicializar_links_padrao():
+    """Força a inicialização dos links padrão do menu"""
+    if use_database():
+        try:
+            # Verificar se já existe o link "Celulares"
+            link_existente = LinkMenu.query.filter_by(texto='Celulares').first()
+            
+            if not link_existente:
+                link_celulares = LinkMenu(
+                    texto='Celulares',
+                    url='/celulares',
+                    ordem=1,
+                    ativo=True,
+                    abrir_nova_aba=False
+                )
+                db.session.add(link_celulares)
+                db.session.commit()
+                flash('Link padrão "Celulares" criado com sucesso!', 'success')
+            else:
+                flash('Link "Celulares" já existe no banco de dados.', 'info')
+        except Exception as e:
+            print(f"Erro ao inicializar links padrão: {e}")
+            db.session.rollback()
+            flash(f'Erro ao inicializar links padrão: {str(e)}', 'error')
+    else:
+        flash('Banco de dados não configurado. Configure DATABASE_URL no Render.', 'error')
+    
+    return redirect(url_for('admin_links_menu'))
+
 @app.route('/admin/paginas-servicos/imagem/<int:image_id>')
 def servir_imagem_pagina_servico(image_id):
     """Rota para servir imagens de páginas de serviços do banco de dados"""

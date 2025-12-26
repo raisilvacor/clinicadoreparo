@@ -8,9 +8,18 @@
         <h1><i class="fas fa-link"></i> Gerenciar Links do Menu</h1>
         <p>Gerencie os links exibidos no menu principal do site</p>
     </div>
-    <a href="{{ url_for('add_link_menu') }}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> Adicionar Link
-    </a>
+    <div style="display: flex; gap: 0.5rem;">
+        {% if not links %}
+        <form method="POST" action="{{ url_for('inicializar_links_padrao') }}" style="display: inline;">
+            <button type="submit" class="btn btn-secondary" title="Criar link padrão 'Celulares'">
+                <i class="fas fa-magic"></i> Criar Link Padrão
+            </button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('add_link_menu') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Adicionar Link
+        </a>
+    </div>
 </div>
 
 {% if links %}
