@@ -1311,6 +1311,11 @@ def servicos():
     # Se não encontrar nenhuma página, redirecionar para a home
     return redirect(url_for('index'))
 
+@app.route('/celular')
+def celular_redirect():
+    """Redireciona /celular para /servico/celular"""
+    return redirect(url_for('pagina_servico', slug='celular'))
+
 @app.route('/servico/<slug>')
 def pagina_servico(slug):
     """Rota dinâmica para páginas de serviços individuais"""
