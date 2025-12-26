@@ -922,7 +922,7 @@ init_slides_file()
 def favicon():
     """Serve o favicon do site"""
     try:
-        return send_file('static/img/favi.ico', mimetype='image/x-icon')
+        return send_file('static/img/favi.png', mimetype='image/png')
     except Exception as e:
         # Se não encontrar, retornar 404
         return '', 404
