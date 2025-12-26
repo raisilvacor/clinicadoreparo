@@ -39,7 +39,17 @@
                         <div>
                             <h4>WhatsApp</h4>
                             <p>(86) 988959957</p>
-                            <a href="#" class="btn btn-small">Falar no WhatsApp</a>
+                            {% if footer and footer.redes_sociais.whatsapp %}
+                            <a href="{{ footer.redes_sociais.whatsapp }}" target="_blank" class="btn btn-primary btn-small" style="margin-top: 0.5rem;">
+                                <i class="fab fa-whatsapp"></i>
+                                Falar no WhatsApp
+                            </a>
+                            {% else %}
+                            <a href="https://wa.me/5586988959957" target="_blank" class="btn btn-primary btn-small" style="margin-top: 0.5rem;">
+                                <i class="fab fa-whatsapp"></i>
+                                Falar no WhatsApp
+                            </a>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="contact-method">
