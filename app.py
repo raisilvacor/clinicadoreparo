@@ -9065,7 +9065,7 @@ def gerar_pdf_orcamento_ar(orçamento):
     styles = getSampleStyleSheet()
     
     # Logo
-    logo_path = os.path.join('static', 'img', 'logo2.png')
+    logo_path = os.path.join('static', 'img', 'logoar.png')
     if os.path.exists(logo_path):
         try:
             logo_width = 4.5*cm
