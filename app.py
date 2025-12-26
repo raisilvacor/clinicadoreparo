@@ -3141,11 +3141,24 @@ def add_ordem_servico():
                         flash('Cliente não encontrado!', 'error')
                         return redirect(url_for('add_ordem_servico'))
                 
+                # Validar técnico se fornecido
+                tecnico_id_final = None
+                if tecnico_id and tecnico_id != '':
+                    try:
+                        tecnico_id_int = int(tecnico_id)
+                        tecnico_db = Tecnico.query.get(tecnico_id_int)
+                        if tecnico_db:
+                            tecnico_id_final = tecnico_id_int
+                        else:
+                            print(f"Aviso: Técnico com ID {tecnico_id_int} não encontrado. Ordem será salva sem técnico.")
+                    except (ValueError, Exception) as e:
+                        print(f"Erro ao validar técnico: {e}")
+                
                 # Criar ordem no banco
                 nova_ordem_db = OrdemServico(
                     numero_ordem=str(numero_ordem),
                     cliente_id=cliente_id,
-                    tecnico_id=int(tecnico_id) if tecnico_id and tecnico_id != '' else None,
+                    tecnico_id=tecnico_id_final,
                     servico=servico,
                     tipo_aparelho=tipo_aparelho,
                     marca=marca,
@@ -3267,11 +3280,24 @@ def add_ordem_servico():
                                         flash('Cliente não encontrado!', 'error')
                                         return redirect(url_for('add_ordem_servico'))
                                 
+                                # Validar técnico se fornecido
+                                tecnico_id_final = None
+                                if tecnico_id and tecnico_id != '':
+                                    try:
+                                        tecnico_id_int = int(tecnico_id)
+                                        tecnico_db = Tecnico.query.get(tecnico_id_int)
+                                        if tecnico_db:
+                                            tecnico_id_final = tecnico_id_int
+                                        else:
+                                            print(f"Aviso: Técnico com ID {tecnico_id_int} não encontrado. Ordem será salva sem técnico.")
+                                    except (ValueError, Exception) as e:
+                                        print(f"Erro ao validar técnico: {e}")
+                                
                                 # Criar ordem no banco
                                 nova_ordem_db = OrdemServico(
                                     numero_ordem=str(numero_ordem),
                                     cliente_id=cliente_id,
-                                    tecnico_id=int(tecnico_id) if tecnico_id and tecnico_id != '' else None,
+                                    tecnico_id=tecnico_id_final,
                                     servico=servico,
                                     tipo_aparelho=tipo_aparelho,
                                     marca=marca,
@@ -9280,10 +9306,23 @@ def add_orcamento_ar():
             
             calculo = calcular_preco_orcamento_ar(tipo_servico, potencia_btu, tipo_acesso, material_adicional, valor_material, custos_adicionais if custos_adicionais else None)
             
+            # Validar técnico se fornecido
+            tecnico_id_final = None
+            if tecnico_id and tecnico_id != '':
+                try:
+                    tecnico_id_int = int(tecnico_id)
+                    tecnico_db = Tecnico.query.get(tecnico_id_int)
+                    if tecnico_db:
+                        tecnico_id_final = tecnico_id_int
+                    else:
+                        print(f"Aviso: Técnico com ID {tecnico_id_int} não encontrado. Orçamento será salvo sem técnico.")
+                except (ValueError, Exception) as e:
+                    print(f"Erro ao validar técnico: {e}")
+            
             # Criar orçamento
             orcamento = OrcamentoArCondicionado(
                 cliente_id=cliente_id,
-                tecnico_id=int(tecnico_id) if tecnico_id and tecnico_id != '' else None,
+                tecnico_id=tecnico_id_final,
                 tipo_servico=tipo_servico,
                 potencia_btu=potencia_btu,
                 tipo_acesso=tipo_acesso,
@@ -9409,7 +9448,19 @@ def edit_orcamento_ar(orcamento_id):
         if request.method == 'POST':
             orcamento.cliente_id = int(request.form.get('cliente_id'))
             tecnico_id = request.form.get('tecnico_id')
-            orcamento.tecnico_id = int(tecnico_id) if tecnico_id and tecnico_id != '' else None
+            # Validar técnico se fornecido
+            tecnico_id_final = None
+            if tecnico_id and tecnico_id != '':
+                try:
+                    tecnico_id_int = int(tecnico_id)
+                    tecnico_db = Tecnico.query.get(tecnico_id_int)
+                    if tecnico_db:
+                        tecnico_id_final = tecnico_id_int
+                    else:
+                        print(f"Aviso: Técnico com ID {tecnico_id_int} não encontrado. Orçamento será salvo sem técnico.")
+                except (ValueError, Exception) as e:
+                    print(f"Erro ao validar técnico: {e}")
+            orcamento.tecnico_id = tecnico_id_final
             orcamento.tipo_servico = request.form.get('tipo_servico')
             orcamento.potencia_btu = int(request.form.get('potencia_btu'))
             orcamento.tipo_acesso = request.form.get('tipo_acesso')
