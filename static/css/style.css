@@ -1,15 +1,15 @@
 /* Reset e Variáveis */
 :root {
-    --primary-color: #215f97;
-    --primary-dark: #002043;
-    --secondary-color: #4a8bc2;
-    --accent-color: #6ba3d4;
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --bg-primary: #ffffff;
-    --bg-secondary: #f9fafb;
-    --bg-dark: #215f97;
-    --border-color: #e5e7eb;
+    --primary-color: #ff9800;
+    --primary-dark: #f57c00;
+    --secondary-color: #ffb74d;
+    --accent-color: #ffcc80;
+    --text-primary: #ffffff;
+    --text-secondary: #ffffff;
+    --bg-primary: #000000;
+    --bg-secondary: #111111;
+    --bg-dark: #000000;
+    --border-color: #333333;
     --success-color: #10b981;
     --error-color: #ef4444;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -34,6 +34,7 @@ body {
     background-color: var(--bg-primary);
     line-height: 1.6;
     overflow-x: hidden;
+    color: #ffffff;
 }
 
 .container {
@@ -47,7 +48,7 @@ body {
     position: fixed;
     top: 0;
     width: 100%;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(10px);
     box-shadow: var(--shadow-sm);
     z-index: 1000;
@@ -67,7 +68,7 @@ body {
     gap: 10px;
     font-size: 1.5rem;
     font-weight: 800;
-    color: var(--primary-color);
+    color: #ff9800;
     text-decoration: none;
     transition: opacity 0.3s ease;
 }
@@ -95,18 +96,18 @@ body {
 
 .nav-link {
     text-decoration: none;
-    color: var(--text-primary);
+    color: #ffffff;
     font-weight: 500;
     transition: color 0.3s ease;
     position: relative;
 }
 
 .nav-link:hover {
-    color: var(--primary-color);
+    color: #ff9800;
 }
 
 .nav-link.btn-primary {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     color: white;
     padding: 0.5rem 1.5rem;
     border-radius: 50px;
@@ -134,7 +135,7 @@ body {
 }
 
 .nav-dropdown .dropdown-trigger:hover {
-    color: var(--primary-color);
+    color: #ff9800;
 }
 
 .nav-dropdown .nav-link i,
@@ -147,7 +148,7 @@ body {
     position: absolute;
     top: 100%;
     left: 0;
-    background: white;
+    background: #000000;
     min-width: 220px;
     box-shadow: var(--shadow-lg);
     border-radius: 8px;
@@ -185,7 +186,7 @@ body {
 .dropdown-menu a {
     display: block;
     padding: 0.75rem 1.5rem;
-    color: var(--text-primary);
+    color: #ffffff;
     text-decoration: none;
     transition: all 0.3s ease;
     font-weight: 400;
@@ -193,7 +194,7 @@ body {
 
 .dropdown-menu a:hover {
     background: var(--bg-secondary);
-    color: var(--primary-color);
+    color: #ff9800;
     padding-left: 2rem;
 }
 
@@ -229,7 +230,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #215f97 0%, #4a8bc2 100%);
+    background: linear-gradient(135deg, #000000 0%, #111111 100%);
     z-index: -1;
 }
 
@@ -252,7 +253,7 @@ body {
 
 /* Circuit loader styles */
 .trace-bg {
-    stroke: #4a8bc2;
+    stroke: #ffb74d;
     stroke-width: 1.8;
     fill: none;
 }
@@ -267,8 +268,8 @@ body {
 }
 
 .trace-flow.yellow {
-    stroke: #215f97;
-    color: #215f97;
+    stroke: #ff9800;
+    color: #ff9800;
     animation-delay: 0s;
 }
 
@@ -291,8 +292,8 @@ body {
 }
 
 .trace-flow.red {
-    stroke: #215f97;
-    color: #215f97;
+    stroke: #ff9800;
+    color: #ff9800;
     animation-delay: 1.5s;
 }
 
@@ -429,7 +430,7 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     color: white;
     box-shadow: var(--shadow-md);
 }
@@ -477,7 +478,7 @@ section {
 
 .section-badge {
     display: inline-block;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     color: white;
     padding: 0.5rem 1.5rem;
     border-radius: 50px;
@@ -490,12 +491,12 @@ section {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 .section-description {
     font-size: 1.1rem;
-    color: var(--text-secondary);
+    color: #ffffff;
     max-width: 600px;
     margin: 0 auto;
 }
@@ -515,7 +516,7 @@ section {
 }
 
 .service-card {
-    background: white;
+    background: #000000;
     border-radius: 0;
     padding: 0;
     box-shadow: none;
@@ -525,6 +526,7 @@ section {
     display: flex;
     flex-direction: column;
     cursor: default;
+    color: #ffffff;
 }
 
 .service-card-link:hover .service-card,
@@ -537,7 +539,7 @@ section {
     width: 100%;
     aspect-ratio: 1;
     overflow: hidden;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -558,11 +560,11 @@ section {
     font-size: 1.5rem;
     font-weight: 700;
     margin: 1.5rem 1.5rem 0.75rem;
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 .service-card p {
-    color: var(--text-secondary);
+    color: #ffffff;
     margin: 0 1.5rem 1.5rem;
     line-height: 1.6;
 }
@@ -586,6 +588,7 @@ section {
 /* Features */
 .features {
     background: var(--bg-secondary);
+    color: #ffffff;
 }
 
 .features-grid {
@@ -602,7 +605,7 @@ section {
 .feature-icon {
     width: 70px;
     height: 70px;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     border-radius: 15px;
     display: flex;
     align-items: center;
@@ -619,15 +622,16 @@ section {
     font-size: 1.3rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
+    color: #ffffff;
 }
 
 .feature-item p {
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 /* CTA Section */
 .cta-section {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     color: white;
     text-align: center;
 }
@@ -646,7 +650,7 @@ section {
 
 /* Page Header */
 .page-header {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #000000, #111111);
     color: white;
     padding: 8rem 0 4rem;
     text-align: center;
@@ -676,10 +680,11 @@ section {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1.5rem;
+    color: #ffffff;
 }
 
 .about-text p {
-    color: var(--text-secondary);
+    color: #ffffff;
     margin-bottom: 1rem;
     font-size: 1.1rem;
 }
@@ -696,17 +701,18 @@ section {
 
 .about-feature i {
     font-size: 2rem;
-    color: var(--primary-color);
+    color: #ff9800;
     flex-shrink: 0;
 }
 
 .about-feature h4 {
     font-weight: 700;
     margin-bottom: 0.5rem;
+    color: #ffffff;
 }
 
 .about-feature p {
-    color: var(--text-secondary);
+    color: #ffffff;
     font-size: 1rem;
 }
 
@@ -717,7 +723,7 @@ section {
 .image-placeholder {
     width: 100%;
     height: 400px;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     border-radius: 20px;
     display: flex;
     align-items: center;
@@ -763,12 +769,13 @@ section {
 }
 
 .value-card {
-    background: white;
+    background: #000000;
     padding: 2rem;
     border-radius: 15px;
     text-align: center;
     box-shadow: var(--shadow-md);
     transition: all 0.3s ease;
+    color: #ffffff;
 }
 
 .value-card:hover {
@@ -779,7 +786,7 @@ section {
 .value-icon {
     width: 70px;
     height: 70px;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     border-radius: 15px;
     display: flex;
     align-items: center;
@@ -796,10 +803,11 @@ section {
     font-size: 1.3rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
+    color: #ffffff;
 }
 
 .value-card p {
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 /* Services Detailed */
@@ -808,11 +816,12 @@ section {
 }
 
 .services-category {
-    background: white;
+    background: #000000;
     border-radius: 20px;
     padding: 3rem;
     margin-bottom: 3rem;
     box-shadow: var(--shadow-lg);
+    color: #ffffff;
 }
 
 .category-header {
@@ -827,7 +836,7 @@ section {
 .category-icon {
     width: 80px;
     height: 80px;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     border-radius: 20px;
     display: flex;
     align-items: center;
@@ -843,10 +852,11 @@ section {
     font-size: 2rem;
     font-weight: 800;
     margin-bottom: 0.5rem;
+    color: #ffffff;
 }
 
 .category-header p {
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 .services-list {
@@ -871,16 +881,17 @@ section {
 .service-item h4 {
     font-weight: 700;
     margin-bottom: 0.5rem;
+    color: #ffffff;
 }
 
 .service-item p {
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 .services-cta {
     text-align: center;
     padding: 3rem;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     border-radius: 20px;
     color: white;
 }
@@ -909,10 +920,11 @@ section {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
+    color: #ffffff;
 }
 
 .contact-info > p {
-    color: var(--text-secondary);
+    color: #ffffff;
     margin-bottom: 2rem;
     font-size: 1.1rem;
 }
@@ -928,12 +940,13 @@ section {
     padding: 1.5rem;
     background: var(--bg-secondary);
     border-radius: 15px;
+    color: #ffffff;
 }
 
 .method-icon {
     width: 60px;
     height: 60px;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #ff9800, #ffb74d);
     border-radius: 15px;
     display: flex;
     align-items: center;
@@ -949,10 +962,11 @@ section {
 .contact-method h4 {
     font-weight: 700;
     margin-bottom: 0.5rem;
+    color: #ffffff;
 }
 
 .contact-method p {
-    color: var(--text-secondary);
+    color: #ffffff;
     margin-bottom: 0.5rem;
 }
 
@@ -960,6 +974,7 @@ section {
     background: var(--bg-secondary);
     padding: 2rem;
     border-radius: 15px;
+    color: #ffffff;
 }
 
 .contact-hours h3 {
@@ -976,7 +991,7 @@ section {
 
 .contact-hours li {
     padding: 0.5rem 0;
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 .whatsapp-contact-button {
@@ -997,10 +1012,11 @@ section {
 
 /* Contact Form */
 .contact-form-wrapper {
-    background: white;
+    background: #000000;
     padding: 3rem;
     border-radius: 20px;
     box-shadow: var(--shadow-xl);
+    color: #ffffff;
 }
 
 .contact-form {
@@ -1020,11 +1036,11 @@ section {
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 .form-group label i {
-    color: var(--primary-color);
+    color: #ff9800;
 }
 
 .form-group input,
@@ -1042,8 +1058,8 @@ section {
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: #ff9800;
+    box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
 }
 
 .form-group textarea {
@@ -1423,51 +1439,19 @@ section {
     }
 }
 
-/* Forçar substituição de cores laranjas por azul em todo o site */
-*[style*="orange"],
-*[style*="#ff9800"],
-*[style*="#ffc107"],
-*[style*="#f59e0b"],
-*[style*="#ff6b6b"],
-*[style*="#ff3300"],
-*[style*="#ffea00"],
-*[style*="#fbc02d"],
-*[style*="#ffa500"],
-*[style*="#ff8c00"] {
-    color: #215f97 !important;
+/* Garantir que textos sejam brancos em fundos pretos */
+body, 
+section,
+.container,
+.service-card,
+.value-card,
+.services-category,
+.contact-form-wrapper {
+    color: #ffffff;
 }
 
-*[style*="background"][style*="orange"],
-*[style*="background"][style*="#ff9800"],
-*[style*="background"][style*="#ffc107"],
-*[style*="background"][style*="#f59e0b"],
-*[style*="background"][style*="#ff6b6b"],
-*[style*="background"][style*="#ff3300"],
-*[style*="background"][style*="#ffea00"],
-*[style*="background"][style*="#fbc02d"],
-*[style*="background"][style*="#ffa500"],
-*[style*="background"][style*="#ff8c00"] {
-    background-color: #215f97 !important;
-    background: #215f97 !important;
-}
-
-*[style*="border"][style*="orange"],
-*[style*="border"][style*="#ff9800"],
-*[style*="border"][style*="#ffc107"],
-*[style*="border"][style*="#f59e0b"],
-*[style*="border"][style*="#ff6b6b"],
-*[style*="border"][style*="#ff3300"],
-*[style*="border"][style*="#ffea00"],
-*[style*="border"][style*="#fbc02d"],
-*[style*="border"][style*="#ffa500"],
-*[style*="border"][style*="#ff8c00"] {
-    border-color: #215f97 !important;
-}
-
-/* Garantir que títulos de páginas sejam brancos no header azul */
-.page-header h1,
-.page-header h1 *,
-.page-header * {
-    color: white !important;
+h1, h2, h3, h4, h5, h6,
+p, span, div, li, td, th {
+    color: #ffffff;
 }
 
