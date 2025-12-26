@@ -135,6 +135,11 @@
                         {% else %}
                         <a href="#" class="disabled" aria-disabled="true"><i class="fab fa-whatsapp"></i></a>
                         {% endif %}
+                        {% if footer and footer.redes_sociais.youtube %}
+                        <a href="{{ footer.redes_sociais.youtube }}" target="_blank" rel="noopener noreferrer"><i class="fab fa-youtube"></i></a>
+                        {% else %}
+                        <a href="#" class="disabled" aria-disabled="true"><i class="fab fa-youtube"></i></a>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="footer-section">

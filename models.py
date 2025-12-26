@@ -157,7 +157,7 @@ class Footer(db.Model):
     __tablename__ = 'footer'
     id = db.Column(db.Integer, primary_key=True)
     descricao = db.Column(db.Text)
-    redes_sociais = db.Column(JSON)  # {facebook, instagram, whatsapp}
+    redes_sociais = db.Column(JSON)  # {facebook, instagram, whatsapp, youtube}
     contato = db.Column(JSON)  # {telefone, email, endereco}
     copyright = db.Column(db.String(500))
     whatsapp_float = db.Column(db.String(500))

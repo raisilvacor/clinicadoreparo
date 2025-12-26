@@ -862,7 +862,8 @@ def init_footer_file():
             'redes_sociais': {
                 'facebook': '',
                 'instagram': '',
-                'whatsapp': 'https://wa.me/5586988959957'
+                'whatsapp': 'https://wa.me/5586988959957',
+                'youtube': ''
             },
             'contato': {
                 'telefone': '(11) 99999-9999',
@@ -1027,7 +1028,7 @@ def index():
         # Se não usar banco, criar footer padrão (não usar JSON)
         footer_data = {
             'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
-            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': '', 'youtube': ''},
             'contato': {'telefone': '', 'email': '', 'endereco': ''},
             'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
             'whatsapp_float': ''
@@ -1262,7 +1263,7 @@ def todos_reparos():
     if not footer_data:
         footer_data = {
             'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
-            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': '', 'youtube': ''},
             'contato': {'telefone': '', 'email': '', 'endereco': ''},
             'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
             'whatsapp_float': ''
@@ -1321,7 +1322,7 @@ def sobre():
     if not footer_data:
         footer_data = {
             'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
-            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': '', 'youtube': ''},
             'contato': {'telefone': '', 'email': '', 'endereco': ''},
             'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
             'whatsapp_float': ''
@@ -1389,7 +1390,7 @@ def pagina_servico(slug):
     if not footer_data:
         footer_data = {
             'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
-            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': '', 'youtube': ''},
             'contato': {'telefone': '', 'email': '', 'endereco': ''},
             'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
             'whatsapp_float': ''
@@ -1497,7 +1498,7 @@ def contato():
     if not footer_data:
         footer_data = {
             'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
-            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': '', 'youtube': ''},
             'contato': {'telefone': '', 'email': '', 'endereco': ''},
             'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
             'whatsapp_float': ''
@@ -5772,6 +5773,7 @@ def admin_footer():
         facebook = request.form.get('facebook', '').strip()
         instagram = request.form.get('instagram', '').strip()
         whatsapp = request.form.get('whatsapp', '').strip()
+        youtube = request.form.get('youtube', '').strip()
         telefone = request.form.get('telefone', '').strip()
         email = request.form.get('email', '').strip()
         endereco = request.form.get('endereco', '').strip()
@@ -5790,7 +5792,8 @@ def admin_footer():
                 footer_obj.redes_sociais = {
                     'facebook': facebook,
                     'instagram': instagram,
-                    'whatsapp': whatsapp
+                    'whatsapp': whatsapp,
+                    'youtube': youtube
                 }
                 footer_obj.contato = {
                     'telefone': telefone,
@@ -5828,7 +5831,8 @@ def admin_footer():
                     'redes_sociais': footer_obj.redes_sociais or {
                         'facebook': '',
                         'instagram': '',
-                        'whatsapp': ''
+                        'whatsapp': '',
+                        'youtube': ''
                     },
                     'contato': footer_obj.contato or {
                         'telefone': '',
@@ -5845,7 +5849,8 @@ def admin_footer():
                     'redes_sociais': {
                         'facebook': '',
                         'instagram': '',
-                        'whatsapp': ''
+                        'whatsapp': '',
+                        'youtube': ''
                     },
                     'contato': {
                         'telefone': '',
@@ -7032,7 +7037,7 @@ def todos_videos():
     if not footer_data:
         footer_data = {
             'descricao': 'Sua assistência técnica de confiança para eletrodomésticos, celulares, computadores e notebooks.',
-            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': ''},
+            'redes_sociais': {'facebook': '', 'instagram': '', 'whatsapp': '', 'youtube': ''},
             'contato': {'telefone': '', 'email': '', 'endereco': ''},
             'copyright': '© 2026 Clínica do Reparo. Todos os direitos reservados.',
             'whatsapp_float': ''
@@ -7317,7 +7322,8 @@ def inject_footer():
                     'redes_sociais': footer_obj.redes_sociais or {
                         'facebook': '',
                         'instagram': '',
-                        'whatsapp': ''
+                        'whatsapp': '',
+                        'youtube': ''
                     },
                     'contato': footer_obj.contato or {
                         'telefone': '',
