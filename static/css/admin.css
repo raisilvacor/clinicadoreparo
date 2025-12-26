@@ -745,8 +745,8 @@
 
 /* Notification Styles for Agendamentos */
 .notification-pending {
-    background: #fef3c7;
-    border-left: 4px solid #f59e0b;
+    background: #dbeafe;
+    border-left: 4px solid #215f97;
 }
 
 .notification-pending:hover {
@@ -781,7 +781,7 @@
 }
 
 .badge-pendente {
-    background: #f59e0b;
+    background: #215f97;
     color: white;
 }
 

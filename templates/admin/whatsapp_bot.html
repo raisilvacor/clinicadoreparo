@@ -33,8 +33,8 @@
         </div>
 
         <div id="evolution_config" class="integration-config">
-            <div class="info-box" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 1.5rem;">
-                <div style="background: #fff3cd; border-left: 4px solid #ff9800; padding: 1rem; margin-bottom: 1rem; border-radius: 5px;">
+            <div class="info-box" style="background: #dbeafe; border-left: 4px solid #215f97; margin-bottom: 1.5rem;">
+                <div style="background: #dbeafe; border-left: 4px solid #215f97; padding: 1rem; margin-bottom: 1rem; border-radius: 5px;">
                     <p style="margin: 0; color: #856404;"><strong>⚠️ ATENÇÃO:</strong> Se seu site está hospedado no Render, Railway, Heroku ou outro servidor, você <strong>DEVE</strong> usar uma Evolution API online (Opção 1). <strong>NÃO</strong> use localhost ou Docker local, pois o servidor não consegue acessar seu computador!</p>
                 </div>
                 
@@ -60,7 +60,7 @@
                 </div>
                 
                 <p style="margin-top: 1rem;"><strong>💻 Opção 2: Instalar com Node.js (Avançado - Requer conhecimento técnico)</strong></p>
-                <div style="margin-left: 1.5rem; margin-top: 0.5rem; background: #fff3e0; padding: 1rem; border-radius: 5px; border-left: 3px solid #ff9800;">
+                <div style="margin-left: 1.5rem; margin-top: 0.5rem; background: #dbeafe; padding: 1rem; border-radius: 5px; border-left: 3px solid #215f97;">
                     <p><strong>⚠️ Nota:</strong> Esta opção é mais complexa e requer conhecimento técnico. Recomendamos usar a <strong>Opção 1 (Online)</strong> que é muito mais fácil.</p>
                     <p style="margin-top: 0.5rem;"><strong>Requisitos:</strong> Node.js instalado (baixe em <a href="https://nodejs.org" target="_blank">nodejs.org</a>)</p>
                     <p style="margin-top: 0.5rem;"><strong>Passos:</strong></p>
@@ -89,7 +89,7 @@
                     </ol>
                 </div>
                 
-                <div style="margin-top: 1rem; padding: 1rem; background: #fff9c4; border-radius: 5px; border-left: 4px solid #fbc02d;">
+                <div style="margin-top: 1rem; padding: 1rem; background: #dbeafe; border-radius: 5px; border-left: 4px solid #215f97;">
                     <p style="margin: 0;"><strong>💡 Recomendação:</strong> Se você não tem experiência técnica, use a <strong>Opção 1 (Evolution API Online)</strong>. É a forma mais rápida e fácil de começar!</p>
                 </div>
             </div>
@@ -150,7 +150,7 @@
                         3. Toque em <strong>"Conectar um dispositivo"</strong><br>
                         4. Escaneie o QR Code acima
                     </p>
-                    <div id="connection-status" style="text-align: center; margin-top: 1rem; padding: 0.5rem; border-radius: 5px; background: #fff3cd; color: #856404;">
+                    <div id="connection-status" style="text-align: center; margin-top: 1rem; padding: 0.5rem; border-radius: 5px; background: #dbeafe; color: #1e40af;">
                         <i class="fas fa-spinner fa-spin"></i> Aguardando conexão...
                     </div>
                     <button type="button" onclick="verificarConexao()" class="btn btn-secondary" style="width: 100%; margin-top: 1rem;">
@@ -468,8 +468,8 @@ function testarConexaoAPI() {
     const testStatus = document.getElementById('test-status');
     testStatus.style.display = 'block';
     testStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testando conexão...';
-    testStatus.style.background = '#fff3cd';
-    testStatus.style.color = '#856404';
+    testStatus.style.background = '#dbeafe';
+    testStatus.style.color = '#1e40af';
     
     fetch('/api/whatsapp/test-connection', {
         method: 'POST',
@@ -533,8 +533,8 @@ function verificarConexao(silent = false) {
             return true;
         } else {
             document.getElementById('connection-status').innerHTML = '<i class="fas fa-clock"></i> Aguardando conexão... Escaneie o QR Code acima.';
-            document.getElementById('connection-status').style.background = '#fff3cd';
-            document.getElementById('connection-status').style.color = '#856404';
+            document.getElementById('connection-status').style.background = '#dbeafe';
+            document.getElementById('connection-status').style.color = '#1e40af';
             return false;
         }
     })

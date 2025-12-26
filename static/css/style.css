@@ -8,7 +8,7 @@
     --text-secondary: #6b7280;
     --bg-primary: #ffffff;
     --bg-secondary: #f9fafb;
-    --bg-dark: #111827;
+    --bg-dark: #215f97;
     --border-color: #e5e7eb;
     --success-color: #10b981;
     --error-color: #ef4444;
@@ -252,7 +252,7 @@ body {
 
 /* Circuit loader styles */
 .trace-bg {
-    stroke: #333;
+    stroke: #4a8bc2;
     stroke-width: 1.8;
     fill: none;
 }
@@ -267,8 +267,8 @@ body {
 }
 
 .trace-flow.yellow {
-    stroke: #ffea00;
-    color: #ffea00;
+    stroke: #215f97;
+    color: #215f97;
     animation-delay: 0s;
 }
 
@@ -291,8 +291,8 @@ body {
 }
 
 .trace-flow.red {
-    stroke: #ff3300;
-    color: #ff3300;
+    stroke: #215f97;
+    color: #215f97;
     animation-delay: 1.5s;
 }
 
