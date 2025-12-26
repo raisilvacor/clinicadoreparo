@@ -126,7 +126,8 @@
 .admin-hamburger span {
     width: 25px;
     height: 3px;
-    background: #ffffff;
+    background: #000000;
+    color: #ffffff;
     border-radius: 3px;
     transition: all 0.3s ease;
 }
