@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Painel Administrativo{% endblock %} - TechCell</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('celular.static', filename='images/favicon.png') }}">
     <style>
         * {
             margin: 0;
@@ -257,15 +257,15 @@
         <nav class="admin-nav">
             <div class="admin-logo">🔧 Painel Admin</div>
             <ul class="admin-nav-links">
-                <li><a href="{{ url_for('admin_dashboard') }}" class="{% if request.endpoint == 'admin_dashboard' %}active{% endif %}">Dashboard</a></li>
-                <li><a href="{{ url_for('admin_hero') }}" class="{% if request.endpoint == 'admin_hero' %}active{% endif %}">Hero</a></li>
-                <li><a href="{{ url_for('admin_services') }}" class="{% if request.endpoint == 'admin_services' %}active{% endif %}">Serviços</a></li>
-                <li><a href="{{ url_for('admin_about') }}" class="{% if request.endpoint == 'admin_about' %}active{% endif %}">Sobre</a></li>
-                <li><a href="{{ url_for('admin_devices') }}" class="{% if request.endpoint == 'admin_devices' %}active{% endif %}">Dispositivos</a></li>
-                <li><a href="{{ url_for('admin_laboratory') }}" class="{% if request.endpoint == 'admin_laboratory' %}active{% endif %}">Laboratório</a></li>
-                <li><a href="{{ url_for('admin_contact') }}" class="{% if request.endpoint == 'admin_contact' %}active{% endif %}">Contato</a></li>
-                <li><a href="{{ url_for('admin_password') }}">Senha</a></li>
-                <li><a href="{{ url_for('admin_logout') }}">Sair</a></li>
+                <li><a href="{{ url_for('celular.admin_dashboard') }}" class="{% if request.endpoint == 'celular.admin_dashboard' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{{ url_for('celular.admin_hero') }}" class="{% if request.endpoint == 'celular.admin_hero' %}active{% endif %}">Hero</a></li>
+                <li><a href="{{ url_for('celular.admin_services') }}" class="{% if request.endpoint == 'celular.admin_services' %}active{% endif %}">Serviços</a></li>
+                <li><a href="{{ url_for('celular.admin_about') }}" class="{% if request.endpoint == 'celular.admin_about' %}active{% endif %}">Sobre</a></li>
+                <li><a href="{{ url_for('celular.admin_devices') }}" class="{% if request.endpoint == 'celular.admin_devices' %}active{% endif %}">Dispositivos</a></li>
+                <li><a href="{{ url_for('celular.admin_laboratory') }}" class="{% if request.endpoint == 'celular.admin_laboratory' %}active{% endif %}">Laboratório</a></li>
+                <li><a href="{{ url_for('celular.admin_contact') }}" class="{% if request.endpoint == 'celular.admin_contact' %}active{% endif %}">Contato</a></li>
+                <li><a href="{{ url_for('celular.admin_password') }}">Senha</a></li>
+                <li><a href="{{ url_for('celular.admin_logout') }}">Sair</a></li>
             </ul>
         </nav>
     </header>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clínica do Molile - Android e iPhone</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('celular.static', filename='images/favicon.png') }}">
     <style>
         * {
             margin: 0;
@@ -589,7 +589,7 @@
     <header>
         <nav>
             <div class="logo">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo TechCell Assistência">
+                <img src="{{ url_for('celular.static', filename='images/logo.png') }}" alt="Logo TechCell Assistência">
             </div>
             <ul class="nav-links">
                 <li><a href="#inicio">Início</a></li>
@@ -604,7 +604,13 @@
 
     <!-- Hero Section -->
     <section id="inicio" class="hero">
-        <img src="{{ content.hero.background_image if content and content.hero and content.hero.background_image else '/static/images/head.jpg' }}" alt="Assistência Técnica" class="hero-image">
+        {% set hero_bg = content.hero.background_image if content and content.hero and content.hero.background_image else '' %}
+        {% if hero_bg and hero_bg.startswith('/static/') %}
+            {% set hero_bg = url_for('celular.static', filename=hero_bg.replace('/static/', '')) %}
+        {% elif not hero_bg %}
+            {% set hero_bg = url_for('celular.static', filename='images/head.jpg') %}
+        {% endif %}
+        <img src="{{ hero_bg }}" alt="Assistência Técnica" class="hero-image">
         <div class="hero-overlay">
             <div class="hero-content">
                 <h1>{{ content.hero.title if content and content.hero and content.hero.title else 'Assistência Técnica Profissional' }}</h1>
@@ -661,7 +667,13 @@
             </div>
             <div class="about-image">
                 <video class="about-video" autoplay loop playsinline>
-                    <source src="{{ content.about.video if content and content.about and content.about.video else '/static/videos/iphone.mp4' }}" type="video/mp4">
+                    {% set about_video = content.about.video if content and content.about and content.about.video else '' %}
+                    {% if about_video and about_video.startswith('/static/') %}
+                        {% set about_video = url_for('celular.static', filename=about_video.replace('/static/', '')) %}
+                    {% elif not about_video %}
+                        {% set about_video = url_for('celular.static', filename='videos/iphone.mp4') %}
+                    {% endif %}
+                    <source src="{{ about_video }}" type="video/mp4">
                     Seu navegador não suporta vídeos HTML5.
                 </video>
             </div>
@@ -674,9 +686,13 @@
         <div class="devices-grid">
             {% if content and content.devices %}
                 {% for device in content.devices %}
+                {% set device_img = device.image %}
+                {% if device_img and device_img.startswith('/static/') %}
+                    {% set device_img = url_for('celular.static', filename=device_img.replace('/static/', '')) %}
+                {% endif %}
                 <div class="device-card">
                     <div class="device-image-container">
-                        <img src="{{ device.image }}" alt="{{ device.name }}" class="device-image" onerror="this.parentElement.innerHTML='<div class=\'device-image-placeholder\'>📱</div>'">
+                        <img src="{{ device_img }}" alt="{{ device.name }}" class="device-image" onerror="this.parentElement.innerHTML='<div class=\'device-image-placeholder\'>📱</div>'">
                     </div>
                     <div class="device-content">
                         <h3>{{ device.name }}</h3>
@@ -688,7 +704,7 @@
                 <!-- Conteúdo padrão -->
                 <div class="device-card">
                     <div class="device-image-container">
-                        <img src="/static/images/android.jpg" alt="Android" class="device-image" onerror="this.parentElement.innerHTML='<div class=\'device-image-placeholder\'>🤖</div>'">
+                        <img src="{{ url_for('celular.static', filename='images/andorid.png') }}" alt="Android" class="device-image" onerror="this.parentElement.innerHTML='<div class=\'device-image-placeholder\'>🤖</div>'">
                     </div>
                     <div class="device-content">
                         <h3>Android</h3>

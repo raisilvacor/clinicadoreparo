@@ -1311,11 +1311,6 @@ def servicos():
     # Se não encontrar nenhuma página, redirecionar para a home
     return redirect(url_for('index'))
 
-@app.route('/celular')
-def celular_redirect():
-    """Redireciona /celular para /servico/celular"""
-    return redirect(url_for('pagina_servico', slug='celular'))
-
 @app.route('/servico/<slug>')
 def pagina_servico(slug):
     """Rota dinâmica para páginas de serviços individuais"""
@@ -9363,6 +9358,13 @@ def handle_file_too_large(e):
     if request.path.startswith('/admin/videos'):
         return redirect(url_for('add_video'))
     return redirect(url_for('admin_dashboard'))
+
+# ==================== REGISTRAR BLUEPRINT DO PROJETO CELULAR ====================
+try:
+    from celular.blueprint import celular_bp
+    app.register_blueprint(celular_bp, url_prefix='/celular')
+except ImportError as e:
+    print(f"Aviso: Não foi possível carregar blueprint do projeto celular: {e}")
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
