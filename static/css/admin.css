@@ -1,10 +1,11 @@
 /* Admin Panel Styles - Mesmo estilo do site */
 
 .info-box {
-    background: white;
+    background: #000000;
     padding: 1.5rem;
     border-radius: 10px;
     margin-top: 1rem;
+    color: #ffffff;
 }
 
 .info-box p {
@@ -21,16 +22,17 @@
 }
 
 .code-box {
-    background: #f5f5f5;
-    border: 1px solid #ddd;
+    background: #111111;
+    border: 1px solid #333333;
     border-radius: 5px;
     padding: 1rem;
     margin: 1rem 0;
     font-family: 'Courier New', monospace;
+    color: #ffffff;
 }
 
 .code-box code {
-    color: var(--primary-color);
+    color: #ff9800;
     font-size: 0.9rem;
 }
 
@@ -51,7 +53,7 @@
 
 /* Admin Navbar */
 .admin-navbar {
-    background: white;
+    background: #000000;
     box-shadow: var(--shadow-md);
     position: sticky;
     top: 0;
@@ -94,7 +96,7 @@
     gap: 0.5rem;
     padding: 0.5rem 1rem;
     text-decoration: none;
-    color: var(--text-primary);
+    color: #ffffff;
     border-radius: 8px;
     transition: all 0.3s ease;
     font-weight: 500;
@@ -124,7 +126,7 @@
 .admin-hamburger span {
     width: 25px;
     height: 3px;
-    background: var(--text-primary);
+    background: #ffffff;
     border-radius: 3px;
     transition: all 0.3s ease;
 }
@@ -154,10 +156,11 @@
 }
 
 .login-card {
-    background: white;
+    background: #000000;
     border-radius: 20px;
     padding: 3rem;
     box-shadow: var(--shadow-xl);
+    color: #ffffff;
 }
 
 .login-header {
@@ -175,11 +178,11 @@
     font-size: 1.8rem;
     font-weight: 800;
     margin-bottom: 0.5rem;
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 .login-header p {
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 .login-form {
@@ -195,22 +198,23 @@
     align-items: center;
     margin-bottom: 2rem;
     padding: 1.5rem;
-    background: white;
+    background: #000000;
     border-radius: 15px;
     box-shadow: var(--shadow-md);
+    color: #ffffff;
 }
 
 .admin-header h1 {
     font-size: 1.8rem;
     font-weight: 800;
-    color: var(--text-primary);
+    color: #ffffff;
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
 .admin-header p {
-    color: var(--text-secondary);
+    color: #ffffff;
     margin-top: 0.5rem;
 }
 
@@ -223,7 +227,7 @@
 }
 
 .stat-card {
-    background: white;
+    background: #000000;
     border-radius: 15px;
     padding: 2rem;
     box-shadow: var(--shadow-md);
@@ -231,6 +235,7 @@
     align-items: center;
     gap: 1.5rem;
     transition: all 0.3s ease;
+    color: #ffffff;
 }
 
 .stat-card:hover {
@@ -257,22 +262,23 @@
 .stat-content h3 {
     font-size: 2rem;
     font-weight: 800;
-    color: var(--text-primary);
+    color: #ffffff;
     margin-bottom: 0.5rem;
 }
 
 .stat-content p {
-    color: var(--text-secondary);
+    color: #ffffff;
     font-size: 0.9rem;
 }
 
 /* Admin Section */
 .admin-section {
-    background: white;
+    background: #000000;
     border-radius: 15px;
     padding: 2rem;
     box-shadow: var(--shadow-md);
     margin-bottom: 2rem;
+    color: #ffffff;
 }
 
 .section-header {
@@ -287,7 +293,7 @@
 .section-header h2 {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #ffffff;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -311,14 +317,14 @@
     padding: 1rem;
     text-align: left;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #ffffff;
     border-bottom: 2px solid var(--border-color);
 }
 
 .admin-table td {
     padding: 1rem;
     border-bottom: 1px solid var(--border-color);
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 .admin-table tbody tr:hover {
@@ -354,7 +360,7 @@
     padding: 0.5rem;
     border-radius: 8px;
     cursor: pointer;
-    color: var(--text-secondary);
+    color: #ffffff;
     transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
@@ -403,12 +409,12 @@
 .action-card h3 {
     font-size: 1.2rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #ffffff;
     margin-bottom: 0.5rem;
 }
 
 .action-card p {
-    color: var(--text-secondary);
+    color: #ffffff;
     font-size: 0.9rem;
 }
 
@@ -441,7 +447,7 @@
     background: var(--bg-primary);
     border-radius: 8px;
     text-decoration: none;
-    color: var(--text-primary);
+    color: #ffffff;
     transition: all 0.3s ease;
     font-size: 0.95rem;
     font-weight: 500;
@@ -467,7 +473,7 @@
 .empty-state {
     text-align: center;
     padding: 4rem 2rem;
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 .empty-state i {
@@ -483,10 +489,11 @@
 
 /* Admin Form Card */
 .admin-form-card {
-    background: white;
+    background: #000000;
     border-radius: 15px;
     padding: 2rem;
     box-shadow: var(--shadow-md);
+    color: #ffffff;
 }
 
 .admin-form {
@@ -516,7 +523,7 @@
 }
 
 .modal-content {
-    background: white;
+    background: #000000;
     margin: 5% auto;
     padding: 2rem;
     border-radius: 15px;
@@ -524,6 +531,7 @@
     max-width: 600px;
     box-shadow: var(--shadow-xl);
     position: relative;
+    color: #ffffff;
 }
 
 .close {
@@ -531,27 +539,27 @@
     right: 1rem;
     top: 1rem;
     font-size: 2rem;
-    color: var(--text-secondary);
+    color: #ffffff;
     cursor: pointer;
     transition: color 0.3s ease;
 }
 
 .close:hover {
-    color: var(--text-primary);
+    color: #ff9800;
 }
 
 .modal-content h2 {
     margin-bottom: 1.5rem;
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 #contactDetails p {
     margin-bottom: 1rem;
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 #contactDetails strong {
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 /* Responsive */
@@ -573,7 +581,7 @@
 .client-info-box h3 {
     font-size: 1.2rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #ffffff;
     margin-bottom: 1rem;
     display: flex;
     align-items: center;
@@ -582,11 +590,11 @@
 
 .client-info-box p {
     margin-bottom: 0.5rem;
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 .client-info-box strong {
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 /* Section Divider */
@@ -818,7 +826,7 @@
 }
 
 .text-muted {
-    color: var(--text-secondary);
+    color: #ffffff;
     font-style: italic;
 }
 
@@ -839,7 +847,7 @@
         width: 80%;
         max-width: 300px;
         height: calc(100vh - 70px);
-        background: white;
+        background: #000000;
         flex-direction: column;
         align-items: flex-start;
         padding: 2rem 1rem;
@@ -873,7 +881,7 @@
     
     .admin-nav-link:hover {
         background: var(--bg-secondary);
-        color: var(--primary-color);
+        color: #ff9800;
     }
     
     .admin-header {
