@@ -220,6 +220,33 @@ def _garantir_colunas_video_internal():
     _video_columns_exist = True
     return True
 
+def inicializar_links_menu_padrao():
+    """Inicializa links padrão do menu se a tabela estiver vazia"""
+    try:
+        from models import LinkMenu
+        
+        # Verificar se já existem links
+        if LinkMenu.query.count() == 0:
+            # Criar link padrão "Celulares"
+            link_celulares = LinkMenu(
+                texto='Celulares',
+                url='/celulares',
+                ordem=1,
+                ativo=True,
+                abrir_nova_aba=False
+            )
+            db.session.add(link_celulares)
+            db.session.commit()
+            print("DEBUG: ✅ Link padrão 'Celulares' criado no menu")
+    except Exception as e:
+        # Se der erro, fazer rollback e continuar
+        try:
+            db.session.rollback()
+        except:
+            pass
+        # Não é crítico, apenas logar
+        print(f"DEBUG: ⚠️ Não foi possível inicializar links do menu: {e}")
+
 def garantir_colunas_video():
     """Garante que a coluna embed_code existe na tabela videos"""
     if not use_database():
@@ -288,7 +315,7 @@ if database_url:
             with app.app_context():
                 # Forçar criação do engine e tabelas
                 # Importar explicitamente todos os modelos para garantir que sejam registrados
-                from models import Fornecedor, Video, PaginaServico  # Garantir que todos os modelos estão importados
+                from models import Fornecedor, Video, PaginaServico, LinkMenu  # Garantir que todos os modelos estão importados
                 
                 # Apenas criar tabelas, sem queries pesadas
                 try:
