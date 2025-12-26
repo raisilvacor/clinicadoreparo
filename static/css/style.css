@@ -1195,11 +1195,12 @@ section {
     align-items: center;
     gap: 1rem;
     padding: 1rem 1.5rem;
-    background: white;
+    background: #000000;
     border-radius: 10px;
     box-shadow: var(--shadow-xl);
     margin-bottom: 1rem;
     animation: slideIn 0.3s ease;
+    color: #ffffff;
 }
 
 .flash-message.flash-success {
